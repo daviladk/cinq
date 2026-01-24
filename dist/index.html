@@ -106,6 +106,34 @@
                     </div>
                 </section>
 
+                <!-- Node Control -->
+                <section class="card control-card">
+                    <div class="control-row">
+                        <div class="control-info">
+                            <span class="control-label">P2P Node</span>
+                            <span class="control-hint" id="node-hint">Start to join network</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="node-toggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="control-row">
+                        <div class="control-info">
+                            <span class="control-label">SOCKS5 Proxy</span>
+                            <span class="control-hint" id="proxy-hint">127.0.0.1:1080</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="proxy-toggle" disabled>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="proxy-status" id="proxy-status">
+                        <span class="proxy-addr" id="proxy-addr"></span>
+                        <span class="proxy-conns" id="proxy-conns">0 active connections</span>
+                    </div>
+                </section>
+
             </div>
 
             <footer>

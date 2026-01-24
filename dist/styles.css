@@ -475,3 +475,67 @@ footer {
     flex-direction: column;
     min-height: 100vh;
 }
+
+/* Control Card */
+.control-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+}
+
+.control-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.control-row:last-of-type {
+    border-bottom: none;
+}
+
+.control-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.control-label {
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.control-hint {
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+
+.proxy-status {
+    display: none;
+    padding: 8px 0 0;
+    border-top: 1px solid var(--border);
+    margin-top: 8px;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.proxy-status.active {
+    display: flex;
+}
+
+.proxy-addr {
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 11px;
+    color: var(--success);
+}
+
+.proxy-conns {
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+
+/* Disabled switch */
+.switch input:disabled + .slider {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

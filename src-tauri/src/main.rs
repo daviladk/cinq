@@ -5,7 +5,7 @@
 
 mod grid;
 
-use grid::{CinqNode, BandwidthMetrics, GridPeer};
+use grid::{CinqNode, BandwidthMetrics, GridPeer, ProxyStatus};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tauri::State;
@@ -165,6 +165,63 @@ fn calculate_deposit(amount: f64) -> String {
     )
 }
 
+// ============================================================================
+// SOCKS5 Proxy Commands
+// ============================================================================
+
+/// Start the SOCKS5 proxy on the specified port
+#[tauri::command]
+async fn start_proxy(state: State<'_, CinqState>, port: Option<u16>) -> Result<CommandResponse<String>, String> {
+    let mut node_guard = state.node.write().await;
+    
+    match node_guard.as_mut() {
+        Some(node) => {
+            let proxy_port = port.unwrap_or(1080);
+            match node.start_proxy(proxy_port).await {
+                Ok(_) => Ok(CommandResponse::ok(format!("127.0.0.1:{}", proxy_port))),
+                Err(e) => Ok(CommandResponse::err(format!("Failed to start proxy: {}", e))),
+            }
+        }
+        None => Ok(CommandResponse::err("Node is not running. Start the node first.")),
+    }
+}
+
+/// Stop the SOCKS5 proxy
+#[tauri::command]
+async fn stop_proxy(state: State<'_, CinqState>) -> Result<CommandResponse<()>, String> {
+    let mut node_guard = state.node.write().await;
+    
+    match node_guard.as_mut() {
+        Some(node) => {
+            match node.stop_proxy().await {
+                Ok(_) => Ok(CommandResponse::ok(())),
+                Err(e) => Ok(CommandResponse::err(format!("Failed to stop proxy: {}", e))),
+            }
+        }
+        None => Ok(CommandResponse::err("Node is not running")),
+    }
+}
+
+/// Get proxy status
+#[tauri::command]
+async fn get_proxy_status(state: State<'_, CinqState>) -> Result<CommandResponse<ProxyStatus>, String> {
+    let node_guard = state.node.read().await;
+    
+    match node_guard.as_ref() {
+        Some(node) => {
+            let status = node.proxy_status().await;
+            Ok(CommandResponse::ok(status))
+        }
+        None => Ok(CommandResponse::ok(ProxyStatus {
+            running: false,
+            listen_address: String::new(),
+            active_connections: 0,
+            total_bytes_proxied: 0,
+            exit_peer: None,
+        })),
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_log::Builder::default().build())
@@ -178,6 +235,9 @@ fn main() {
             get_bandwidth_metrics,
             get_billing_summary,
             calculate_deposit,
+            start_proxy,
+            stop_proxy,
+            get_proxy_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Cinq Connect");

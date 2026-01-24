@@ -20,6 +20,7 @@ use super::protocol::{
     CinqBehaviour, CinqBehaviourEvent, CinqRequest, CinqResponse, 
     new_cinq_protocol, new_kademlia, new_identify, new_autonat,
 };
+use super::proxy::{Socks5Proxy, ProxyConfig, ProxyStatus};
 
 /// Represents a peer on the Cinq grid
 #[derive(Debug, Clone, serde::Serialize)]
@@ -81,6 +82,8 @@ pub struct CinqNode {
     event_rx: Option<mpsc::Receiver<GridEvent>>,
     /// Node configuration
     config: NodeConfig,
+    /// SOCKS5 proxy server
+    proxy: Option<Socks5Proxy>,
 }
 
 /// Commands that can be sent to the running node
@@ -124,6 +127,7 @@ impl CinqNode {
             command_tx: None,
             event_rx: None,
             config,
+            proxy: None,
         })
     }
 
@@ -475,5 +479,61 @@ impl CinqNode {
             tx.send(NodeCommand::Shutdown).await?;
         }
         Ok(())
+    }
+
+    // =========================================================================
+    // SOCKS5 Proxy Methods
+    // =========================================================================
+
+    /// Start the SOCKS5 proxy on the specified port
+    pub async fn start_proxy(&mut self, port: u16) -> Result<(), Box<dyn Error + Send + Sync>> {
+        if self.proxy.is_some() {
+            return Err("Proxy is already running".into());
+        }
+
+        let config = ProxyConfig {
+            listen_port: port,
+            route_through_peers: true,
+            max_connections: 100,
+        };
+
+        let mut proxy = Socks5Proxy::with_config(config, self.metrics.clone());
+        proxy.start().await?;
+        
+        self.proxy = Some(proxy);
+        log::info!("SOCKS5 proxy started on port {}", port);
+        
+        Ok(())
+    }
+
+    /// Stop the SOCKS5 proxy
+    pub async fn stop_proxy(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
+        if let Some(mut proxy) = self.proxy.take() {
+            proxy.stop().await?;
+            log::info!("SOCKS5 proxy stopped");
+        }
+        Ok(())
+    }
+
+    /// Get the proxy status
+    pub async fn proxy_status(&self) -> ProxyStatus {
+        match &self.proxy {
+            Some(proxy) => proxy.status().await,
+            None => ProxyStatus {
+                running: false,
+                listen_address: String::new(),
+                active_connections: 0,
+                total_bytes_proxied: 0,
+                exit_peer: None,
+            },
+        }
+    }
+
+    /// Check if proxy is running
+    pub async fn is_proxy_running(&self) -> bool {
+        match &self.proxy {
+            Some(proxy) => proxy.is_running().await,
+            None => false,
+        }
     }
 }

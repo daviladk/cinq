@@ -36,6 +36,24 @@ pub enum CinqRequest {
     },
     /// Request peer info
     GetPeerInfo,
+    /// Proxy tunnel request - ask peer to connect to target and relay traffic
+    ProxyConnect {
+        /// Unique tunnel ID
+        tunnel_id: u64,
+        /// Target hostname or IP
+        target_host: String,
+        /// Target port
+        target_port: u16,
+    },
+    /// Proxy data - send data through an established tunnel
+    ProxyData {
+        tunnel_id: u64,
+        data: Vec<u8>,
+    },
+    /// Close a proxy tunnel
+    ProxyClose {
+        tunnel_id: u64,
+    },
 }
 
 /// Response types for the Cinq protocol
@@ -68,6 +86,21 @@ pub enum CinqResponse {
         peer_id: String,
         version: String,
         uptime_secs: u64,
+    },
+    /// Proxy tunnel established
+    ProxyConnected {
+        tunnel_id: u64,
+        success: bool,
+        error: Option<String>,
+    },
+    /// Proxy data from target
+    ProxyData {
+        tunnel_id: u64,
+        data: Vec<u8>,
+    },
+    /// Proxy tunnel closed
+    ProxyClosed {
+        tunnel_id: u64,
     },
     /// Error response
     Error { message: String },

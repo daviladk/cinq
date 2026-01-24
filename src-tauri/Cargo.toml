@@ -48,3 +48,6 @@ async-trait = "0.1"
 # File handling and crypto
 sha2 = "0.10"
 uuid = { version = "1.0", features = ["v4"] }
+
+# SOCKS5 Proxy
+fast-socks5 = "0.9"
