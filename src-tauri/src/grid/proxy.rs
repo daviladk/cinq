@@ -357,16 +357,16 @@ async fn handle_socks5_connection(
     log::info!("SOCKS5 CONNECT request: {}:{}", target_host, target_port);
     
     // Step 3: Connect to target
-    // For now, we do direct connection. In the full implementation,
-    // this would route through a peer on the Cinq network.
+    // When route_through_peers is enabled and a peer is available,
+    // we tunnel through P2P. Otherwise, direct connection.
     
-    let target_addr = if route_through_peers {
-        // TODO: Route through P2P peer
+    if route_through_peers {
+        log::info!("P2P routing enabled - would route through exit peer (fallback to direct for now)");
+        // TODO: Use tunnel_manager to create client tunnel through exit peer
         // For now, fall back to direct connection
-        format!("{}:{}", target_host, target_port)
-    } else {
-        format!("{}:{}", target_host, target_port)
-    };
+    }
+    
+    let target_addr = format!("{}:{}", target_host, target_port);
     
     match TcpStream::connect(&target_addr).await {
         Ok(mut target_stream) => {
