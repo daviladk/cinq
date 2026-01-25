@@ -4,7 +4,7 @@ use libp2p::{
     autonat, dcutr, identify, kad,
     identity::{self, Keypair},
     mdns, noise, relay,
-    request_response,
+    request_response::{self, ResponseChannel},
     swarm::SwarmEvent,
     tcp, yamux, Multiaddr, PeerId, Swarm,
 };
@@ -21,6 +21,7 @@ use super::protocol::{
     new_cinq_protocol, new_kademlia, new_identify, new_autonat,
 };
 use super::proxy::{Socks5Proxy, ProxyConfig, ProxyStatus};
+use super::tunnel::{TunnelManager, P2PMessage, P2PMessageData};
 
 /// Represents a peer on the Cinq grid
 #[derive(Debug, Clone, serde::Serialize)]
@@ -84,6 +85,8 @@ pub struct CinqNode {
     config: NodeConfig,
     /// SOCKS5 proxy server
     proxy: Option<Socks5Proxy>,
+    /// Tunnel manager for P2P proxy routing
+    tunnel_manager: Arc<RwLock<TunnelManager>>,
 }
 
 /// Commands that can be sent to the running node
@@ -103,6 +106,10 @@ pub enum NodeCommand {
     FindPeers,
     /// Shutdown the node
     Shutdown,
+    /// Send a proxy request to a peer
+    SendProxyRequest { peer_id: PeerId, request: CinqRequest },
+    /// Send a proxy response to a peer (via pending channel)
+    SendProxyResponse { channel_id: u64, response: CinqResponse },
 }
 
 impl CinqNode {
@@ -119,15 +126,19 @@ impl CinqNode {
 
         log::info!("Cinq Node initialized with Peer ID: {}", local_peer_id);
 
+        let metrics = Arc::new(RwLock::new(BandwidthMetrics::new()));
+        let tunnel_manager = Arc::new(RwLock::new(TunnelManager::new(metrics.clone())));
+
         Ok(Self {
             local_peer_id,
             keypair,
             peers: Arc::new(RwLock::new(HashMap::new())),
-            metrics: Arc::new(RwLock::new(BandwidthMetrics::new())),
+            metrics,
             command_tx: None,
             event_rx: None,
             config,
             proxy: None,
+            tunnel_manager,
         })
     }
 
@@ -140,9 +151,16 @@ impl CinqNode {
     pub async fn start(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
         let (command_tx, mut command_rx) = mpsc::channel::<NodeCommand>(100);
         let (event_tx, event_rx) = mpsc::channel::<GridEvent>(100);
+        let (p2p_outbound_tx, mut p2p_outbound_rx) = mpsc::channel::<P2PMessage>(256);
 
-        self.command_tx = Some(command_tx);
+        self.command_tx = Some(command_tx.clone());
         self.event_rx = Some(event_rx);
+
+        // Configure tunnel manager with P2P channel
+        {
+            let mut tm = self.tunnel_manager.write().await;
+            tm.set_p2p_outbound(p2p_outbound_tx.clone());
+        }
 
         // Build the swarm
         let mut swarm = self.build_swarm()?;
@@ -155,7 +173,8 @@ impl CinqNode {
         swarm.listen_on(listen_addr)?;
 
         let peers = self.peers.clone();
-        let _metrics = self.metrics.clone();
+        let tunnel_manager = self.tunnel_manager.clone();
+        let metrics = self.metrics.clone();
 
         // Spawn the swarm event loop
         tokio::spawn(async move {
@@ -297,7 +316,7 @@ impl CinqNode {
                                 // Handle request-response protocol events
                                 match protocol_event {
                                     request_response::Event::Message { peer, message } => {
-                                        log::info!("Protocol message from peer: {}", peer);
+                                        log::debug!("Protocol message from peer: {}", peer);
                                         match message {
                                             request_response::Message::Request { request, channel, .. } => {
                                                 // Handle incoming request
@@ -321,12 +340,75 @@ impl CinqNode {
                                                             success: true,
                                                         }
                                                     }
+                                                    // Handle ProxyConnect - we are the exit node
+                                                    CinqRequest::ProxyConnect { tunnel_id, target_host, target_port } => {
+                                                        log::info!("ProxyConnect request from {}: tunnel {} -> {}:{}", 
+                                                            peer, tunnel_id, target_host, target_port);
+                                                        
+                                                        let tm = tunnel_manager.clone();
+                                                        let result = tm.write().await.create_exit_tunnel(
+                                                            tunnel_id, peer, target_host.clone(), target_port
+                                                        ).await;
+                                                        
+                                                        match result {
+                                                            Ok(()) => CinqResponse::ProxyConnected {
+                                                                tunnel_id,
+                                                                success: true,
+                                                                error: None,
+                                                            },
+                                                            Err(e) => CinqResponse::ProxyConnected {
+                                                                tunnel_id,
+                                                                success: false,
+                                                                error: Some(e),
+                                                            },
+                                                        }
+                                                    }
+                                                    // Handle ProxyData - forward to exit tunnel
+                                                    CinqRequest::ProxyData { tunnel_id, data } => {
+                                                        log::debug!("ProxyData from {}: tunnel {} ({} bytes)", 
+                                                            peer, tunnel_id, data.len());
+                                                        
+                                                        let tm = tunnel_manager.clone();
+                                                        tm.read().await.handle_exit_tunnel_data(tunnel_id, data).await;
+                                                        
+                                                        // No response needed for data packets
+                                                        CinqResponse::Pong // Dummy ack
+                                                    }
+                                                    // Handle ProxyClose
+                                                    CinqRequest::ProxyClose { tunnel_id } => {
+                                                        log::info!("ProxyClose from {}: tunnel {}", peer, tunnel_id);
+                                                        
+                                                        let tm = tunnel_manager.clone();
+                                                        tm.write().await.close_exit_tunnel(tunnel_id).await;
+                                                        
+                                                        CinqResponse::ProxyClosed { tunnel_id }
+                                                    }
                                                     _ => CinqResponse::Error { message: "Not implemented".to_string() },
                                                 };
                                                 let _ = swarm.behaviour_mut().protocol.send_response(channel, response);
                                             }
                                             request_response::Message::Response { response, .. } => {
-                                                log::info!("Received response: {:?}", response);
+                                                // Handle responses to our requests (e.g., ProxyConnected)
+                                                match response {
+                                                    CinqResponse::ProxyConnected { tunnel_id, success, error } => {
+                                                        log::info!("ProxyConnected response: tunnel {} success={}", tunnel_id, success);
+                                                        let tm = tunnel_manager.clone();
+                                                        tm.read().await.handle_tunnel_connected(tunnel_id, success, error).await;
+                                                    }
+                                                    CinqResponse::ProxyData { tunnel_id, data } => {
+                                                        log::debug!("ProxyData response: tunnel {} ({} bytes)", tunnel_id, data.len());
+                                                        let tm = tunnel_manager.clone();
+                                                        tm.read().await.handle_client_tunnel_data(tunnel_id, data).await;
+                                                    }
+                                                    CinqResponse::ProxyClosed { tunnel_id } => {
+                                                        log::info!("ProxyClosed response: tunnel {}", tunnel_id);
+                                                        let tm = tunnel_manager.clone();
+                                                        tm.write().await.close_client_tunnel(tunnel_id).await;
+                                                    }
+                                                    _ => {
+                                                        log::debug!("Received response: {:?}", response);
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -387,10 +469,43 @@ impl CinqNode {
                                 log::info!("Shutting down Cinq node");
                                 break;
                             }
+                            NodeCommand::SendProxyRequest { peer_id, request } => {
+                                log::debug!("Sending proxy request to peer {}", peer_id);
+                                swarm.behaviour_mut().protocol.send_request(&peer_id, request);
+                            }
                             _ => {
                                 // TODO: Handle other commands
                             }
                         }
+                    }
+                    // Handle outbound P2P messages from tunnel manager
+                    Some(msg) = p2p_outbound_rx.recv() => {
+                        let request = match msg.data {
+                            P2PMessageData::Connect { host, port } => {
+                                CinqRequest::ProxyConnect {
+                                    tunnel_id: msg.tunnel_id,
+                                    target_host: host,
+                                    target_port: port,
+                                }
+                            }
+                            P2PMessageData::Data(data) => {
+                                CinqRequest::ProxyData {
+                                    tunnel_id: msg.tunnel_id,
+                                    data,
+                                }
+                            }
+                            P2PMessageData::Close => {
+                                CinqRequest::ProxyClose {
+                                    tunnel_id: msg.tunnel_id,
+                                }
+                            }
+                            P2PMessageData::Connected { .. } => {
+                                // This is a response, not handled here
+                                continue;
+                            }
+                        };
+                        log::debug!("Sending P2P message to peer {}: tunnel {}", msg.peer_id, msg.tunnel_id);
+                        swarm.behaviour_mut().protocol.send_request(&msg.peer_id, request);
                     }
                 }
             }
@@ -498,6 +613,10 @@ impl CinqNode {
         };
 
         let mut proxy = Socks5Proxy::with_config(config, self.metrics.clone());
+        
+        // Give proxy access to tunnel manager for P2P routing
+        proxy.set_tunnel_manager(self.tunnel_manager.clone());
+        
         proxy.start().await?;
         
         self.proxy = Some(proxy);
@@ -535,5 +654,32 @@ impl CinqNode {
             Some(proxy) => proxy.is_running().await,
             None => false,
         }
+    }
+
+    // =========================================================================
+    // P2P Tunnel Methods  
+    // =========================================================================
+
+    /// Get the tunnel manager
+    pub fn tunnel_manager(&self) -> Arc<RwLock<TunnelManager>> {
+        self.tunnel_manager.clone()
+    }
+
+    /// Get a random connected peer for use as exit node
+    pub async fn get_exit_peer(&self) -> Option<PeerId> {
+        let peers = self.peers.read().await;
+        peers.values()
+            .filter(|p| p.connected)
+            .next()
+            .and_then(|p| p.peer_id.parse().ok())
+    }
+
+    /// Get list of connected peer IDs
+    pub async fn get_connected_peer_ids(&self) -> Vec<PeerId> {
+        let peers = self.peers.read().await;
+        peers.values()
+            .filter(|p| p.connected)
+            .filter_map(|p| p.peer_id.parse().ok())
+            .collect()
     }
 }

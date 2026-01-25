@@ -222,6 +222,21 @@ async fn get_proxy_status(state: State<'_, CinqState>) -> Result<CommandResponse
     }
 }
 
+/// Get list of connected peers that can be used as exit nodes
+#[tauri::command]
+async fn get_exit_peers(state: State<'_, CinqState>) -> Result<CommandResponse<Vec<String>>, String> {
+    let node_guard = state.node.read().await;
+    
+    match node_guard.as_ref() {
+        Some(node) => {
+            let peers = node.get_connected_peer_ids().await;
+            let peer_strings: Vec<String> = peers.iter().map(|p| p.to_string()).collect();
+            Ok(CommandResponse::ok(peer_strings))
+        }
+        None => Ok(CommandResponse::err("Node is not running")),
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_log::Builder::default().build())
@@ -238,6 +253,7 @@ fn main() {
             start_proxy,
             stop_proxy,
             get_proxy_status,
+            get_exit_peers,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Cinq Connect");

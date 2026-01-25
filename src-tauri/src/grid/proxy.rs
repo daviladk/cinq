@@ -12,6 +12,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use libp2p::PeerId;
 
 use super::metrics::BandwidthMetrics;
+use super::tunnel::TunnelManager;
 
 /// SOCKS5 protocol constants
 const SOCKS5_VERSION: u8 = 0x05;
@@ -84,8 +85,10 @@ pub struct Socks5Proxy {
     shutdown_tx: Option<broadcast::Sender<()>>,
     /// Current status
     status: Arc<RwLock<ProxyStatus>>,
-    /// Channel for sending proxy requests to the P2P layer
-    tunnel_request_tx: Option<mpsc::Sender<TunnelRequest>>,
+    /// Tunnel manager for P2P routing
+    tunnel_manager: Option<Arc<RwLock<TunnelManager>>>,
+    /// Function to get exit peer
+    exit_peer_fn: Option<Arc<dyn Fn() -> Option<PeerId> + Send + Sync>>,
 }
 
 /// A request to open a tunnel through the P2P network
@@ -128,7 +131,8 @@ impl Socks5Proxy {
                 total_bytes_proxied: 0,
                 exit_peer: None,
             })),
-            tunnel_request_tx: None,
+            tunnel_manager: None,
+            exit_peer_fn: None,
         }
     }
 
@@ -145,8 +149,14 @@ impl Socks5Proxy {
                 total_bytes_proxied: 0,
                 exit_peer: None,
             })),
-            tunnel_request_tx: None,
+            tunnel_manager: None,
+            exit_peer_fn: None,
         }
+    }
+
+    /// Set the tunnel manager for P2P routing
+    pub fn set_tunnel_manager(&mut self, tm: Arc<RwLock<TunnelManager>>) {
+        self.tunnel_manager = Some(tm);
     }
 
     /// Start the SOCKS5 proxy server
