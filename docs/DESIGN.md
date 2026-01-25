@@ -95,6 +95,116 @@ Users select their privacy level via hop count:
 
 ---
 
+## Split Tunneling
+
+Not all traffic needs the same privacy level. **Split tunneling** allows users to configure per-domain routing rules while maintaining a default privacy level for everything else.
+
+### Use Cases
+
+| Scenario | Bypass Rule | Why |
+|----------|-------------|-----|
+| Banking apps | `*.chase.com` → Direct (0H) | Requires IP-based location verification |
+| Streaming | `*.netflix.com` → Direct | Geo-licensing, reduces bandwidth cost |
+| Work VPN | `*.company.com` → Direct | Corporate firewall whitelisting |
+| Local services | `*.local`, `192.168.*` → Direct | LAN devices, printers |
+| General browsing | Default → 1H or 3H | Privacy protection |
+
+### Configuration Modes
+
+#### 1. Global Default + Bypass List
+Most common setup - route everything through mesh, except specific domains:
+
+```
+DEFAULT: 3 Hops (maximum privacy)
+
+BYPASS LIST (0 Hops / Direct):
+├── *.bankofamerica.com      # Banking - location required
+├── *.google.com/maps        # Maps - location services
+├── *.uber.com               # Rideshare - GPS required
+├── *.doordash.com           # Delivery - address verification
+├── 192.168.*                # Local network
+└── *.local                  # mDNS local devices
+```
+
+#### 2. Per-Domain Privacy Levels
+Advanced users can specify exact hop count per domain:
+
+```
+DOMAIN RULES:
+├── *.reddit.com       → 1 Hop   # Basic privacy, faster
+├── *.twitter.com      → 3 Hops  # Maximum privacy
+├── *.amazon.com       → 0 Hops  # Direct (bypass)
+├── *.protonmail.com   → 5 Hops  # Ultra paranoid
+└── *                  → 1 Hop   # Default fallback
+```
+
+### UI Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  ROUTING RULES                                        [+ Add]   │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Default:  [▼ 1 Hop ]                                           │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │ DOMAIN              │ ROUTING        │ ACTION          │    │
+│  ├─────────────────────┼────────────────┼─────────────────┤    │
+│  │ *.chase.com         │ Direct (0H)    │ [Edit] [×]      │    │
+│  │ *.netflix.com       │ Direct (0H)    │ [Edit] [×]      │    │
+│  │ *.protonmail.com    │ 3 Hops         │ [Edit] [×]      │    │
+│  │ 192.168.*           │ Direct (0H)    │ [Edit] [×]      │    │
+│  └─────────────────────┴────────────────┴─────────────────┘    │
+│                                                                 │
+│  💡 Sites requiring location (banking, maps, delivery)          │
+│     should use Direct (0H) to avoid blocks.                     │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Quick Actions
+
+For common scenarios, one-click presets:
+
+| Preset | Description | Bypass Domains |
+|--------|-------------|----------------|
+| **Privacy First** | 3H default, minimal bypass | Local network only |
+| **Balanced** | 1H default, common services bypass | Banking, streaming, maps |
+| **Speed First** | 0H default, sensitive sites routed | Protonmail, Signal, etc. |
+| **Work Mode** | 1H default, corporate bypass | `*.company.com`, VPN ranges |
+
+### Implementation Notes
+
+```
+PROXY DECISION FLOW:
+
+Browser Request → SOCKS5 Proxy (1080)
+                        │
+                        ▼
+              ┌─────────────────┐
+              │ Check domain    │
+              │ against rules   │
+              └────────┬────────┘
+                       │
+         ┌─────────────┼─────────────┐
+         │             │             │
+    Match: 0H     Match: 1H/3H    No Match
+         │             │             │
+         ▼             ▼             ▼
+    Direct TCP    P2P Tunnel    Use Default
+    (bypass)      (routed)      (1H or 3H)
+```
+
+### Privacy Considerations
+
+- **Bypass list is local** - never transmitted to peers
+- **Exit nodes don't see bypass traffic** - it goes direct
+- **DNS leaks** - bypassed domains still resolve through mesh (optional)
+- **Fingerprinting risk** - mixed routing patterns could be detectable
+  - Mitigation: Encourage "Privacy First" preset for sensitive users
+
+---
+
 ## Economics
 
 ### The Quai Principle
@@ -496,6 +606,8 @@ cinQ differentiates with:
 - [ ] Circuit builder for multi-hop
 - [ ] Peer reputation system
 - [ ] Rate limiting and abuse prevention
+- [ ] Split tunneling domain matcher in proxy
+- [ ] Per-domain hop selection logic
 
 ### Frontend
 - [ ] Actual Pelagus wallet integration
@@ -503,6 +615,8 @@ cinQ differentiates with:
 - [ ] Earnings breakdown (relay vs bootstrap)
 - [ ] Network health indicators
 - [ ] Settings panel
+- [ ] Split tunneling rules UI
+- [ ] Quick routing presets (Privacy First, Balanced, etc.)
 
 ### Smart Contracts
 - [ ] Escrow contract on Quai
