@@ -20,6 +20,7 @@ function init() {
     const mainApp = document.getElementById('main-app');
     const connectBtn = document.getElementById('connect-btn');
     const disconnectWallet = document.getElementById('disconnect-wallet');
+    const walletAddrEl = document.getElementById('wallet-addr');
     
     // DOM Elements - Main Interface
     const nodeDot = document.getElementById('node-dot');
@@ -55,6 +56,99 @@ function init() {
     }
     console.log('DOM elements ready');
 
+    // ============================================
+    // Pelagus Wallet Integration
+    // ============================================
+    
+    function detectPelagus() {
+        return typeof window.pelagus !== 'undefined';
+    }
+    
+    async function connectPelagusWallet() {
+        if (!detectPelagus()) {
+            alert('Pelagus Wallet not detected.\n\nPlease install the Pelagus browser extension from pelaguswallet.io');
+            window.open('https://pelaguswallet.io/', '_blank');
+            return null;
+        }
+        
+        try {
+            console.log('Requesting Pelagus accounts...');
+            const accounts = await window.pelagus.request({ 
+                method: 'quai_requestAccounts' 
+            });
+            
+            if (accounts && accounts.length > 0) {
+                const address = accounts[0];
+                console.log('Connected to Pelagus:', address);
+                return address;
+            } else {
+                console.log('No accounts returned from Pelagus');
+                return null;
+            }
+        } catch (error) {
+            if (error.code === 4001) {
+                console.log('User rejected Pelagus connection request');
+                alert('Connection rejected. Please approve the connection in Pelagus to use cinQ Connect.');
+            } else {
+                console.error('Failed to connect Pelagus:', error);
+                alert('Failed to connect to Pelagus: ' + error.message);
+            }
+            return null;
+        }
+    }
+    
+    async function getPelagusBalance(address) {
+        if (!detectPelagus() || !address) {
+            return 0;
+        }
+        
+        try {
+            const balanceHex = await window.pelagus.request({
+                method: 'quai_getBalance',
+                params: [address, 'latest']
+            });
+            
+            const balanceWei = BigInt(balanceHex);
+            const balanceQi = Number(balanceWei) / 1e18;
+            
+            console.log('Pelagus balance:', balanceQi, 'Qi');
+            return balanceQi;
+        } catch (error) {
+            console.error('Failed to get balance:', error);
+            return 0;
+        }
+    }
+    
+    function setupPelagusListeners() {
+        if (!detectPelagus()) return;
+        
+        window.pelagus.on('accountsChanged', async (accounts) => {
+            console.log('Pelagus accounts changed:', accounts);
+            if (accounts.length === 0) {
+                doDisconnectWallet();
+            } else if (accounts[0] !== state.walletAddress) {
+                state.walletAddress = accounts[0];
+                state.walletBalance = await getPelagusBalance(accounts[0]);
+                updateBalances();
+                updateWalletDisplay();
+            }
+        });
+        
+        window.pelagus.on('chainChanged', (chainId) => {
+            console.log('Pelagus chain changed:', chainId);
+            if (state.walletAddress) {
+                getPelagusBalance(state.walletAddress).then(balance => {
+                    state.walletBalance = balance;
+                    updateBalances();
+                });
+            }
+        });
+    }
+
+    // ============================================
+    // Utility Functions
+    // ============================================
+
     function formatBytes(bytes) {
         if (bytes === 0) return '0 B';
         const k = 1024;
@@ -62,6 +156,15 @@ function init() {
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
     }
+    
+    function shortenAddress(address) {
+        if (!address) return '';
+        return address.slice(0, 6) + '...' + address.slice(-4);
+    }
+
+    // ============================================
+    // UI Update Functions
+    // ============================================
 
     function updateWalletUI() {
         if (state.walletConnected) {
@@ -72,11 +175,18 @@ function init() {
             mainApp.classList.add('hidden');
         }
     }
+    
+    function updateWalletDisplay() {
+        if (walletAddrEl && state.walletAddress) {
+            walletAddrEl.textContent = shortenAddress(state.walletAddress);
+            walletAddrEl.title = state.walletAddress;
+        }
+    }
 
     function updateBalances() {
         escrowBalance.textContent = state.escrowBalance.toFixed(4);
         escrowUsd.textContent = (state.escrowBalance * 0.15).toFixed(2);
-        walletBalance.textContent = state.walletBalance.toFixed(2);
+        walletBalance.textContent = state.walletBalance.toFixed(4);
     }
 
     function updateHops(hops) {
@@ -127,15 +237,37 @@ function init() {
         bandwidthPercent.textContent = Math.round(percent) + '%';
     }
 
-    function doConnectWallet() {
+    // ============================================
+    // Wallet Actions
+    // ============================================
+
+    async function doConnectWallet() {
         console.log('Connecting wallet...');
-        state.walletConnected = true;
-        state.walletAddress = '0x1234567890abcdef1234567890abcdef12345678';
-        state.walletBalance = 42.50;
-        state.escrowBalance = 0;
-        updateWalletUI();
-        updateBalances();
-        doStartNode();
+        connectBtn.textContent = 'Connecting...';
+        connectBtn.disabled = true;
+        
+        try {
+            const address = await connectPelagusWallet();
+            
+            if (address) {
+                state.walletConnected = true;
+                state.walletAddress = address;
+                state.walletBalance = await getPelagusBalance(address);
+                state.escrowBalance = 0;
+                
+                setupPelagusListeners();
+                updateWalletUI();
+                updateWalletDisplay();
+                updateBalances();
+                
+                doStartNode();
+            }
+        } catch (error) {
+            console.error('Wallet connection error:', error);
+        } finally {
+            connectBtn.textContent = 'Connect Pelagus';
+            connectBtn.disabled = false;
+        }
     }
 
     function doDisconnectWallet() {
@@ -149,16 +281,26 @@ function init() {
         updateWalletUI();
     }
 
-    function doAddToEscrow() {
+    async function doAddToEscrow() {
         const amount = 10;
-        if (state.walletBalance >= amount) {
-            state.walletBalance -= amount;
-            state.escrowBalance += amount;
-            updateBalances();
-        } else {
+        
+        if (state.walletBalance < amount) {
             alert('Insufficient Qi balance');
+            return;
         }
+        
+        if (detectPelagus() && state.walletAddress) {
+            console.log('Adding to escrow (simulated):', amount, 'Qi');
+        }
+        
+        state.walletBalance -= amount;
+        state.escrowBalance += amount;
+        updateBalances();
     }
+
+    // ============================================
+    // Node & Proxy Control
+    // ============================================
 
     let pollInterval = null;
 
@@ -235,6 +377,10 @@ function init() {
         }
     }
 
+    // ============================================
+    // Polling & Stats
+    // ============================================
+
     async function fetchStats() {
         try {
             if (window.__TAURI__ && window.__TAURI__.core) {
@@ -252,6 +398,14 @@ function init() {
             } else {
                 updateStats(0, 0, 0);
             }
+            
+            if (state.walletConnected && state.walletAddress && detectPelagus()) {
+                const newBalance = await getPelagusBalance(state.walletAddress);
+                if (Math.abs(newBalance - state.walletBalance) > 0.0001) {
+                    state.walletBalance = newBalance;
+                    updateBalances();
+                }
+            }
         } catch (error) {
             console.error('Failed to fetch stats:', error);
         }
@@ -259,7 +413,7 @@ function init() {
 
     function startPolling() {
         fetchStats();
-        pollInterval = setInterval(fetchStats, 3000);
+        pollInterval = setInterval(fetchStats, 5000);
     }
 
     function stopPolling() {
@@ -269,7 +423,10 @@ function init() {
         }
     }
 
+    // ============================================
     // Event Listeners
+    // ============================================
+    
     connectBtn.addEventListener('click', function() {
         console.log('Connect button clicked!');
         doConnectWallet();
@@ -308,6 +465,32 @@ function init() {
         });
     }
 
+    // ============================================
+    // Initialization
+    // ============================================
+    
+    async function checkExistingConnection() {
+        if (detectPelagus()) {
+            try {
+                const accounts = await window.pelagus.request({ method: 'quai_accounts' });
+                if (accounts && accounts.length > 0) {
+                    console.log('Found existing Pelagus connection:', accounts[0]);
+                    state.walletConnected = true;
+                    state.walletAddress = accounts[0];
+                    state.walletBalance = await getPelagusBalance(accounts[0]);
+                    setupPelagusListeners();
+                    updateWalletUI();
+                    updateWalletDisplay();
+                    updateBalances();
+                    doStartNode();
+                }
+            } catch (error) {
+                console.log('No existing Pelagus connection');
+            }
+        }
+    }
+
     updateHops(0);
+    checkExistingConnection();
     console.log('cinQ Connect ready!');
 }

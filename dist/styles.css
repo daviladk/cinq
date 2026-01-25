@@ -278,6 +278,22 @@ body {
     display: flex;
     justify-content: space-between;
     font-size: 12px;
+    margin-bottom: 6px;
+}
+
+.wallet-card .wallet-row:last-child {
+    margin-bottom: 0;
+}
+
+.wallet-addr {
+    font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+    font-size: 11px;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.wallet-addr:hover {
+    color: var(--accent);
 }
 
 /* Node Control */
