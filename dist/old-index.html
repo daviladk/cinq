@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>cinQ Connect</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Landing Page (shown when not connected) -->
+        <div id="landing-page" class="landing">
+            <div class="landing-content">
+                <div class="landing-logo">cin<span class="accent">Q</span></div>
+                <p class="landing-tagline">DePIN Grid • Quai Network</p>
+                <div class="landing-icon">◎</div>
+                <p class="landing-desc">Secure P2P mesh network with<br>privacy routing & Qi payments</p>
+                <button id="connect-btn" class="btn-connect">Connect to Pelagus</button>
+                <p class="landing-hint">Connect your wallet to access the network</p>
+            </div>
+            <footer class="landing-footer">
+                <span>cinQ Connect v0.1.0</span>
+            </footer>
+        </div>
+
+        <!-- Main App (hidden until wallet connected) -->
+        <div id="main-app" class="hidden">
+            <!-- Header Bar -->
+            <header class="top-bar">
+                <div class="logo">cin<span class="accent">Q</span></div>
+                <span id="demo-badge" class="demo-badge hidden">DEMO</span>
+                <div class="hop-selector">
+                    <button class="hop-badge active" data-hops="0">0H</button>
+                    <button class="hop-badge" data-hops="1">1H</button>
+                    <button class="hop-badge" data-hops="3">3H</button>
+                </div>
+                <button id="disconnect-wallet" class="wallet-btn connected">Disconnect</button>
+            </header>
+
+            <!-- Status Bar -->
+            <div class="status-bar">
+                <span class="status-item">
+                    <span class="dot" id="node-dot"></span>
+                    <span id="node-status">Offline</span>
+                </span>
+                <span class="status-item">
+                    <span class="peer-icon">◉</span>
+                    <span id="peer-count">0</span> peers
+                </span>
+                <span class="status-item bandwidth-display">
+                    <span class="up">↑ <span id="bytes-sent">0 B</span>/s</span>
+                    <span class="down">↓ <span id="bytes-received">0 B</span>/s</span>
+                </span>
+            </div>
+
+            <!-- Main Content -->
+            <div id="main-interface">
+                <!-- System Monitor -->
+                <section class="card monitor-card">
+                    <h3 class="card-title">System Monitor</h3>
+                    <div class="monitor-row">
+                        <span class="monitor-label">Bandwidth</span>
+                        <div class="progress-bar">
+                            <div class="progress-fill bandwidth" id="bandwidth-bar" style="width: 0%"></div>
+                        </div>
+                        <span class="monitor-value" id="bandwidth-percent">0%</span>
+                    </div>
+                    <div class="bandwidth-speeds">
+                        <span class="speed up">↑ <span id="speed-up">0 MB/s</span></span>
+                        <span class="speed down">↓ <span id="speed-down">0 MB/s</span></span>
+                    </div>
+                </section>
+
+                <!-- DePIN Network -->
+                <section class="card depin-card">
+                    <h3 class="card-title orange">DEPIN NETWORK</h3>
+                    <div class="depin-row">
+                        <span>Connected Peers</span>
+                        <span id="depin-peers">0</span>
+                    </div>
+                    <div class="depin-row">
+                        <span>Security Level</span>
+                        <span class="orange" id="security-level">0 Hops</span>
+                    </div>
+                    <div class="depin-row">
+                        <span>Status</span>
+                        <span id="depin-status">Idle</span>
+                    </div>
+                </section>
+
+                <!-- Escrow / Earnings -->
+                <section class="card earnings-card">
+                    <h3 class="card-title green">ESCROW BALANCE</h3>
+                    <div class="earnings-amount">
+                        <span id="escrow-balance">0.0000</span> <span class="qi">$Qi</span>
+                    </div>
+                    <div class="earnings-usd">≈ $<span id="escrow-usd">0.00</span> USD</div>
+                    <button id="add-qi" class="btn-add">+ Add 10 Qi</button>
+                </section>
+
+                <!-- Wallet Balance -->
+                <section class="card wallet-card">
+                    <h3 class="card-title">WALLET BALANCE</h3>
+                    <div class="wallet-row">
+                        <span>Address</span>
+                        <span id="wallet-addr" class="wallet-addr" title="">Not connected</span>
+                    </div>
+                    <div class="wallet-row">
+                        <span>Balance</span>
+                        <span><span id="wallet-balance">0.0000</span> $Qi</span>
+                    </div>
+                </section>
+
+                <!-- Node Control -->
+                <section class="card control-card">
+                    <div class="control-row">
+                        <div class="control-info">
+                            <span class="control-label">SOCKS5 Proxy</span>
+                            <span class="control-hint" id="proxy-hint">Configure browser: 127.0.0.1:1080</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="proxy-toggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="proxy-status" id="proxy-status">
+                        <span class="proxy-addr" id="proxy-addr"></span>
+                        <span class="proxy-conns" id="proxy-conns"></span>
+                    </div>
+                </section>
+
+                <!-- Developer Dashboard (collapsible) -->
+                <section class="card dev-card">
+                    <div class="dev-header" id="dev-toggle">
+                        <h3 class="card-title cyan">⚡ DEV DASHBOARD</h3>
+                        <span class="dev-expand" id="dev-expand">▼</span>
+                    </div>
+                    <div class="dev-content" id="dev-content">
+                        <!-- Connection Pipeline -->
+                        <div class="pipeline">
+                            <div class="pipeline-step" id="step-wallet">
+                                <span class="step-dot"></span>
+                                <span class="step-label">Wallet</span>
+                                <span class="step-detail" id="step-wallet-detail">Not connected</span>
+                            </div>
+                            <div class="pipeline-step" id="step-node">
+                                <span class="step-dot"></span>
+                                <span class="step-label">Node Init</span>
+                                <span class="step-detail" id="step-node-detail">Waiting...</span>
+                            </div>
+                            <div class="pipeline-step" id="step-mdns">
+                                <span class="step-dot"></span>
+                                <span class="step-label">mDNS Discovery</span>
+                                <span class="step-detail" id="step-mdns-detail">Waiting...</span>
+                            </div>
+                            <div class="pipeline-step" id="step-dht">
+                                <span class="step-dot"></span>
+                                <span class="step-label">DHT Bootstrap</span>
+                                <span class="step-detail" id="step-dht-detail">Waiting...</span>
+                            </div>
+                            <div class="pipeline-step" id="step-nat">
+                                <span class="step-dot"></span>
+                                <span class="step-label">NAT Detection</span>
+                                <span class="step-detail" id="step-nat-detail">Waiting...</span>
+                            </div>
+                            <div class="pipeline-step" id="step-relay">
+                                <span class="step-dot"></span>
+                                <span class="step-label">Relay Circuit</span>
+                                <span class="step-detail" id="step-relay-detail">Waiting...</span>
+                            </div>
+                            <div class="pipeline-step" id="step-holepunch">
+                                <span class="step-dot"></span>
+                                <span class="step-label">Hole Punch</span>
+                                <span class="step-detail" id="step-holepunch-detail">Waiting...</span>
+                            </div>
+                            <div class="pipeline-step" id="step-peers">
+                                <span class="step-dot"></span>
+                                <span class="step-label">Peer Mesh</span>
+                                <span class="step-detail" id="step-peers-detail">0 connections</span>
+                            </div>
+                            <div class="pipeline-step" id="step-proxy">
+                                <span class="step-dot"></span>
+                                <span class="step-label">SOCKS5 Proxy</span>
+                                <span class="step-detail" id="step-proxy-detail">Not started</span>
+                            </div>
+                        </div>
+
+                        <!-- Manual Peer Connect -->
+                        <div class="dev-connect">
+                            <input type="text" id="manual-peer-addr" placeholder="/ip4/x.x.x.x/tcp/9000/p2p/12D3KooW..." class="dev-input">
+                            <button id="manual-connect-btn" class="btn-small">Connect</button>
+                        </div>
+
+                        <!-- Live Stats -->
+                        <div class="dev-stats">
+                            <div class="dev-stat">
+                                <span class="dev-stat-label">Peer ID</span>
+                                <span class="dev-stat-value mono" id="dev-peer-id">-</span>
+                            </div>
+                            <div class="dev-stat">
+                                <span class="dev-stat-label">Listen Addrs</span>
+                                <span class="dev-stat-value mono" id="dev-listen-addrs">-</span>
+                            </div>
+                            <div class="dev-stat">
+                                <span class="dev-stat-label">NAT Status</span>
+                                <span class="dev-stat-value" id="dev-nat-status">Unknown</span>
+                            </div>
+                            <div class="dev-stat">
+                                <span class="dev-stat-label">Relay Addr</span>
+                                <span class="dev-stat-value mono" id="dev-relay-addr">-</span>
+                            </div>
+                            <div class="dev-stat">
+                                <span class="dev-stat-label">Discovered</span>
+                                <span class="dev-stat-value" id="dev-discovered">0 peers</span>
+                            </div>
+                            <div class="dev-stat">
+                                <span class="dev-stat-label">Connected</span>
+                                <span class="dev-stat-value" id="dev-connected">0 peers</span>
+                            </div>
+                        </div>
+
+                        <!-- Event Log -->
+                        <div class="dev-log">
+                            <div class="dev-log-header">
+                                <span>Event Log</span>
+                                <button class="dev-log-clear" id="dev-log-clear">Clear</button>
+                            </div>
+                            <div class="dev-log-content" id="dev-log"></div>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+
+            <footer>
+                <span>cinQ Connect v0.1.0</span>
+            </footer>
+        </div>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html>

@@ -3,146 +3,618 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>cinQ Connect</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>cinQ</title>
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --surface: #141414;
+            --surface-2: #1a1a1a;
+            --border: #2a2a2a;
+            --text: #e0e0e0;
+            --text-dim: #808080;
+            --accent: #ff6b00;
+            --green: #00ff88;
+            --red: #ff4444;
+            --blue: #4488ff;
+        }
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        #app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        /* Landing Page */
+        .landing {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .landing-logo {
+            font-size: 4rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+        }
+        
+        .landing-logo .accent { color: var(--accent); }
+        
+        .landing-tagline {
+            color: var(--text-dim);
+            font-size: 1.1rem;
+            margin-bottom: 40px;
+        }
+        
+        .btn-connect {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 14px 32px;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.1s;
+        }
+        
+        .btn-connect:hover {
+            opacity: 0.9;
+            transform: scale(1.02);
+        }
+        
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .logo {
+            font-size: 1.4rem;
+            font-weight: 800;
+        }
+        
+        .logo .accent { color: var(--accent); }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-dim);
+        }
+        
+        .status-dot.online { background: var(--green); }
+        
+        .peer-count {
+            color: var(--text-dim);
+            font-size: 0.85rem;
+        }
+        
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-small {
+            background: var(--surface-2);
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .btn-small:hover {
+            background: var(--border);
+        }
+        
+        /* Main Layout */
+        .main {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        /* Sidebar - Conversations */
+        .sidebar {
+            width: 280px;
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .sidebar-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        
+        .btn-new-chat {
+            background: var(--accent);
+            color: white;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .conversations {
+            flex: 1;
+            overflow-y: auto;
+        }
+        
+        .conversation {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border);
+            transition: background 0.1s;
+        }
+        
+        .conversation:hover {
+            background: var(--surface-2);
+        }
+        
+        .conversation.active {
+            background: var(--surface-2);
+            border-left: 3px solid var(--accent);
+        }
+        
+        .conv-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            color: var(--text-dim);
+            font-size: 0.9rem;
+        }
+        
+        .conv-avatar.online::after {
+            content: '';
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            width: 10px;
+            height: 10px;
+            background: var(--green);
+            border-radius: 50%;
+            border: 2px solid var(--surface);
+        }
+        
+        .conv-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .conv-name {
+            font-weight: 500;
+            font-size: 0.9rem;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .conv-preview {
+            color: var(--text-dim);
+            font-size: 0.8rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .conv-meta {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 4px;
+        }
+        
+        .conv-time {
+            color: var(--text-dim);
+            font-size: 0.75rem;
+        }
+        
+        .conv-unread {
+            background: var(--accent);
+            color: white;
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+        
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-dim);
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .empty-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+        
+        /* Chat Area */
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg);
+        }
+        
+        .chat-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .chat-peer-name {
+            font-weight: 600;
+        }
+        
+        .chat-peer-id {
+            color: var(--text-dim);
+            font-size: 0.75rem;
+            font-family: monospace;
+        }
+        
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .message {
+            max-width: 70%;
+            padding: 10px 14px;
+            border-radius: 16px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+        
+        .message.incoming {
+            background: var(--surface-2);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+        
+        .message.outgoing {
+            background: var(--accent);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .message-time {
+            font-size: 0.7rem;
+            opacity: 0.7;
+            margin-top: 4px;
+        }
+        
+        .message.outgoing .message-time {
+            text-align: right;
+        }
+        
+        .message-status {
+            font-size: 0.7rem;
+            opacity: 0.7;
+        }
+        
+        /* Message Input */
+        .message-input-area {
+            display: flex;
+            gap: 8px;
+            padding: 12px 16px;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+        }
+        
+        .message-input {
+            flex: 1;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 10px 16px;
+            color: var(--text);
+            font-size: 0.9rem;
+            outline: none;
+        }
+        
+        .message-input:focus {
+            border-color: var(--accent);
+        }
+        
+        .btn-send {
+            background: var(--accent);
+            color: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+        
+        .btn-send:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* New Chat Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        
+        .modal {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 24px;
+            width: 90%;
+            max-width: 400px;
+        }
+        
+        .modal-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+        
+        .modal-input {
+            width: 100%;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            color: var(--text);
+            font-size: 0.9rem;
+            margin-bottom: 12px;
+            outline: none;
+        }
+        
+        .modal-input:focus {
+            border-color: var(--accent);
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+        
+        .btn-cancel {
+            background: transparent;
+            color: var(--text-dim);
+            border: 1px solid var(--border);
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        
+        .btn-start {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        
+        .hidden { display: none !important; }
+        
+        /* Peer List */
+        .peer-list {
+            margin-bottom: 16px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .peer-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: var(--surface-2);
+            border-radius: 6px;
+            margin-bottom: 6px;
+            cursor: pointer;
+        }
+        
+        .peer-item:hover {
+            background: var(--border);
+        }
+        
+        .peer-item .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--green);
+        }
+        
+        .peer-item .peer-id {
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: var(--text);
+        }
+        
+        .divider {
+            color: var(--text-dim);
+            font-size: 0.8rem;
+            margin: 12px 0 8px;
+        }
+    </style>
 </head>
 <body>
     <div id="app">
-        <!-- Landing Page (shown when not connected) -->
-        <div id="landing-page" class="landing">
-            <div class="landing-content">
-                <div class="landing-logo">cin<span class="accent">Q</span></div>
-                <p class="landing-tagline">DePIN Grid • Quai Network</p>
-                <div class="landing-icon">◎</div>
-                <p class="landing-desc">Secure P2P mesh network with<br>privacy routing & Qi payments</p>
-                <button id="connect-btn" class="btn-connect">Connect to Pelagus</button>
-                <p class="landing-hint">Connect your wallet to access the network</p>
-            </div>
-            <footer class="landing-footer">
-                <span>cinQ Connect v0.1.0</span>
-            </footer>
+        <!-- Landing Page -->
+        <div id="landing" class="landing">
+            <div class="landing-logo">cin<span class="accent">Q</span></div>
+            <p class="landing-tagline">Encrypted P2P Messaging</p>
+            <button id="connect-btn" class="btn-connect">Start cinQ</button>
         </div>
 
-        <!-- Main App (hidden until wallet connected) -->
+        <!-- Main App -->
         <div id="main-app" class="hidden">
-            <!-- Header Bar -->
-            <header class="top-bar">
-                <div class="logo">cin<span class="accent">Q</span></div>
-                <div class="hop-selector">
-                    <button class="hop-badge active" data-hops="0">0H</button>
-                    <button class="hop-badge" data-hops="1">1H</button>
-                    <button class="hop-badge" data-hops="3">3H</button>
+            <!-- Header -->
+            <header class="header">
+                <div class="header-left">
+                    <div class="logo">cin<span class="accent">Q</span></div>
+                    <div class="status-dot" id="status-dot"></div>
+                    <span class="peer-count"><span id="peer-count">0</span> peers</span>
                 </div>
-                <button id="disconnect-wallet" class="wallet-btn connected">Disconnect</button>
+                <div class="header-right">
+                    <span id="peer-id" class="peer-count" style="font-family: monospace; max-width: 120px; overflow: hidden; text-overflow: ellipsis; cursor: pointer;" title="Click to copy"></span>
+                    <button class="btn-small" id="copy-peer-id" title="Copy your Peer ID">📋</button>
+                    <button class="btn-small" id="dial-peer-btn" title="Connect to peer by address">🔗</button>
+                    <button class="btn-small" id="disconnect-btn">Disconnect</button>
+                </div>
             </header>
 
-            <!-- Status Bar -->
-            <div class="status-bar">
-                <span class="status-item">
-                    <span class="dot" id="node-dot"></span>
-                    <span id="node-status">Offline</span>
-                </span>
-                <span class="status-item">
-                    <span class="peer-icon">◉</span>
-                    <span id="peer-count">0</span> peers
-                </span>
-                <span class="status-item bandwidth-display">
-                    <span class="up">↑ <span id="bytes-sent">0 B</span>/s</span>
-                    <span class="down">↓ <span id="bytes-received">0 B</span>/s</span>
-                </span>
+            <!-- Main Layout -->
+            <div class="main">
+                <!-- Sidebar -->
+                <div class="sidebar">
+                    <div class="sidebar-header">
+                        <span class="sidebar-title">Messages</span>
+                        <button class="btn-new-chat" id="new-chat-btn" title="New Chat">+</button>
+                    </div>
+                    <div class="conversations" id="conversations">
+                        <div class="empty-state" id="no-conversations">
+                            <div class="empty-icon">💬</div>
+                            <p>No conversations yet</p>
+                            <p style="font-size: 0.8rem; margin-top: 8px;">Click + to start chatting</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Area -->
+                <div class="chat-area">
+                    <div id="no-chat-selected" class="empty-state">
+                        <div class="empty-icon">👋</div>
+                        <p>Select a conversation or start a new one</p>
+                    </div>
+                    
+                    <div id="chat-view" class="hidden" style="display: flex; flex-direction: column; height: 100%;">
+                        <div class="chat-header">
+                            <div class="conv-avatar" id="chat-avatar">?</div>
+                            <div>
+                                <div class="chat-peer-name" id="chat-peer-name">Peer</div>
+                                <div class="chat-peer-id" id="chat-peer-id"></div>
+                            </div>
+                        </div>
+                        <div class="messages" id="messages"></div>
+                        <div class="message-input-area">
+                            <input type="text" class="message-input" id="message-input" placeholder="Type a message...">
+                            <button class="btn-send" id="send-btn">➤</button>
+                        </div>
+                    </div>
+                </div>
             </div>
+        </div>
 
-            <!-- Main Content -->
-            <div id="main-interface">
-                <!-- System Monitor -->
-                <section class="card monitor-card">
-                    <h3 class="card-title">System Monitor</h3>
-                    <div class="monitor-row">
-                        <span class="monitor-label">Bandwidth</span>
-                        <div class="progress-bar">
-                            <div class="progress-fill bandwidth" id="bandwidth-bar" style="width: 0%"></div>
-                        </div>
-                        <span class="monitor-value" id="bandwidth-percent">0%</span>
-                    </div>
-                    <div class="bandwidth-speeds">
-                        <span class="speed up">↑ <span id="speed-up">0 MB/s</span></span>
-                        <span class="speed down">↓ <span id="speed-down">0 MB/s</span></span>
-                    </div>
-                </section>
-
-                <!-- DePIN Network -->
-                <section class="card depin-card">
-                    <h3 class="card-title orange">DEPIN NETWORK</h3>
-                    <div class="depin-row">
-                        <span>Connected Peers</span>
-                        <span id="depin-peers">0</span>
-                    </div>
-                    <div class="depin-row">
-                        <span>Security Level</span>
-                        <span class="orange" id="security-level">0 Hops</span>
-                    </div>
-                    <div class="depin-row">
-                        <span>Status</span>
-                        <span id="depin-status">Idle</span>
-                    </div>
-                </section>
-
-                <!-- Escrow / Earnings -->
-                <section class="card earnings-card">
-                    <h3 class="card-title green">ESCROW BALANCE</h3>
-                    <div class="earnings-amount">
-                        <span id="escrow-balance">0.0000</span> <span class="qi">$Qi</span>
-                    </div>
-                    <div class="earnings-usd">≈ $<span id="escrow-usd">0.00</span> USD</div>
-                    <button id="add-qi" class="btn-add">+ Add 10 Qi</button>
-                </section>
-
-                <!-- Wallet Balance -->
-                <section class="card wallet-card">
-                    <h3 class="card-title">WALLET BALANCE</h3>
-                    <div class="wallet-row">
-                        <span>Address</span>
-                        <span id="wallet-addr" class="wallet-addr" title="">Not connected</span>
-                    </div>
-                    <div class="wallet-row">
-                        <span>Balance</span>
-                        <span><span id="wallet-balance">0.0000</span> $Qi</span>
-                    </div>
-                </section>
-
-                <!-- Node Control -->
-                <section class="card control-card">
-                    <div class="control-row">
-                        <div class="control-info">
-                            <span class="control-label">P2P Node</span>
-                            <span class="control-hint" id="node-hint">Start to join network</span>
-                        </div>
-                        <label class="switch">
-                            <input type="checkbox" id="node-toggle">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="control-row">
-                        <div class="control-info">
-                            <span class="control-label">SOCKS5 Proxy</span>
-                            <span class="control-hint" id="proxy-hint">127.0.0.1:1080</span>
-                        </div>
-                        <label class="switch">
-                            <input type="checkbox" id="proxy-toggle" disabled>
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div class="proxy-status" id="proxy-status">
-                        <span class="proxy-addr" id="proxy-addr"></span>
-                        <span class="proxy-conns" id="proxy-conns">0 active connections</span>
-                    </div>
-                </section>
-
+        <!-- New Chat Modal -->
+        <div id="new-chat-modal" class="modal-overlay hidden">
+            <div class="modal">
+                <div class="modal-title">New Conversation</div>
+                
+                <div class="peer-list" id="peer-list">
+                    <!-- Online peers will be listed here -->
+                </div>
+                
+                <div class="divider">Or enter Peer ID manually:</div>
+                
+                <input type="text" class="modal-input" id="new-peer-id" placeholder="12D3KooW...">
+                <input type="text" class="modal-input" id="new-peer-name" placeholder="Display name (optional)">
+                
+                <div class="modal-buttons">
+                    <button class="btn-cancel" id="cancel-new-chat">Cancel</button>
+                    <button class="btn-start" id="start-chat-btn">Start Chat</button>
+                </div>
             </div>
+        </div>
 
-            <footer>
-                <span>cinQ Connect v0.1.0</span>
-            </footer>
+        <!-- Dial Peer Modal -->
+        <div id="dial-peer-modal" class="modal-overlay hidden">
+            <div class="modal">
+                <div class="modal-title">🔗 Connect to Peer</div>
+                <p style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 16px;">Enter the peer's multiaddress to connect directly across subnets.</p>
+                
+                <input type="text" class="modal-input" id="dial-address" placeholder="/ip4/192.168.4.253/tcp/9000/p2p/12D3KooW..." style="font-family: monospace; font-size: 0.8rem;">
+                
+                <p style="color: var(--text-dim); font-size: 0.75rem; margin-bottom: 16px;">Format: /ip4/&lt;IP&gt;/tcp/9000/p2p/&lt;PEER_ID&gt;</p>
+                
+                <div id="dial-status" style="color: var(--green); font-size: 0.85rem; margin-bottom: 12px; min-height: 20px;"></div>
+                
+                <div class="modal-buttons">
+                    <button class="btn-cancel" id="cancel-dial">Cancel</button>
+                    <button class="btn-start" id="dial-btn">Connect</button>
+                </div>
+            </div>
         </div>
     </div>
 

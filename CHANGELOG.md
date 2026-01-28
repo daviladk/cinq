@@ -2,6 +2,40 @@
 
 All notable changes to cinQ Connect are documented here.
 
+## [v0.5.0-p2p-chat] - 2026-01-27
+
+### Added
+- **P2P Chat System** 🎉
+  - Real-time peer-to-peer messaging between connected nodes
+  - Chat-first UI replacing the old dashboard interface
+  - SQLite-backed message storage with conversations
+  - Contact management with peer ID and display names
+  - Message delivery confirmation (`ChatReceived { delivered: true }`)
+  - Auto-start node on app launch
+  - Persistent peer discovery via Kademlia DHT across subnets
+
+### Technical
+- `ChatManager` - SQLite database for conversations, messages, contacts
+- `ChatMessage` protocol with `message_id`, `sender_name`, `encrypted_content`, `timestamp`
+- `store_incoming_message()` - Stores received messages in database
+- Node now accepts `chat_manager` reference for storing incoming messages
+- Frontend polls every 3 seconds for conversation updates
+
+### Fixed
+- **Cross-subnet messaging** - Messages now properly stored on receiving end
+  - Bug: Incoming messages were logged but not saved to database
+  - Fix: Pass `ChatManager` to swarm task via `Arc<RwLock<ChatManager>>`
+  - Messages now visible in UI after frontend polling
+
+### Network Testing
+- Successfully tested P2P chat between:
+  - Mac Mini (192.168.5.4) - Peer ID: `12D3KooWP7zQ4dLEw3JiPdrerChHsTzhjfxs69oEBcxZieXU1sAu`
+  - MacBook Air (192.168.4.253) - Peer ID: `12D3KooWGhyNKVUhwiigtPZ9DpMyho9gvAsRWhGfeGDVcEt6Tgkr`
+- mDNS blocked by Eero mesh (different subnets), but DHT bootstrap works
+- ~66ms round-trip for message delivery
+
+---
+
 ## [v0.4.0-pelagus-wallet] - 2026-01-24
 
 ### Added

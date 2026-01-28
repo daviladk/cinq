@@ -89,6 +89,8 @@ pub struct Socks5Proxy {
     tunnel_manager: Option<Arc<RwLock<TunnelManager>>>,
     /// Function to get exit peer
     exit_peer_fn: Option<Arc<dyn Fn() -> Option<PeerId> + Send + Sync>>,
+    /// Shared exit peer for routing
+    exit_peer: Arc<RwLock<Option<PeerId>>>,
 }
 
 /// A request to open a tunnel through the P2P network
@@ -133,6 +135,7 @@ impl Socks5Proxy {
             })),
             tunnel_manager: None,
             exit_peer_fn: None,
+            exit_peer: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -151,6 +154,7 @@ impl Socks5Proxy {
             })),
             tunnel_manager: None,
             exit_peer_fn: None,
+            exit_peer: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -159,10 +163,33 @@ impl Socks5Proxy {
         self.tunnel_manager = Some(tm);
     }
 
+    /// Set the exit peer provider function
+    pub fn set_exit_peer_fn<F>(&mut self, f: F) 
+    where 
+        F: Fn() -> Option<PeerId> + Send + Sync + 'static 
+    {
+        self.exit_peer_fn = Some(Arc::new(f));
+    }
+
+    /// Set the exit peer for routing traffic
+    pub async fn set_exit_peer(&self, peer: Option<PeerId>) {
+        let mut exit_peer = self.exit_peer.write().await;
+        *exit_peer = peer;
+        log::info!("Proxy exit peer set to: {:?}", peer);
+    }
+
+    /// Get the shared exit peer Arc for passing to connections
+    pub fn get_exit_peer_ref(&self) -> Arc<RwLock<Option<PeerId>>> {
+        self.exit_peer.clone()
+    }
+
     /// Start the SOCKS5 proxy server
     pub async fn start(&mut self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        log::info!("SOCKS5 proxy: starting on port {}", self.config.listen_port);
         let listen_addr = format!("127.0.0.1:{}", self.config.listen_port);
+        log::info!("SOCKS5 proxy: binding to {}", listen_addr);
         let listener = TcpListener::bind(&listen_addr).await?;
+        log::info!("SOCKS5 proxy: bound successfully");
         
         log::info!("SOCKS5 proxy listening on {}", listen_addr);
         
@@ -179,6 +206,8 @@ impl Socks5Proxy {
         let status = self.status.clone();
         let metrics = self.metrics.clone();
         let route_through_peers = self.config.route_through_peers;
+        let tunnel_manager = self.tunnel_manager.clone();
+        let exit_peer = self.exit_peer.clone();
         
         // Spawn the accept loop
         tokio::spawn(async move {
@@ -200,6 +229,8 @@ impl Socks5Proxy {
                                 
                                 let status_clone = status.clone();
                                 let metrics_clone = metrics.clone();
+                                let tunnel_manager_clone = tunnel_manager.clone();
+                                let exit_peer_clone = exit_peer.clone();
                                 
                                 // Handle the connection
                                 tokio::spawn(async move {
@@ -208,6 +239,8 @@ impl Socks5Proxy {
                                         client_addr,
                                         route_through_peers,
                                         metrics_clone,
+                                        tunnel_manager_clone,
+                                        exit_peer_clone,
                                     ).await {
                                         log::error!("SOCKS5 connection error: {}", e);
                                     }
@@ -268,6 +301,8 @@ async fn handle_socks5_connection(
     client_addr: SocketAddr,
     route_through_peers: bool,
     metrics: Arc<RwLock<BandwidthMetrics>>,
+    tunnel_manager: Option<Arc<RwLock<TunnelManager>>>,
+    exit_peer: Arc<RwLock<Option<PeerId>>>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Step 1: Authentication handshake
     let mut buf = [0u8; 258];
@@ -357,15 +392,126 @@ async fn handle_socks5_connection(
     log::info!("SOCKS5 CONNECT request: {}:{}", target_host, target_port);
     
     // Step 3: Connect to target
-    // When route_through_peers is enabled and a peer is available,
-    // we tunnel through P2P. Otherwise, direct connection.
+    // If route_through_peers is enabled and we have an exit peer, route through P2P.
+    // Otherwise, direct connection.
     
-    if route_through_peers {
-        log::info!("P2P routing enabled - would route through exit peer (fallback to direct for now)");
-        // TODO: Use tunnel_manager to create client tunnel through exit peer
-        // For now, fall back to direct connection
+    // Check if we should route through a peer
+    let current_exit_peer = exit_peer.read().await.clone();
+    
+    if route_through_peers && current_exit_peer.is_some() && tunnel_manager.is_some() {
+        let peer_id = current_exit_peer.unwrap();
+        let tm = tunnel_manager.as_ref().unwrap();
+        
+        log::info!("Routing through exit peer: {} for {}:{}", peer_id, target_host, target_port);
+        
+        // Create a client tunnel through the exit peer
+        match tm.read().await.create_client_tunnel(
+            peer_id,
+            target_host.clone(),
+            target_port,
+        ).await {
+            Ok((tunnel_id, to_peer_tx, mut from_peer_rx, ready_rx)) => {
+                // Wait for the tunnel to be established (with timeout)
+                match tokio::time::timeout(
+                    std::time::Duration::from_secs(10),
+                    ready_rx
+                ).await {
+                    Ok(Ok(Ok(()))) => {
+                        log::info!("P2P tunnel {} established to {}:{} via {}", 
+                            tunnel_id, target_host, target_port, peer_id);
+                        
+                        // Send success reply to SOCKS5 client
+                        send_socks5_reply(&mut stream, SOCKS5_REP_SUCCESS).await?;
+                        
+                        // Bidirectional copy through P2P tunnel
+                        let (mut client_read, mut client_write) = stream.into_split();
+                        let tm_clone = tm.clone();
+                        let metrics_send = metrics.clone();
+                        let metrics_recv = metrics.clone();
+                        
+                        // Client -> Exit Peer (via P2P)
+                        let send_task = tokio::spawn(async move {
+                            let mut buf = [0u8; 8192];
+                            let mut total_sent: u64 = 0;
+                            loop {
+                                match client_read.read(&mut buf).await {
+                                    Ok(0) => break,
+                                    Ok(n) => {
+                                        // Send through the tunnel manager
+                                        if let Err(e) = tm_clone.read().await
+                                            .send_through_client_tunnel(tunnel_id, buf[..n].to_vec()).await 
+                                        {
+                                            log::error!("Failed to send through tunnel: {}", e);
+                                            break;
+                                        }
+                                        total_sent += n as u64;
+                                        let mut m = metrics_send.write().await;
+                                        m.record_sent(&peer_id.to_string(), n as u64);
+                                    }
+                                    Err(e) => {
+                                        log::error!("Client read error: {}", e);
+                                        break;
+                                    }
+                                }
+                            }
+                            total_sent
+                        });
+                        
+                        // Exit Peer -> Client (from P2P)
+                        let recv_task = tokio::spawn(async move {
+                            let mut total_recv: u64 = 0;
+                            while let Some(data) = from_peer_rx.recv().await {
+                                if client_write.write_all(&data).await.is_err() {
+                                    break;
+                                }
+                                total_recv += data.len() as u64;
+                                let mut m = metrics_recv.write().await;
+                                m.record_received(&peer_id.to_string(), data.len() as u64);
+                            }
+                            total_recv
+                        });
+                        
+                        // Wait for both to complete
+                        let (sent, recv) = tokio::join!(send_task, recv_task);
+                        let total_sent = sent.unwrap_or(0);
+                        let total_recv = recv.unwrap_or(0);
+                        
+                        // Close the tunnel
+                        tm.read().await.close_client_tunnel(tunnel_id).await;
+                        
+                        log::info!(
+                            "P2P tunnel {} closed: {} -> {}:{} via {} (sent: {} bytes, recv: {} bytes)",
+                            tunnel_id, client_addr, target_host, target_port, peer_id, total_sent, total_recv
+                        );
+                        
+                        return Ok(());
+                    }
+                    Ok(Ok(Err(e))) => {
+                        log::error!("Exit peer failed to connect: {}", e);
+                        send_socks5_reply(&mut stream, SOCKS5_REP_HOST_UNREACHABLE).await?;
+                        return Err(format!("Exit peer connection failed: {}", e).into());
+                    }
+                    Ok(Err(_)) => {
+                        log::error!("Tunnel ready channel closed unexpectedly");
+                        send_socks5_reply(&mut stream, SOCKS5_REP_FAILURE).await?;
+                        return Err("Tunnel establishment failed".into());
+                    }
+                    Err(_) => {
+                        log::error!("Timeout waiting for tunnel establishment");
+                        send_socks5_reply(&mut stream, SOCKS5_REP_FAILURE).await?;
+                        return Err("Tunnel establishment timeout".into());
+                    }
+                }
+            }
+            Err(e) => {
+                log::error!("Failed to create P2P tunnel: {}", e);
+                // Fall through to direct connection
+            }
+        }
     }
     
+    // Direct connection (fallback or when P2P not available/configured)
+    log::info!("Using direct connection for {}:{}", target_host, target_port);
     let target_addr = format!("{}:{}", target_host, target_port);
     
     match TcpStream::connect(&target_addr).await {

@@ -1,21 +1,29 @@
 # cinQ Connect
 
-**DePIN Bandwidth Marketplace for Quai Network**
+**P2P Chat & DePIN Bandwidth Marketplace for Quai Network**
 
-A decentralized peer-to-peer proxy network where users can buy and sell bandwidth using Qi tokens. Route your traffic through a privacy-preserving mesh network with configurable hop counts.
+A decentralized peer-to-peer network for private messaging and bandwidth sharing using Qi tokens. Chat directly with peers, route traffic through a privacy-preserving mesh network with configurable hop counts.
 
-![Version](https://img.shields.io/badge/version-0.4.0-blue)
+![Version](https://img.shields.io/badge/version-0.5.0-blue)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
+## ✨ Current Status (v0.5.0)
+
+**P2P Chat Working!** 🎉
+- Direct peer-to-peer messaging across subnets
+- Messages stored in SQLite, delivered via libp2p
+- DHT-based peer discovery (works even when mDNS blocked)
+
 ## Features
 
+- 💬 **P2P Chat** - Send messages directly to peers, no server required
 - 🔐 **Pelagus Wallet Integration** - Connect your Quai Network wallet
 - 🌐 **P2P Mesh Network** - Decentralized peer discovery via mDNS and Kademlia DHT
 - 🔒 **Encrypted Connections** - All peer traffic secured with Noise protocol
-- 🧅 **Privacy Routing** - Configurable 0/1/3 hop routing
+- 🧅 **Privacy Routing** - Configurable 0/1/3 hop routing (coming soon)
 - 📊 **Bandwidth Metering** - Track usage for Qi-based payments
-- 🖥️ **SOCKS5 Proxy** - Route any app through the network
+- 🖥️ **SOCKS5 Proxy** - Route any app through the network (infrastructure ready)
 
 ## Quick Start
 
@@ -80,9 +88,12 @@ cinq/
 │   │   ├── lib.rs
 │   │   └── grid/         # P2P networking
 │   │       ├── node.rs   # libp2p swarm
+│   │       ├── chat.rs   # Chat manager & SQLite storage
+│   │       ├── protocol.rs # P2P message types
 │   │       ├── proxy.rs  # SOCKS5 server
 │   │       ├── tunnel.rs # P2P tunneling
-│   │       └── ...
+│   │       ├── bootstrap.rs # Peer persistence
+│   │       └── metrics.rs # Bandwidth tracking
 │   ├── Cargo.toml
 │   └── tauri.conf.json
 ├── docs/
@@ -99,6 +110,7 @@ cinq/
 | `v0.2.0-socks5-proxy` | SOCKS5 proxy implementation |
 | `v0.3.0-p2p-routing-infra` | P2P tunnel infrastructure |
 | `v0.4.0-pelagus-wallet` | Pelagus wallet integration |
+| `v0.5.0-p2p-chat` | P2P chat with message storage |
 
 ## Roadmap
 
@@ -106,6 +118,8 @@ cinq/
 - [x] SOCKS5 proxy server
 - [x] P2P tunnel infrastructure
 - [x] Pelagus wallet integration
+- [x] P2P Chat messaging ✨ **NEW**
+- [ ] Message encryption (currently plaintext)
 - [ ] Complete P2P traffic routing
 - [ ] Escrow smart contract
 - [ ] Multi-hop onion routing

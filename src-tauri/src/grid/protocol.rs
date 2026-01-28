@@ -15,6 +15,17 @@ use futures::{AsyncRead, AsyncWrite, AsyncReadExt, AsyncWriteExt};
 /// Protocol name for Cinq file transfer
 pub const CINQ_PROTOCOL: StreamProtocol = StreamProtocol::new("/cinq/transfer/1.0.0");
 
+/// A message stored in a mailbox for offline delivery
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MailboxMessage {
+    /// When this message was stored
+    pub stored_at: u64,
+    /// Encrypted message blob
+    pub encrypted_data: Vec<u8>,
+    /// Sender hint (optional, for filtering)
+    pub sender_hint: Option<String>,
+}
+
 /// Request types for the Cinq protocol
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum CinqRequest {
@@ -53,6 +64,58 @@ pub enum CinqRequest {
     /// Close a proxy tunnel
     ProxyClose {
         tunnel_id: u64,
+    },
+    
+    // ========== CHAT MESSAGES ==========
+    
+    /// Send a direct chat message to a peer
+    ChatMessage {
+        /// Unique message ID (UUID)
+        message_id: String,
+        /// Sender's display name (optional, for convenience)
+        sender_name: Option<String>,
+        /// Encrypted message content (recipient decrypts with their key)
+        encrypted_content: Vec<u8>,
+        /// Unix timestamp (millis)
+        timestamp: u64,
+    },
+    
+    /// Store a message in peer's mailbox (for offline delivery)
+    MailboxStore {
+        /// Hint for recipient (hashed peer ID or similar)
+        recipient_hint: String,
+        /// Encrypted message blob
+        encrypted_message: Vec<u8>,
+        /// Expiration timestamp (Unix millis) - default 7 days
+        expires_at: u64,
+    },
+    
+    /// Retrieve messages from a mailbox
+    MailboxRetrieve {
+        /// Proof that requester owns this mailbox
+        recipient_proof: String,
+        /// Only messages after this timestamp
+        since_timestamp: Option<u64>,
+    },
+    
+    /// Store an encrypted shard for backup
+    ShardStore {
+        /// Unique shard ID
+        shard_id: String,
+        /// Encrypted shard data
+        encrypted_data: Vec<u8>,
+        /// Size in bytes (for billing)
+        size_bytes: u64,
+        /// TTL in seconds (how long to keep)
+        ttl_secs: u64,
+    },
+    
+    /// Retrieve a stored shard
+    ShardRetrieve {
+        /// Shard ID to retrieve
+        shard_id: String,
+        /// Proof of ownership
+        proof: String,
     },
 }
 
@@ -102,6 +165,53 @@ pub enum CinqResponse {
     ProxyClosed {
         tunnel_id: u64,
     },
+    
+    // ========== CHAT RESPONSES ==========
+    
+    /// Chat message received acknowledgment
+    ChatReceived {
+        /// The message ID that was received
+        message_id: String,
+        /// Whether it was delivered (true) or stored in mailbox (false)
+        delivered: bool,
+    },
+    
+    /// Mailbox store result
+    MailboxStored {
+        /// Success or failure
+        success: bool,
+        /// Storage cost in nano-Qi
+        cost_nano_qi: u64,
+        /// Expiration timestamp
+        expires_at: u64,
+    },
+    
+    /// Mailbox retrieval result
+    MailboxMessages {
+        /// Retrieved messages (each is an encrypted blob)
+        messages: Vec<MailboxMessage>,
+    },
+    
+    /// Shard stored result
+    ShardStored {
+        /// Shard ID
+        shard_id: String,
+        /// Success
+        success: bool,
+        /// Storage cost in nano-Qi
+        cost_nano_qi: u64,
+    },
+    
+    /// Shard retrieval result
+    ShardData {
+        /// Shard ID
+        shard_id: String,
+        /// Encrypted shard data (empty if not found)
+        encrypted_data: Vec<u8>,
+        /// Found or not
+        found: bool,
+    },
+    
     /// Error response
     Error { message: String },
 }

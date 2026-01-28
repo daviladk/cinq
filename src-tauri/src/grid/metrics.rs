@@ -1,7 +1,42 @@
 // Cinq Bandwidth Metrics - Track data usage for Qi billing
+//
+// Payment Model:
+// - 1 Qi = 1 GB of bandwidth (per hop)
+// - Minimum charge: smallest Qi denomination
+// - Multi-hop: user pays each hop in the circuit
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+// ============================================================================
+// Qi Denomination Constants (based on Quai Network)
+// ============================================================================
+
+/// 1 Qi in its smallest unit (like wei for ETH)
+pub const QI: u64 = 1_000_000_000_000_000_000; // 10^18
+
+/// Common denominations
+pub const MILLI_QI: u64 = QI / 1_000;           // 0.001 Qi
+pub const MICRO_QI: u64 = QI / 1_000_000;       // 0.000001 Qi  
+pub const NANO_QI: u64 = QI / 1_000_000_000;    // 0.000000001 Qi
+
+/// Minimum billable amount - smallest practical denomination
+/// This is the handshake fee and minimum charge for any data transfer
+pub const MIN_BILLABLE_QI: u64 = MICRO_QI;      // 0.000001 Qi
+
+/// Rate: 1 Qi per GB (expressed in smallest units per byte)
+/// 1 Qi / 1 GB = 10^18 / 10^9 = 10^9 units per byte
+pub const RATE_PER_BYTE: u64 = QI / (1024 * 1024 * 1024); // ~0.93 nano-Qi per byte
+
+// ============================================================================
+// Convenience constants for readability
+// ============================================================================
+
+/// Bytes per GB
+pub const BYTES_PER_GB: u64 = 1024 * 1024 * 1024;
+
+/// 1 Qi = 1 GB, so 1 Qi per GB
+pub const QI_PER_GB: f64 = 1.0;
 
 /// Bandwidth statistics for a single peer
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -54,6 +89,8 @@ pub struct SessionMetrics {
     pub session_bytes_received: u64,
     /// Number of active connections
     pub active_connections: u32,
+    /// Number of tunnel handshakes (each incurs HANDSHAKE_FEE_QI)
+    pub handshake_count: u32,
 }
 
 /// Overall bandwidth metrics for billing
@@ -91,6 +128,7 @@ impl BandwidthMetrics {
                 session_bytes_sent: 0,
                 session_bytes_received: 0,
                 active_connections: 0,
+                handshake_count: 0,
             },
             total_bytes_sent: 0,
             total_bytes_received: 0,
@@ -164,7 +202,15 @@ impl BandwidthMetrics {
             session_bandwidth: self.get_session_bandwidth(),
             peer_count: self.peers.len() as u32,
             session_started: self.session.started_at,
+            handshake_count: self.session.handshake_count,
         }
+    }
+
+    /// Record a tunnel handshake (charges MIN_BILLABLE_QI)
+    pub fn record_handshake(&mut self) {
+        self.session.handshake_count += 1;
+        log::debug!("Recorded handshake #{}, fee: {} units (MIN_BILLABLE_QI)", 
+            self.session.handshake_count, MIN_BILLABLE_QI);
     }
 
     /// Reset session metrics (for new billing period)
@@ -179,6 +225,7 @@ impl BandwidthMetrics {
             session_bytes_sent: 0,
             session_bytes_received: 0,
             active_connections: 0,
+            handshake_count: 0,
         };
     }
 
@@ -207,6 +254,8 @@ pub struct BillingSummary {
     pub session_bandwidth: u64,
     pub peer_count: u32,
     pub session_started: u64,
+    /// Number of tunnel handshakes this session
+    pub handshake_count: u32,
 }
 
 impl BillingSummary {
@@ -227,11 +276,43 @@ impl BillingSummary {
         }
     }
 
-    /// Calculate estimated Qi cost (placeholder rate)
-    /// This will be replaced with actual Quai Network rates
-    pub fn estimate_qi_cost(&self, qi_per_gb: f64) -> f64 {
-        let gb_used = self.total_bandwidth as f64 / (1024.0 * 1024.0 * 1024.0);
-        gb_used * qi_per_gb
+    /// Calculate cost in smallest Qi units
+    /// Formula: max(MIN_BILLABLE_QI, bytes * RATE_PER_BYTE) * num_hops
+    /// Plus MIN_BILLABLE_QI per handshake (anti-spam)
+    pub fn calculate_cost_units(&self, hops: u32) -> u64 {
+        // Handshake fees (1 minimum denomination per handshake)
+        let handshake_cost = self.handshake_count as u64 * MIN_BILLABLE_QI;
+        
+        // Bandwidth cost (minimum is MIN_BILLABLE_QI if any data transferred)
+        let bandwidth_cost = if self.total_bandwidth > 0 {
+            let raw_cost = self.total_bandwidth * RATE_PER_BYTE * hops as u64;
+            // Apply minimum denomination - round up to nearest MIN_BILLABLE_QI
+            let rounded = ((raw_cost + MIN_BILLABLE_QI - 1) / MIN_BILLABLE_QI) * MIN_BILLABLE_QI;
+            rounded.max(MIN_BILLABLE_QI * hops as u64) // At least 1 minimum per hop
+        } else {
+            0
+        };
+        
+        handshake_cost + bandwidth_cost
+    }
+
+    /// Calculate cost in Qi (floating point for display)
+    /// 1 Qi = 1 GB per hop
+    pub fn calculate_cost_qi(&self, hops: u32) -> f64 {
+        self.calculate_cost_units(hops) as f64 / QI as f64
+    }
+
+    /// Format cost as human-readable Qi string with appropriate precision
+    pub fn format_cost(units: u64) -> String {
+        let qi = units as f64 / QI as f64;
+        
+        if qi >= 1.0 {
+            format!("{:.4} Qi", qi)
+        } else if qi >= 0.001 {
+            format!("{:.6} Qi", qi)  // milli-Qi range
+        } else {
+            format!("{:.9} Qi", qi)  // micro/nano-Qi range
+        }
     }
 }
 
@@ -257,7 +338,7 @@ mod tests {
     }
 
     #[test]
-    fn test_billing_summary() {
+    fn test_billing_summary_format() {
         let summary = BillingSummary {
             total_bytes_sent: 1024 * 1024 * 100, // 100MB
             total_bytes_received: 1024 * 1024 * 200, // 200MB
@@ -265,8 +346,72 @@ mod tests {
             session_bandwidth: 1024 * 1024 * 50,
             peer_count: 5,
             session_started: 0,
+            handshake_count: 10,
         };
 
         assert_eq!(BillingSummary::format_bandwidth(summary.total_bandwidth), "300.00 MB");
+    }
+
+    #[test]
+    fn test_handshake_tracking() {
+        let mut metrics = BandwidthMetrics::new();
+        
+        metrics.record_handshake();
+        metrics.record_handshake();
+        metrics.record_handshake();
+        
+        let summary = metrics.get_billing_summary();
+        assert_eq!(summary.handshake_count, 3);
+    }
+
+    #[test]
+    fn test_qi_cost_calculation() {
+        // 1 GB of bandwidth with 1 handshake
+        let summary = BillingSummary {
+            total_bytes_sent: BYTES_PER_GB / 2,
+            total_bytes_received: BYTES_PER_GB / 2,
+            total_bandwidth: BYTES_PER_GB, // 1 GB
+            session_bandwidth: BYTES_PER_GB,
+            peer_count: 1,
+            session_started: 0,
+            handshake_count: 1,
+        };
+
+        // 1 hop: ~1 Qi for bandwidth + MIN_BILLABLE_QI for handshake
+        let cost_1hop = summary.calculate_cost_qi(1);
+        assert!(cost_1hop > 0.99 && cost_1hop < 1.01, "1 hop cost should be ~1 Qi, got {}", cost_1hop);
+        
+        // 3 hops: ~3 Qi for bandwidth + MIN_BILLABLE_QI for handshake
+        let cost_3hop = summary.calculate_cost_qi(3);
+        assert!(cost_3hop > 2.99 && cost_3hop < 3.01, "3 hop cost should be ~3 Qi, got {}", cost_3hop);
+    }
+
+    #[test]
+    fn test_minimum_charge() {
+        // Very small transfer (1 byte)
+        let summary = BillingSummary {
+            total_bytes_sent: 1,
+            total_bytes_received: 0,
+            total_bandwidth: 1,
+            session_bandwidth: 1,
+            peer_count: 1,
+            session_started: 0,
+            handshake_count: 1,
+        };
+
+        // Should be charged at least MIN_BILLABLE_QI for handshake + MIN_BILLABLE_QI for bandwidth
+        let cost = summary.calculate_cost_units(1);
+        assert!(cost >= 2 * MIN_BILLABLE_QI, "Minimum cost should apply");
+    }
+
+    #[test]
+    fn test_denomination_constants() {
+        // Verify denomination relationships
+        assert_eq!(MILLI_QI, QI / 1_000);
+        assert_eq!(MICRO_QI, QI / 1_000_000);
+        assert_eq!(NANO_QI, QI / 1_000_000_000);
+        
+        // 1 Qi = 1 GB worth of data
+        assert_eq!(BYTES_PER_GB * RATE_PER_BYTE, QI);
     }
 }

@@ -1,419 +1,391 @@
+// cinQ Chat - P2P Messaging Client
 document.addEventListener('DOMContentLoaded', init);
 
 function init() {
-    console.log('cinQ Connect initializing...');
+    console.log('cinQ Chat initializing...');
     
+    // State
     const state = {
-        walletConnected: false,
-        walletAddress: null,
-        walletBalance: 0,
-        escrowBalance: 0,
         nodeRunning: false,
-        proxyRunning: false,
-        hops: 0,
-        bandwidthUsed: 0,
-        bandwidthLimit: 10,
+        peerId: null,
+        peers: [],
+        conversations: [],
+        currentConversation: null,
+        messages: [],
     };
 
-    // DOM Elements - Landing
-    const landingPage = document.getElementById('landing-page');
+    // DOM Elements
+    const landing = document.getElementById('landing');
     const mainApp = document.getElementById('main-app');
     const connectBtn = document.getElementById('connect-btn');
-    const disconnectWallet = document.getElementById('disconnect-wallet');
-    const walletAddrEl = document.getElementById('wallet-addr');
-    
-    // DOM Elements - Main Interface
-    const nodeDot = document.getElementById('node-dot');
-    const nodeStatus = document.getElementById('node-status');
+    const disconnectBtn = document.getElementById('disconnect-btn');
+    const statusDot = document.getElementById('status-dot');
     const peerCount = document.getElementById('peer-count');
-    const bytesSent = document.getElementById('bytes-sent');
-    const bytesReceived = document.getElementById('bytes-received');
-    const bandwidthBar = document.getElementById('bandwidth-bar');
-    const bandwidthPercent = document.getElementById('bandwidth-percent');
-    const speedUp = document.getElementById('speed-up');
-    const speedDown = document.getElementById('speed-down');
-    const depinPeers = document.getElementById('depin-peers');
-    const securityLevel = document.getElementById('security-level');
-    const depinStatus = document.getElementById('depin-status');
-    const escrowBalance = document.getElementById('escrow-balance');
-    const escrowUsd = document.getElementById('escrow-usd');
-    const walletBalance = document.getElementById('wallet-balance');
-    const addQi = document.getElementById('add-qi');
-    const hopBadges = document.querySelectorAll('.hop-badge');
+    const peerIdEl = document.getElementById('peer-id');
+    const copyPeerIdBtn = document.getElementById('copy-peer-id');
+    const conversationsEl = document.getElementById('conversations');
+    const noConversations = document.getElementById('no-conversations');
+    const noChatSelected = document.getElementById('no-chat-selected');
+    const chatView = document.getElementById('chat-view');
+    const chatAvatar = document.getElementById('chat-avatar');
+    const chatPeerName = document.getElementById('chat-peer-name');
+    const chatPeerId = document.getElementById('chat-peer-id');
+    const messagesEl = document.getElementById('messages');
+    const messageInput = document.getElementById('message-input');
+    const sendBtn = document.getElementById('send-btn');
+    const newChatBtn = document.getElementById('new-chat-btn');
+    const newChatModal = document.getElementById('new-chat-modal');
+    const peerList = document.getElementById('peer-list');
+    const newPeerIdInput = document.getElementById('new-peer-id');
+    const newPeerNameInput = document.getElementById('new-peer-name');
+    const cancelNewChat = document.getElementById('cancel-new-chat');
+    const startChatBtn = document.getElementById('start-chat-btn');
     
-    // DOM Elements - Controls
-    const nodeToggle = document.getElementById('node-toggle');
-    const nodeHint = document.getElementById('node-hint');
-    const proxyToggle = document.getElementById('proxy-toggle');
-    const proxyHint = document.getElementById('proxy-hint');
-    const proxyStatusEl = document.getElementById('proxy-status');
-    const proxyAddr = document.getElementById('proxy-addr');
-    const proxyConns = document.getElementById('proxy-conns');
+    // Dial peer modal elements
+    const dialPeerBtn = document.getElementById('dial-peer-btn');
+    const dialPeerModal = document.getElementById('dial-peer-modal');
+    const dialAddressInput = document.getElementById('dial-address');
+    const cancelDial = document.getElementById('cancel-dial');
+    const dialBtn = document.getElementById('dial-btn');
+    const dialStatus = document.getElementById('dial-status');
 
-    if (!connectBtn) {
-        console.error('Connect button not found!');
-        return;
+    // Tauri invoke helper
+    async function invoke(cmd, args = {}) {
+        if (window.__TAURI__?.core?.invoke) {
+            return await window.__TAURI__.core.invoke(cmd, args);
+        }
+        // Demo mode fallback
+        console.log('Demo mode:', cmd, args);
+        return { success: true, data: null };
     }
-    console.log('DOM elements ready');
 
-    // ============================================
-    // Pelagus Wallet Integration
-    // ============================================
-    
-    function detectPelagus() {
-        return typeof window.pelagus !== 'undefined';
-    }
-    
-    async function connectPelagusWallet() {
-        if (!detectPelagus()) {
-            alert('Pelagus Wallet not detected.\n\nPlease install the Pelagus browser extension from pelaguswallet.io');
-            window.open('https://pelaguswallet.io/', '_blank');
-            return null;
+    // Format time
+    function formatTime(timestamp) {
+        const date = new Date(timestamp);
+        const now = new Date();
+        const isToday = date.toDateString() === now.toDateString();
+        if (isToday) {
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         }
-        
-        try {
-            console.log('Requesting Pelagus accounts...');
-            const accounts = await window.pelagus.request({ 
-                method: 'quai_requestAccounts' 
-            });
-            
-            if (accounts && accounts.length > 0) {
-                const address = accounts[0];
-                console.log('Connected to Pelagus:', address);
-                return address;
-            } else {
-                console.log('No accounts returned from Pelagus');
-                return null;
-            }
-        } catch (error) {
-            if (error.code === 4001) {
-                console.log('User rejected Pelagus connection request');
-                alert('Connection rejected. Please approve the connection in Pelagus to use cinQ Connect.');
-            } else {
-                console.error('Failed to connect Pelagus:', error);
-                alert('Failed to connect to Pelagus: ' + error.message);
-            }
-            return null;
+        return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    }
+
+    // Short peer ID
+    function shortPeerId(peerId) {
+        if (!peerId) return '?';
+        return peerId.substring(0, 8) + '...';
+    }
+
+    // Get initial from name
+    function getInitial(name) {
+        return name ? name.charAt(0).toUpperCase() : '?';
+    }
+
+    // Update UI
+    function updateStatus() {
+        statusDot.classList.toggle('online', state.nodeRunning);
+        peerCount.textContent = state.peers.length;
+        if (state.peerId) {
+            peerIdEl.textContent = shortPeerId(state.peerId);
+            peerIdEl.title = state.peerId;
         }
     }
-    
-    async function getPelagusBalance(address) {
-        if (!detectPelagus() || !address) {
-            return 0;
+
+    function renderConversations() {
+        if (state.conversations.length === 0) {
+            noConversations.classList.remove('hidden');
+            return;
         }
         
-        try {
-            const balanceHex = await window.pelagus.request({
-                method: 'quai_getBalance',
-                params: [address, 'latest']
-            });
-            
-            const balanceWei = BigInt(balanceHex);
-            const balanceQi = Number(balanceWei) / 1e18;
-            
-            console.log('Pelagus balance:', balanceQi, 'Qi');
-            return balanceQi;
-        } catch (error) {
-            console.error('Failed to get balance:', error);
-            return 0;
-        }
-    }
-    
-    function setupPelagusListeners() {
-        if (!detectPelagus()) return;
+        noConversations.classList.add('hidden');
         
-        window.pelagus.on('accountsChanged', async (accounts) => {
-            console.log('Pelagus accounts changed:', accounts);
-            if (accounts.length === 0) {
-                doDisconnectWallet();
-            } else if (accounts[0] !== state.walletAddress) {
-                state.walletAddress = accounts[0];
-                state.walletBalance = await getPelagusBalance(accounts[0]);
-                updateBalances();
-                updateWalletDisplay();
-            }
-        });
+        // Clear and rebuild (keep empty state hidden)
+        const existingConvs = conversationsEl.querySelectorAll('.conversation');
+        existingConvs.forEach(el => el.remove());
         
-        window.pelagus.on('chainChanged', (chainId) => {
-            console.log('Pelagus chain changed:', chainId);
-            if (state.walletAddress) {
-                getPelagusBalance(state.walletAddress).then(balance => {
-                    state.walletBalance = balance;
-                    updateBalances();
-                });
-            }
+        state.conversations.forEach(conv => {
+            const el = document.createElement('div');
+            el.className = 'conversation' + (state.currentConversation?.id === conv.id ? ' active' : '');
+            el.dataset.id = conv.id;
+            el.dataset.peerId = conv.peer_id;
+            
+            el.innerHTML = `
+                <div class="conv-avatar">${getInitial(conv.display_name)}</div>
+                <div class="conv-info">
+                    <div class="conv-name">${conv.display_name || shortPeerId(conv.peer_id)}</div>
+                    <div class="conv-preview">${conv.last_message || 'No messages yet'}</div>
+                </div>
+                <div class="conv-meta">
+                    ${conv.last_message_at ? `<span class="conv-time">${formatTime(conv.last_message_at)}</span>` : ''}
+                    ${conv.unread_count > 0 ? `<span class="conv-unread">${conv.unread_count}</span>` : ''}
+                </div>
+            `;
+            
+            el.addEventListener('click', () => selectConversation(conv));
+            conversationsEl.appendChild(el);
         });
     }
 
-    // ============================================
-    // Utility Functions
-    // ============================================
-
-    function formatBytes(bytes) {
-        if (bytes === 0) return '0 B';
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-    }
-    
-    function shortenAddress(address) {
-        if (!address) return '';
-        return address.slice(0, 6) + '...' + address.slice(-4);
-    }
-
-    // ============================================
-    // UI Update Functions
-    // ============================================
-
-    function updateWalletUI() {
-        if (state.walletConnected) {
-            landingPage.classList.add('hidden');
-            mainApp.classList.remove('hidden');
-        } else {
-            landingPage.classList.remove('hidden');
-            mainApp.classList.add('hidden');
-        }
-    }
-    
-    function updateWalletDisplay() {
-        if (walletAddrEl && state.walletAddress) {
-            walletAddrEl.textContent = shortenAddress(state.walletAddress);
-            walletAddrEl.title = state.walletAddress;
-        }
-    }
-
-    function updateBalances() {
-        escrowBalance.textContent = state.escrowBalance.toFixed(4);
-        escrowUsd.textContent = (state.escrowBalance * 0.15).toFixed(2);
-        walletBalance.textContent = state.walletBalance.toFixed(4);
-    }
-
-    function updateHops(hops) {
-        state.hops = hops;
-        hopBadges.forEach(btn => {
-            btn.classList.toggle('active', parseInt(btn.dataset.hops) === hops);
+    function renderMessages() {
+        messagesEl.innerHTML = '';
+        
+        state.messages.forEach(msg => {
+            const el = document.createElement('div');
+            el.className = 'message ' + (msg.is_outgoing ? 'outgoing' : 'incoming');
+            
+            el.innerHTML = `
+                <div class="message-content">${escapeHtml(msg.content)}</div>
+                <div class="message-time">
+                    ${formatTime(msg.timestamp)}
+                    ${msg.is_outgoing ? `<span class="message-status">${msg.status === 'sent' ? '✓' : msg.status === 'delivered' ? '✓✓' : ''}</span>` : ''}
+                </div>
+            `;
+            
+            messagesEl.appendChild(el);
         });
-        securityLevel.textContent = hops + ' Hops';
-    }
-
-    function updateNodeStatus(running) {
-        state.nodeRunning = running;
-        nodeDot.classList.toggle('online', running);
-        nodeStatus.textContent = running ? 'Online' : 'Offline';
-        depinStatus.textContent = running ? 'Active' : 'Idle';
-        if (nodeToggle) nodeToggle.checked = running;
-        if (nodeHint) nodeHint.textContent = running ? 'Connected to mesh' : 'Start to join network';
         
-        if (proxyToggle) {
-            proxyToggle.disabled = !running;
-            if (!running && state.proxyRunning) {
-                doStopProxy();
-            }
-        }
+        // Scroll to bottom
+        messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
-    function updateProxyStatus(running, address, connections) {
-        state.proxyRunning = running;
-        if (proxyToggle) proxyToggle.checked = running;
-        if (proxyHint) proxyHint.textContent = running ? (address || '127.0.0.1:1080') : 'Start node first';
-        if (proxyStatusEl) proxyStatusEl.classList.toggle('active', running);
-        if (proxyAddr) proxyAddr.textContent = running ? address : '';
-        if (proxyConns) proxyConns.textContent = running ? (connections + ' active connections') : '';
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
-    function updateStats(peers, sent, received) {
-        peerCount.textContent = peers;
-        depinPeers.textContent = peers;
-        bytesSent.textContent = formatBytes(sent);
-        bytesReceived.textContent = formatBytes(received);
-        speedUp.textContent = formatBytes(sent) + '/s';
-        speedDown.textContent = formatBytes(received) + '/s';
-        
-        const usedGb = (sent + received) / (1024 * 1024 * 1024);
-        const limit = state.escrowBalance || 10;
-        const percent = Math.min((usedGb / limit) * 100, 100);
-        bandwidthBar.style.width = percent + '%';
-        bandwidthPercent.textContent = Math.round(percent) + '%';
-    }
-
-    // ============================================
-    // Wallet Actions
-    // ============================================
-
-    async function doConnectWallet() {
-        console.log('Connecting wallet...');
-        connectBtn.textContent = 'Connecting...';
+    // Actions
+    async function startNode() {
+        console.log('Starting node...');
         connectBtn.disabled = true;
+        connectBtn.textContent = 'Starting...';
         
         try {
-            const address = await connectPelagusWallet();
-            
-            if (address) {
-                state.walletConnected = true;
-                state.walletAddress = address;
-                state.walletBalance = await getPelagusBalance(address);
-                state.escrowBalance = 0;
+            const result = await invoke('start_node');
+            if (result.success) {
+                state.nodeRunning = true;
+                state.peerId = result.data;
+                landing.classList.add('hidden');
+                mainApp.classList.remove('hidden');
                 
-                setupPelagusListeners();
-                updateWalletUI();
-                updateWalletDisplay();
-                updateBalances();
-                
-                doStartNode();
-            }
-        } catch (error) {
-            console.error('Wallet connection error:', error);
-        } finally {
-            connectBtn.textContent = 'Connect Pelagus';
-            connectBtn.disabled = false;
-        }
-    }
-
-    function doDisconnectWallet() {
-        console.log('Disconnecting wallet...');
-        if (state.proxyRunning) doStopProxy();
-        if (state.nodeRunning) doStopNode();
-        state.walletConnected = false;
-        state.walletAddress = null;
-        state.walletBalance = 0;
-        state.escrowBalance = 0;
-        updateWalletUI();
-    }
-
-    async function doAddToEscrow() {
-        const amount = 10;
-        
-        if (state.walletBalance < amount) {
-            alert('Insufficient Qi balance');
-            return;
-        }
-        
-        if (detectPelagus() && state.walletAddress) {
-            console.log('Adding to escrow (simulated):', amount, 'Qi');
-        }
-        
-        state.walletBalance -= amount;
-        state.escrowBalance += amount;
-        updateBalances();
-    }
-
-    // ============================================
-    // Node & Proxy Control
-    // ============================================
-
-    let pollInterval = null;
-
-    async function doStartNode() {
-        try {
-            if (window.__TAURI__ && window.__TAURI__.core) {
-                const response = await window.__TAURI__.core.invoke('start_node');
-                if (response.success) {
-                    updateNodeStatus(true);
-                    startPolling();
-                } else {
-                    console.error('Failed to start node:', response.error);
-                    if (nodeToggle) nodeToggle.checked = false;
-                }
-            } else {
-                updateNodeStatus(true);
+                // Start polling
                 startPolling();
+                
+                // Load conversations
+                await loadConversations();
+            } else {
+                alert('Failed to start: ' + result.error);
             }
-        } catch (error) {
-            console.error('Failed to start node:', error);
-            if (nodeToggle) nodeToggle.checked = false;
+        } catch (e) {
+            console.error('Start failed:', e);
+            alert('Failed to start node');
         }
+        
+        connectBtn.disabled = false;
+        connectBtn.textContent = 'Start cinQ';
+        updateStatus();
     }
 
-    async function doStopNode() {
+    async function stopNode() {
         try {
-            if (state.proxyRunning) {
-                await doStopProxy();
+            await invoke('stop_node');
+        } catch (e) {
+            console.error('Stop failed:', e);
+        }
+        
+        state.nodeRunning = false;
+        state.peerId = null;
+        state.peers = [];
+        state.conversations = [];
+        state.currentConversation = null;
+        state.messages = [];
+        
+        stopPolling();
+        
+        mainApp.classList.add('hidden');
+        landing.classList.remove('hidden');
+        updateStatus();
+    }
+
+    async function loadConversations() {
+        try {
+            const result = await invoke('get_conversations');
+            if (result.success && result.data) {
+                state.conversations = result.data;
+                renderConversations();
             }
-            if (window.__TAURI__ && window.__TAURI__.core) {
-                await window.__TAURI__.core.invoke('stop_node');
-            }
-            updateNodeStatus(false);
-            stopPolling();
-        } catch (error) {
-            console.error('Failed to stop node:', error);
+        } catch (e) {
+            console.error('Failed to load conversations:', e);
         }
     }
 
-    async function doStartProxy() {
-        if (!state.nodeRunning) {
-            alert('Please start the node first');
-            if (proxyToggle) proxyToggle.checked = false;
+    async function selectConversation(conv) {
+        state.currentConversation = conv;
+        
+        // Update UI
+        noChatSelected.classList.add('hidden');
+        chatView.classList.remove('hidden');
+        chatAvatar.textContent = getInitial(conv.display_name);
+        chatPeerName.textContent = conv.display_name || shortPeerId(conv.peer_id);
+        chatPeerId.textContent = conv.peer_id;
+        
+        // Mark as read
+        if (conv.unread_count > 0) {
+            await invoke('mark_conversation_read', { conversationId: conv.id });
+            conv.unread_count = 0;
+        }
+        
+        // Load messages
+        try {
+            const result = await invoke('get_messages', { conversationId: conv.id, limit: 50 });
+            if (result.success && result.data) {
+                state.messages = result.data;
+                renderMessages();
+            }
+        } catch (e) {
+            console.error('Failed to load messages:', e);
+        }
+        
+        renderConversations();
+        messageInput.focus();
+    }
+
+    async function sendMessage() {
+        const content = messageInput.value.trim();
+        if (!content || !state.currentConversation) return;
+        
+        messageInput.value = '';
+        messageInput.disabled = true;
+        sendBtn.disabled = true;
+        
+        try {
+            const result = await invoke('send_message', {
+                peerId: state.currentConversation.peer_id,
+                content: content,
+            });
+            
+            if (result.success && result.data) {
+                // Add to local messages
+                state.messages.push(result.data);
+                renderMessages();
+                
+                // Update conversation preview
+                state.currentConversation.last_message = content;
+                state.currentConversation.last_message_at = result.data.timestamp;
+                renderConversations();
+            } else {
+                alert('Failed to send: ' + (result.error || 'Unknown error'));
+            }
+        } catch (e) {
+            console.error('Send failed:', e);
+            alert('Failed to send message');
+        }
+        
+        messageInput.disabled = false;
+        sendBtn.disabled = false;
+        messageInput.focus();
+    }
+
+    async function startNewChat() {
+        const peerId = newPeerIdInput.value.trim();
+        const displayName = newPeerNameInput.value.trim() || shortPeerId(peerId);
+        
+        if (!peerId) {
+            alert('Please enter a Peer ID');
             return;
         }
+        
         try {
-            if (window.__TAURI__ && window.__TAURI__.core) {
-                const response = await window.__TAURI__.core.invoke('start_proxy', { port: 1080 });
-                if (response.success) {
-                    updateProxyStatus(true, response.data, 0);
-                    console.log('SOCKS5 proxy started on', response.data);
-                } else {
-                    console.error('Failed to start proxy:', response.error);
-                    alert('Failed to start proxy: ' + response.error);
-                    if (proxyToggle) proxyToggle.checked = false;
-                }
-            } else {
-                updateProxyStatus(true, '127.0.0.1:1080', 0);
-            }
-        } catch (error) {
-            console.error('Failed to start proxy:', error);
-            if (proxyToggle) proxyToggle.checked = false;
-        }
-    }
-
-    async function doStopProxy() {
-        try {
-            if (window.__TAURI__ && window.__TAURI__.core) {
-                await window.__TAURI__.core.invoke('stop_proxy');
-            }
-            updateProxyStatus(false, '', 0);
-        } catch (error) {
-            console.error('Failed to stop proxy:', error);
-        }
-    }
-
-    // ============================================
-    // Polling & Stats
-    // ============================================
-
-    async function fetchStats() {
-        try {
-            if (window.__TAURI__ && window.__TAURI__.core) {
-                const [peersRes, metricsRes, proxyRes] = await Promise.all([
-                    window.__TAURI__.core.invoke('get_peers'),
-                    window.__TAURI__.core.invoke('get_billing_summary'),
-                    window.__TAURI__.core.invoke('get_proxy_status')
-                ]);
-                if (peersRes.success && metricsRes.success) {
-                    updateStats(peersRes.data.length, metricsRes.data.total_bytes_sent, metricsRes.data.total_bytes_received);
-                }
-                if (proxyRes.success && proxyRes.data) {
-                    updateProxyStatus(proxyRes.data.running, proxyRes.data.listen_address, proxyRes.data.active_connections);
-                }
-            } else {
-                updateStats(0, 0, 0);
-            }
+            const result = await invoke('start_conversation', {
+                peerId: peerId,
+                displayName: displayName || null,
+            });
             
-            if (state.walletConnected && state.walletAddress && detectPelagus()) {
-                const newBalance = await getPelagusBalance(state.walletAddress);
-                if (Math.abs(newBalance - state.walletBalance) > 0.0001) {
-                    state.walletBalance = newBalance;
-                    updateBalances();
+            if (result.success && result.data) {
+                // Check if already in list
+                const existing = state.conversations.find(c => c.peer_id === peerId);
+                if (!existing) {
+                    state.conversations.unshift(result.data);
                 }
+                
+                closeNewChatModal();
+                renderConversations();
+                selectConversation(result.data);
+            } else {
+                alert('Failed: ' + (result.error || 'Unknown error'));
             }
-        } catch (error) {
-            console.error('Failed to fetch stats:', error);
+        } catch (e) {
+            console.error('Start conversation failed:', e);
         }
     }
 
+    function openNewChatModal() {
+        // Populate peer list with connected peers
+        peerList.innerHTML = '';
+        
+        if (state.peers.length > 0) {
+            state.peers.forEach(peer => {
+                const el = document.createElement('div');
+                el.className = 'peer-item';
+                el.innerHTML = `
+                    <span class="dot"></span>
+                    <span class="peer-id">${shortPeerId(peer.peer_id)}</span>
+                `;
+                el.addEventListener('click', () => {
+                    newPeerIdInput.value = peer.peer_id;
+                });
+                peerList.appendChild(el);
+            });
+        } else {
+            peerList.innerHTML = '<div style="color: var(--text-dim); font-size: 0.85rem;">No peers online</div>';
+        }
+        
+        newPeerIdInput.value = '';
+        newPeerNameInput.value = '';
+        newChatModal.classList.remove('hidden');
+    }
+
+    function closeNewChatModal() {
+        newChatModal.classList.add('hidden');
+    }
+
+    // Polling
+    let pollInterval = null;
+    
     function startPolling() {
-        fetchStats();
-        pollInterval = setInterval(fetchStats, 5000);
+        pollInterval = setInterval(async () => {
+            if (!state.nodeRunning) return;
+            
+            try {
+                // Get peers
+                const peersResult = await invoke('get_peers');
+                if (peersResult.success && peersResult.data) {
+                    state.peers = peersResult.data;
+                    updateStatus();
+                }
+                
+                // Refresh conversations
+                await loadConversations();
+                
+                // If viewing a conversation, refresh messages
+                if (state.currentConversation) {
+                    const msgResult = await invoke('get_messages', { 
+                        conversationId: state.currentConversation.id, 
+                        limit: 50 
+                    });
+                    if (msgResult.success && msgResult.data) {
+                        const newCount = msgResult.data.length;
+                        const oldCount = state.messages.length;
+                        state.messages = msgResult.data;
+                        if (newCount !== oldCount) {
+                            renderMessages();
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('Polling error:', e);
+            }
+        }, 3000);
     }
 
     function stopPolling() {
@@ -423,74 +395,115 @@ function init() {
         }
     }
 
-    // ============================================
     // Event Listeners
-    // ============================================
+    connectBtn.addEventListener('click', startNode);
+    disconnectBtn.addEventListener('click', stopNode);
+    newChatBtn.addEventListener('click', openNewChatModal);
+    cancelNewChat.addEventListener('click', closeNewChatModal);
+    startChatBtn.addEventListener('click', startNewChat);
     
-    connectBtn.addEventListener('click', function() {
-        console.log('Connect button clicked!');
-        doConnectWallet();
-    });
-    
-    disconnectWallet.addEventListener('click', function() {
-        console.log('Disconnect clicked!');
-        doDisconnectWallet();
-    });
-
-    addQi.addEventListener('click', doAddToEscrow);
-
-    hopBadges.forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            updateHops(parseInt(btn.dataset.hops));
-        });
-    });
-
-    if (nodeToggle) {
-        nodeToggle.addEventListener('change', function(e) {
-            if (e.target.checked) {
-                doStartNode();
-            } else {
-                doStopNode();
-            }
-        });
-    }
-
-    if (proxyToggle) {
-        proxyToggle.addEventListener('change', function(e) {
-            if (e.target.checked) {
-                doStartProxy();
-            } else {
-                doStopProxy();
-            }
-        });
-    }
-
-    // ============================================
-    // Initialization
-    // ============================================
-    
-    async function checkExistingConnection() {
-        if (detectPelagus()) {
-            try {
-                const accounts = await window.pelagus.request({ method: 'quai_accounts' });
-                if (accounts && accounts.length > 0) {
-                    console.log('Found existing Pelagus connection:', accounts[0]);
-                    state.walletConnected = true;
-                    state.walletAddress = accounts[0];
-                    state.walletBalance = await getPelagusBalance(accounts[0]);
-                    setupPelagusListeners();
-                    updateWalletUI();
-                    updateWalletDisplay();
-                    updateBalances();
-                    doStartNode();
-                }
-            } catch (error) {
-                console.log('No existing Pelagus connection');
-            }
+    // Copy Peer ID to clipboard
+    async function copyPeerId() {
+        if (!state.peerId) return;
+        try {
+            await navigator.clipboard.writeText(state.peerId);
+            copyPeerIdBtn.textContent = '✓';
+            setTimeout(() => { copyPeerIdBtn.textContent = '📋'; }, 1500);
+        } catch (e) {
+            // Fallback
+            prompt('Your Peer ID:', state.peerId);
         }
     }
+    
+    copyPeerIdBtn.addEventListener('click', copyPeerId);
+    peerIdEl.addEventListener('click', copyPeerId);
+    
+    sendBtn.addEventListener('click', sendMessage);
+    messageInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+    
+    // Close modal on overlay click
+    newChatModal.addEventListener('click', (e) => {
+        if (e.target === newChatModal) {
+            closeNewChatModal();
+        }
+    });
+    
+    // Select peer from list by clicking
+    peerList.addEventListener('click', (e) => {
+        const peerItem = e.target.closest('.peer-item');
+        if (peerItem) {
+            const peerId = peerItem.querySelector('.peer-id').textContent;
+            // Find full peer ID
+            const peer = state.peers.find(p => shortPeerId(p.peer_id) === peerId);
+            if (peer) {
+                newPeerIdInput.value = peer.peer_id;
+            }
+        }
+    });
+    
+    // Dial Peer Modal
+    function openDialModal() {
+        dialAddressInput.value = '';
+        dialStatus.textContent = '';
+        dialPeerModal.classList.remove('hidden');
+        dialAddressInput.focus();
+    }
+    
+    function closeDialModal() {
+        dialPeerModal.classList.add('hidden');
+    }
+    
+    async function dialPeer() {
+        const address = dialAddressInput.value.trim();
+        if (!address) {
+            dialStatus.style.color = 'var(--red)';
+            dialStatus.textContent = 'Please enter an address';
+            return;
+        }
+        
+        dialBtn.disabled = true;
+        dialBtn.textContent = 'Connecting...';
+        dialStatus.style.color = 'var(--text-dim)';
+        dialStatus.textContent = 'Dialing...';
+        
+        try {
+            const result = await invoke('connect_peer', { address: address });
+            if (result.success) {
+                dialStatus.style.color = 'var(--green)';
+                dialStatus.textContent = '✓ Connection initiated! Peer should appear shortly.';
+                setTimeout(() => {
+                    closeDialModal();
+                }, 2000);
+            } else {
+                dialStatus.style.color = 'var(--red)';
+                dialStatus.textContent = '✗ ' + (result.error || 'Connection failed');
+            }
+        } catch (e) {
+            console.error('Dial failed:', e);
+            dialStatus.style.color = 'var(--red)';
+            dialStatus.textContent = '✗ ' + e.message;
+        }
+        
+        dialBtn.disabled = false;
+        dialBtn.textContent = 'Connect';
+    }
+    
+    dialPeerBtn.addEventListener('click', openDialModal);
+    cancelDial.addEventListener('click', closeDialModal);
+    dialBtn.addEventListener('click', dialPeer);
+    
+    dialAddressInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') dialPeer();
+    });
+    
+    dialPeerModal.addEventListener('click', (e) => {
+        if (e.target === dialPeerModal) closeDialModal();
+    });
 
-    updateHops(0);
-    checkExistingConnection();
-    console.log('cinQ Connect ready!');
+    console.log('cinQ Chat ready!');
 }
