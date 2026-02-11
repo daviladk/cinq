@@ -156,6 +156,68 @@ The $CINQ economy is designed to reward long-term participation and high-integri
 
 **Privileged Access:** Higher-tier NFTs unlock "Priority Routing" from the Navigator Agent and allow hardware providers to bid on high-value "Sentinel" and "Conductor" contracts within the Qora swarm.
 
+#### On-Chain Identity Structure
+
+```
+┌─────────────────────────────────────────┐
+│  cinQ Soulbound Identity NFT (ERC-5192) │
+├─────────────────────────────────────────┤
+│  Quai Address: 0x7a3b...               │
+│  Qi Payment Code: PM8TJT...            │
+│  libp2p Node ID: 12D3KooW...           │
+├─────────────────────────────────────────┤
+│  $CINQ Balance: 12,847                 │
+│  Bandwidth Contributed: 2.4 TB          │
+│  Uptime Score: 99.2%                   │
+│  Member Since: Block #1,234,567        │
+├─────────────────────────────────────────┤
+│  Recovery Guardians (3-of-5):           │
+│  - PM8T...friend1 ✓                     │
+│  - PM8T...friend2 ✓                     │
+│  - PM8T...friend3                       │
+│  Encrypted Backup: ipfs://Qm...         │
+└─────────────────────────────────────────┘
+```
+
+#### Anti-Sybil Minting Fee
+
+To prevent abuse while remaining accessible globally:
+
+| Mint Method | Cost | Use Case |
+|-------------|------|----------|
+| **Quai Payment** | 0.01 Quai | Standard onboarding |
+| **Qi Burn** | 100 Qi | Proves prior network participation |
+| **Referral Vouch** | Free | Existing member sponsors new user |
+
+The fee creates economic friction against Sybil attacks—minting 1,000 fake identities would cost 10 Quai minimum, far exceeding any exploit value.
+
+#### Social Recovery Flow
+
+When a user loses access to their wallet:
+
+1. **Initiate Recovery:** User contacts 3-of-5 designated guardians (other cinQ members)
+2. **Guardian Attestation:** Each guardian signs a message: "I attest that [new wallet] belongs to the owner of SBT #12345"
+3. **On-Chain Verification:** Smart contract validates 3+ guardian signatures
+4. **Identity Migration:** 
+   - Old SBT marked as "recovered" (metadata frozen)
+   - New SBT minted to new wallet with same reputation history
+   - Old wallet's access revoked from mesh services
+5. **Cooldown Period:** 7-day delay before full access, allowing dispute
+
+This provides seed-phrase-free recovery while maintaining cryptographic proof of personhood.
+
+#### Scalability Architecture
+
+Designed to support millions of identities on Quai Network:
+
+| Challenge | Solution |
+|-----------|----------|
+| **Gas costs** | ERC-5192 minimal storage; bulk metadata on IPFS |
+| **Cross-zone identity** | SBT minted on Cyprus-1, recognized via Quai's merge-mining |
+| **Reputation updates** | Merkle root posted weekly; individual proofs on-demand |
+| **Guardian changes** | Gasless signatures; on-chain only at recovery time |
+| **Metadata growth** | IPFS CID in contract; full history off-chain |
+
 ### Sustainability
 
 **Sustainability:** Redemption reserves are funded by a consistent 10% network fee on all provider transactions, ensuring the Foundation can always back the 1% rebate.
