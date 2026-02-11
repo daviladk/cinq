@@ -7,6 +7,7 @@ mod grid;
 
 use grid::{CinqNode, BandwidthMetrics, GridPeer, ProxyStatus, NodeConfig, BootstrapConfig};
 use grid::{ChatManager, ChatMessage, Contact, Conversation, MessageStatus};
+use grid::{StratumClient, PoolStats, Worker, StratumStatus};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tauri::State;
@@ -16,6 +17,7 @@ use serde::Serialize;
 pub struct CinqState {
     node: Arc<RwLock<Option<CinqNode>>>,
     chat: Arc<RwLock<Option<Arc<RwLock<ChatManager>>>>>,
+    stratum: Arc<RwLock<Option<StratumClient>>>,
 }
 
 impl CinqState {
@@ -23,6 +25,7 @@ impl CinqState {
         Self {
             node: Arc::new(RwLock::new(None)),
             chat: Arc::new(RwLock::new(None)),
+            stratum: Arc::new(RwLock::new(None)),
         }
     }
 }
@@ -535,6 +538,107 @@ async fn start_conversation(
     }
 }
 
+// ============================================================================
+// StratumX Commands - Connect to local go-quai node
+// ============================================================================
+
+/// Connect to StratumX API on local go-quai node
+#[tauri::command]
+async fn stratum_connect(
+    state: State<'_, CinqState>,
+    url: Option<String>,
+) -> Result<CommandResponse<StratumStatus>, String> {
+    let mut stratum_guard = state.stratum.write().await;
+    
+    let client = StratumClient::new(url);
+    
+    // Check connection
+    if !client.check_connection().await {
+        return Ok(CommandResponse::err("Cannot connect to StratumX API. Is go-quai running with --node.stratum-enabled?"));
+    }
+    
+    // Get initial stats
+    match client.get_pool_stats().await {
+        Ok(stats) => {
+            let status = StratumStatus::from(&stats);
+            *stratum_guard = Some(client);
+            log::info!("Connected to StratumX: {:?}", status);
+            Ok(CommandResponse::ok(status))
+        }
+        Err(e) => {
+            Ok(CommandResponse::err(format!("Failed to get pool stats: {}", e)))
+        }
+    }
+}
+
+/// Disconnect from StratumX
+#[tauri::command]
+async fn stratum_disconnect(state: State<'_, CinqState>) -> Result<CommandResponse<()>, String> {
+    let mut stratum_guard = state.stratum.write().await;
+    *stratum_guard = None;
+    log::info!("Disconnected from StratumX");
+    Ok(CommandResponse::ok(()))
+}
+
+/// Get StratumX pool stats
+#[tauri::command]
+async fn stratum_get_stats(state: State<'_, CinqState>) -> Result<CommandResponse<PoolStats>, String> {
+    let stratum_guard = state.stratum.read().await;
+    
+    match stratum_guard.as_ref() {
+        Some(client) => {
+            match client.get_pool_stats().await {
+                Ok(stats) => Ok(CommandResponse::ok(stats)),
+                Err(e) => Ok(CommandResponse::err(format!("Failed to get stats: {}", e))),
+            }
+        }
+        None => Ok(CommandResponse::err("Not connected to StratumX")),
+    }
+}
+
+/// Get StratumX workers (potential chat peers)
+#[tauri::command]
+async fn stratum_get_workers(state: State<'_, CinqState>) -> Result<CommandResponse<Vec<Worker>>, String> {
+    let stratum_guard = state.stratum.read().await;
+    
+    match stratum_guard.as_ref() {
+        Some(client) => {
+            match client.get_workers().await {
+                Ok(workers) => Ok(CommandResponse::ok(workers)),
+                Err(e) => Ok(CommandResponse::err(format!("Failed to get workers: {}", e))),
+            }
+        }
+        None => Ok(CommandResponse::err("Not connected to StratumX")),
+    }
+}
+
+/// Get unique miner addresses from StratumX
+#[tauri::command]
+async fn stratum_get_miners(state: State<'_, CinqState>) -> Result<CommandResponse<Vec<String>>, String> {
+    let stratum_guard = state.stratum.read().await;
+    
+    match stratum_guard.as_ref() {
+        Some(client) => {
+            match client.get_miner_addresses().await {
+                Ok(addresses) => Ok(CommandResponse::ok(addresses)),
+                Err(e) => Ok(CommandResponse::err(format!("Failed to get miners: {}", e))),
+            }
+        }
+        None => Ok(CommandResponse::err("Not connected to StratumX")),
+    }
+}
+
+/// Check if connected to StratumX
+#[tauri::command]
+async fn stratum_is_connected(state: State<'_, CinqState>) -> Result<CommandResponse<bool>, String> {
+    let stratum_guard = state.stratum.read().await;
+    
+    match stratum_guard.as_ref() {
+        Some(client) => Ok(CommandResponse::ok(client.is_connected().await)),
+        None => Ok(CommandResponse::ok(false)),
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_log::Builder::default().build())
@@ -561,6 +665,13 @@ fn main() {
             add_contact,
             mark_conversation_read,
             start_conversation,
+            // StratumX commands
+            stratum_connect,
+            stratum_disconnect,
+            stratum_get_stats,
+            stratum_get_workers,
+            stratum_get_miners,
+            stratum_is_connected,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Cinq Connect");

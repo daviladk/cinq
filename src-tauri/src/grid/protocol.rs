@@ -363,7 +363,7 @@ pub fn new_autonat(local_peer_id: PeerId) -> autonat::Behaviour {
     )
 }
 
-/// Combined network behaviour for the Cinq node
+/// Combined network behaviour for the Cinq node (client mode)
 #[derive(NetworkBehaviour)]
 pub struct CinqBehaviour {
     /// mDNS for local network discovery
@@ -376,6 +376,27 @@ pub struct CinqBehaviour {
     pub autonat: autonat::Behaviour,
     /// DCUTR for NAT hole punching
     pub dcutr: dcutr::Behaviour,
+    /// Relay client for connecting through relays when direct fails
+    pub relay_client: relay::client::Behaviour,
+    /// Our custom request-response protocol
+    pub protocol: CinqProtocolBehaviour,
+}
+
+/// Combined network behaviour for relay mode (includes relay server)
+#[derive(NetworkBehaviour)]
+pub struct CinqRelayBehaviour {
+    /// mDNS for local network discovery
+    pub mdns: libp2p::mdns::tokio::Behaviour,
+    /// Kademlia DHT for global peer discovery
+    pub kademlia: kad::Behaviour<kad::store::MemoryStore>,
+    /// Protocol identification
+    pub identify: identify::Behaviour,
+    /// AutoNAT for NAT type detection
+    pub autonat: autonat::Behaviour,
+    /// DCUTR for NAT hole punching
+    pub dcutr: dcutr::Behaviour,
+    /// Relay SERVER - allows other peers to relay through us
+    pub relay_server: relay::Behaviour,
     /// Relay client for connecting through relays when direct fails
     pub relay_client: relay::client::Behaviour,
     /// Our custom request-response protocol

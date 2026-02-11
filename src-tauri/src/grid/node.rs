@@ -19,7 +19,8 @@ use tokio::sync::{mpsc, RwLock};
 use super::bootstrap::{PeerStorage, BootstrapConfig};
 use super::metrics::BandwidthMetrics;
 use super::protocol::{
-    CinqBehaviour, CinqBehaviourEvent, CinqRequest, CinqResponse, 
+    CinqBehaviour, CinqBehaviourEvent, CinqRelayBehaviour, CinqRelayBehaviourEvent,
+    CinqRequest, CinqResponse, 
     new_cinq_protocol, new_kademlia, new_identify, new_autonat,
 };
 use super::proxy::{Socks5Proxy, ProxyConfig, ProxyStatus};
@@ -80,6 +81,10 @@ pub struct NodeConfig {
     pub data_dir: std::path::PathBuf,
     /// Bootstrap configuration
     pub bootstrap_config: BootstrapConfig,
+    /// Run in relay mode (headless, acts as bootstrap/relay for other peers)
+    pub relay_mode: bool,
+    /// External IP address for relay mode (advertised to peers)
+    pub external_ip: Option<String>,
 }
 
 impl Default for NodeConfig {
@@ -95,6 +100,8 @@ impl Default for NodeConfig {
             download_dir: "./cinq_downloads".to_string(),
             data_dir,
             bootstrap_config: BootstrapConfig::default(),
+            relay_mode: false,
+            external_ip: None,
         }
     }
 }

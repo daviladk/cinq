@@ -1,0 +1,40 @@
+# Build outputs
+src-tauri/target/
+dist-tauri/
+
+# Dependencies
+node_modules/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Tauri
+src-tauri/target/
+src-tauri/WixTools/
+src-tauri/Frameworks/
+
+# SQLite databases (user data - don't commit)
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# User data directory (for local testing)
+.cinq/
+
+# Keypairs (NEVER commit these)
+*.bin
+keypair.bin
