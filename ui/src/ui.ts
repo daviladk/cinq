@@ -10,6 +10,7 @@ interface AppState {
   peers: string[];
   walletInitialized: boolean;
   paymentCode: string | null;
+  quaiAddress: string | null;
   balance: bigint;
   currentView: 'landing' | 'main' | 'wallet-setup';
 }
@@ -17,7 +18,7 @@ interface AppState {
 interface AppActions {
   startNode: () => Promise<void>;
   stopNode: () => Promise<void>;
-  initializeNewWallet: () => Promise<{ mnemonic: string; paymentCode: string }>;
+  initializeNewWallet: () => Promise<{ mnemonic: string; paymentCode: string; quaiAddress: string }>;
   restoreWallet: (mnemonic: string) => Promise<void>;
   refreshBalance: () => Promise<void>;
   sendPayment: (recipient: string, amount: bigint) => Promise<any>;
@@ -106,6 +107,7 @@ function renderWalletSetup(actions: AppActions): string {
 function renderMain(state: AppState, actions: AppActions): string {
   const shortPeerId = state.peerId ? `${state.peerId.slice(0, 8)}...` : 'Not connected';
   const shortPaymentCode = state.paymentCode ? `${state.paymentCode.slice(0, 12)}...` : 'N/A';
+  const shortQuaiAddress = state.quaiAddress ? `${state.quaiAddress.slice(0, 10)}...${state.quaiAddress.slice(-6)}` : 'N/A';
   
   return `
     <div class="main-app">
@@ -121,10 +123,17 @@ function renderMain(state: AppState, actions: AppActions): string {
         <div class="card wallet-card">
           <h3>💰 Wallet</h3>
           <div class="balance">${formatQi(state.balance)}</div>
-          <div class="payment-code">
-            <label>Payment Code:</label>
-            <code id="payment-code" title="${state.paymentCode || ''}">${shortPaymentCode}</code>
-            <button id="copy-payment-code" class="btn-icon" title="Copy">📋</button>
+          <div class="wallet-addresses">
+            <div class="address-row">
+              <label>Qi Payment Code:</label>
+              <code id="payment-code" title="${state.paymentCode || ''}">${shortPaymentCode}</code>
+              <button id="copy-payment-code" class="btn-icon" title="Copy Payment Code">📋</button>
+            </div>
+            <div class="address-row">
+              <label>Quai Address (DeFi):</label>
+              <code id="quai-address" title="${state.quaiAddress || ''}">${shortQuaiAddress}</code>
+              <button id="copy-quai-address" class="btn-icon" title="Copy Quai Address">📋</button>
+            </div>
           </div>
           <button id="refresh-balance-btn" class="btn-secondary">Refresh Balance</button>
         </div>
@@ -255,6 +264,14 @@ function attachMainHandlers(state: AppState, actions: AppActions): void {
     if (state.paymentCode) {
       navigator.clipboard.writeText(state.paymentCode);
       showToast('Payment code copied!');
+    }
+  });
+  
+  // Copy Quai address
+  document.getElementById('copy-quai-address')?.addEventListener('click', () => {
+    if (state.quaiAddress) {
+      navigator.clipboard.writeText(state.quaiAddress);
+      showToast('Quai address copied!');
     }
   });
   

@@ -11,6 +11,7 @@
 export interface WalletState {
   initialized: boolean;
   paymentCode: string | null;
+  quaiAddress: string | null;
   balance: bigint;
   utxoCount: number;
   zone: string;
@@ -46,6 +47,7 @@ const DEFAULT_CONFIG: WalletConfig = {
 let walletState: WalletState = {
   initialized: false,
   paymentCode: null,
+  quaiAddress: null,
   balance: 0n,
   utxoCount: 0,
   zone: 'Cyprus1',
@@ -64,12 +66,14 @@ let onSenderCallbacks: SenderCallback[] = [];
 export async function createWallet(config: Partial<WalletConfig> = {}): Promise<{
   mnemonic: string;
   paymentCode: string;
+  quaiAddress: string;
 }> {
   const cfg = { ...DEFAULT_CONFIG, ...config };
   
   try {
     // Dynamic import to handle SDK availability
     const { QiAgentWallet } = await import('@quai/agent-sdk');
+    const { Mnemonic, HDNodeWallet } = await import('quais');
     
     const { wallet, mnemonic } = await QiAgentWallet.create({
       network: cfg.network,
@@ -78,17 +82,24 @@ export async function createWallet(config: Partial<WalletConfig> = {}): Promise<
     
     const paymentCode = wallet.getPaymentCode();
     
+    // Derive Quai address from same mnemonic (for DeFi/dApps)
+    const mnemonicObj = Mnemonic.fromPhrase(mnemonic);
+    const quaiWallet = HDNodeWallet.fromMnemonic(mnemonicObj, "m/44'/994'/0'/0/0");
+    const quaiAddress = quaiWallet.address;
+    
     // Update state
     walletState = {
       initialized: true,
       paymentCode,
+      quaiAddress,
       balance: 0n,
       utxoCount: 0,
       zone: 'Cyprus1',
     };
     
-    // Store wallet instance globally for later use
+    // Store wallet instance and mnemonic for later use
     (window as any).__cinqWallet = wallet;
+    (window as any).__cinqMnemonic = mnemonic;
     
     // Set up payment listeners
     wallet.onPaymentReceived((payment: any) => {
@@ -105,7 +116,7 @@ export async function createWallet(config: Partial<WalletConfig> = {}): Promise<
       onSenderCallbacks.forEach(cb => cb(sender));
     });
     
-    return { mnemonic, paymentCode };
+    return { mnemonic, paymentCode, quaiAddress };
   } catch (error) {
     console.error('Failed to create wallet:', error);
     throw new Error(`Wallet creation failed: ${error}`);
@@ -118,11 +129,12 @@ export async function createWallet(config: Partial<WalletConfig> = {}): Promise<
 export async function importWallet(
   mnemonic: string,
   config: Partial<WalletConfig> = {}
-): Promise<string> {
+): Promise<{ paymentCode: string; quaiAddress: string }> {
   const cfg = { ...DEFAULT_CONFIG, ...config };
   
   try {
     const { QiAgentWallet } = await import('@quai/agent-sdk');
+    const { Mnemonic, HDNodeWallet } = await import('quais');
     
     const wallet = await QiAgentWallet.fromMnemonic(mnemonic, {
       network: cfg.network,
@@ -131,6 +143,11 @@ export async function importWallet(
     
     const paymentCode = wallet.getPaymentCode();
     
+    // Derive Quai address from same mnemonic
+    const mnemonicObj = Mnemonic.fromPhrase(mnemonic);
+    const quaiWallet = HDNodeWallet.fromMnemonic(mnemonicObj, "m/44'/994'/0'/0/0");
+    const quaiAddress = quaiWallet.address;
+    
     // Sync to get current balance
     await wallet.sync();
     const balance = await wallet.getBalance();
@@ -138,14 +155,16 @@ export async function importWallet(
     walletState = {
       initialized: true,
       paymentCode,
+      quaiAddress,
       balance: balance.balance,
       utxoCount: balance.utxoCount,
       zone: 'Cyprus1',
     };
     
     (window as any).__cinqWallet = wallet;
+    (window as any).__cinqMnemonic = mnemonic;
     
-    return paymentCode;
+    return { paymentCode, quaiAddress };
   } catch (error) {
     console.error('Failed to import wallet:', error);
     throw new Error(`Wallet import failed: ${error}`);
@@ -283,6 +302,13 @@ export function getPaymentCode(): string | null {
 }
 
 /**
+ * Get Quai address for DeFi/dApps
+ */
+export function getQuaiAddress(): string | null {
+  return walletState.quaiAddress;
+}
+
+/**
  * Serialize wallet for persistence
  */
 export async function serializeWallet(): Promise<string> {
@@ -307,6 +333,7 @@ export async function deserializeWallet(
   
   try {
     const { QiAgentWallet } = await import('@quai/agent-sdk');
+    const { Mnemonic, HDNodeWallet } = await import('quais');
     
     const data = JSON.parse(json);
     const wallet = await QiAgentWallet.deserialize(data, mnemonic, {
@@ -316,15 +343,22 @@ export async function deserializeWallet(
     
     const paymentCode = wallet.getPaymentCode();
     
+    // Derive Quai address from mnemonic
+    const mnemonicObj = Mnemonic.fromPhrase(mnemonic);
+    const quaiWallet = HDNodeWallet.fromMnemonic(mnemonicObj, "m/44'/994'/0'/0/0");
+    const quaiAddress = quaiWallet.address;
+    
     walletState = {
       initialized: true,
       paymentCode,
+      quaiAddress,
       balance: 0n,
       utxoCount: 0,
       zone: 'Cyprus1',
     };
     
     (window as any).__cinqWallet = wallet;
+    (window as any).__cinqMnemonic = mnemonic;
     
     // Sync to get current state
     await wallet.sync();

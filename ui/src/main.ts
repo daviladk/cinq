@@ -18,6 +18,7 @@ interface AppState {
   // Wallet
   walletInitialized: boolean;
   paymentCode: string | null;
+  quaiAddress: string | null;
   balance: bigint;
   
   // UI
@@ -30,6 +31,7 @@ const state: AppState = {
   peers: [],
   walletInitialized: false,
   paymentCode: null,
+  quaiAddress: null,
   balance: 0n,
   currentView: 'landing',
 };
@@ -75,11 +77,12 @@ async function getPeers(): Promise<string[]> {
 }
 
 // Wallet integration
-async function initializeNewWallet(): Promise<{ mnemonic: string; paymentCode: string }> {
+async function initializeNewWallet(): Promise<{ mnemonic: string; paymentCode: string; quaiAddress: string }> {
   const result = await wallet.createWallet({ network: 'mainnet' });
   
   state.walletInitialized = true;
   state.paymentCode = result.paymentCode;
+  state.quaiAddress = result.quaiAddress;
   
   // Start listening for payments
   wallet.onPaymentReceived((payment) => {
@@ -95,10 +98,11 @@ async function initializeNewWallet(): Promise<{ mnemonic: string; paymentCode: s
 }
 
 async function restoreWallet(mnemonic: string): Promise<void> {
-  const paymentCode = await wallet.importWallet(mnemonic, { network: 'mainnet' });
+  const { paymentCode, quaiAddress } = await wallet.importWallet(mnemonic, { network: 'mainnet' });
   
   state.walletInitialized = true;
   state.paymentCode = paymentCode;
+  state.quaiAddress = quaiAddress;
   
   await refreshBalance();
   wallet.startPolling();

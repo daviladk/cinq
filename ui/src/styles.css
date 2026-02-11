@@ -224,6 +224,34 @@ body {
   margin-bottom: 1rem;
 }
 
+.wallet-addresses {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.address-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.address-row label {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  min-width: 140px;
+}
+
+.address-row code {
+  background: var(--surface-2);
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-family: 'SF Mono', Monaco, monospace;
+}
+
 .payment-code {
   display: flex;
   align-items: center;
