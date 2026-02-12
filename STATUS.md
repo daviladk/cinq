@@ -1,14 +1,33 @@
 # cinQ Connect - Project Status
 
-> **Last Updated:** January 27, 2026 (4:30 AM)  
-> **Version:** 0.5.0-p2p-chat  
+> **Last Updated:** February 11, 2026  
+> **Version:** 0.6.0-identity  
 > **Build Status:** ✅ Working
 
 ---
 
 ## 🎉 Latest Achievement
 
-**P2P Chat is working across subnets!** Messages successfully delivered between Mac Mini and MacBook Air through Kademlia DHT (mDNS blocked by Eero mesh router).
+**User Identity System with Contact Cards!** Phone-number style Chat IDs with SBT integration ready for on-chain verified identities.
+
+---
+
+## New in v0.6.0
+
+### Chat IDs (Like Phone Numbers)
+- 10-digit format: `555-123-4567`
+- Zone-prefixed for SBT: `2-555-123-4567` (Hydra zone)
+- Auto-generated test IDs, upgradeable to SBT-verified
+
+### Contact Cards (QR Sharing)
+- Share your identity via QR code or URL
+- Includes: Chat ID, display name, bio, peer ID
+- Deep link: `cinq://contact/...`
+
+### SBT Ready (Soul Bound Tokens)
+- Quai zones: Cyprus (0), Paxos (1), Hydra (2)
+- Verified vs unverified ID status
+- 90+ billion unique IDs across zones
 
 ---
 
@@ -23,7 +42,7 @@
 ### Tech Stack
 - **Tauri 2.x** - Desktop app framework
 - **libp2p 0.54** - P2P networking (Kademlia DHT, mDNS, Noise encryption)
-- **SQLite (rusqlite)** - Chat message storage
+- **SQLite (rusqlite)** - Chat + User ID storage
 - **Yamux** - Stream multiplexing
 - **Protocol:** `/cinq/transfer/1.0.0`
 
@@ -33,26 +52,29 @@
 
 ```
 cinq/
-├── dist/                     # Frontend (chat-first UI)
-│   ├── index.html           # Chat interface
-│   ├── main.js              # Chat logic + Tauri invoke
-│   └── styles.css           # Dark theme styling
+├── ui/                       # Frontend (Vite + TypeScript)
+│   ├── src/main.ts          # App logic + Tauri invoke
+│   ├── src/ui.ts            # DOM rendering
+│   └── index.html           # Entry point
 │
 ├── src-tauri/src/
-│   ├── main.rs              # Tauri commands (start_node, send_message, etc.)
+│   ├── main.rs              # Tauri commands
 │   ├── lib.rs               # Module exports
 │   └── grid/
 │       ├── mod.rs           # Module re-exports
 │       ├── node.rs          # libp2p swarm, peer management
 │       ├── chat.rs          # ChatManager, SQLite storage
+│       ├── userid.rs        # UserId, UserIdRegistry, ContactCard
+│       ├── sbt.rs           # SBT integration (SbtManager, SbtProof)
 │       ├── protocol.rs      # CinqRequest/CinqResponse types
-│       ├── bootstrap.rs     # Peer persistence between sessions
-│       ├── proxy.rs         # SOCKS5 proxy (not fully wired)
+│       ├── bootstrap.rs     # Peer persistence
+│       ├── proxy.rs         # SOCKS5 proxy
 │       ├── tunnel.rs        # P2P tunnel infrastructure
-│       ├── transfer.rs      # File transfer (unused)
-│       └── metrics.rs       # Bandwidth tracking
+│       ├── transfer.rs      # File transfer
+│       ├── metrics.rs       # Bandwidth tracking
+│       └── stratum.rs       # Mining pool stats
 │
-├── docs/DESIGN.md           # Architecture & design decisions
+├── docs/DESIGN.md           # Architecture & design
 ├── CHANGELOG.md             # Version history
 ├── README.md                # Project overview
 └── STATUS.md                # This file
@@ -60,44 +82,33 @@ cinq/
 
 ---
 
-## Key Code Locations
-
-### Message Sending (sender side)
-- **Frontend:** `dist/main.js` → `sendMessage()` → `invoke('send_message', ...)`
-- **Backend:** `main.rs` → `send_message()` → `node.send_request()`
-- **Node:** `node.rs` → `NodeCommand::SendProxyRequest` → `swarm.behaviour_mut().protocol.send_request()`
-
-### Message Receiving (receiver side)
-- **Node:** `node.rs` line ~491 → `CinqRequest::ChatMessage` handler
-- **Storage:** `chat_manager.store_incoming_message()` (added in v0.5.0)
-- **Frontend:** Polls `get_conversations` + `get_messages` every 3 seconds
-
-### Important Fix (v0.5.0)
-The bug was that incoming messages were logged but **never stored in the database**. Fixed by:
-1. Added `chat_manager: Option<Arc<RwLock<ChatManager>>>` field to `CinqNode`
-2. Added `set_chat_manager()` method to inject ChatManager reference
-3. Modified `CinqRequest::ChatMessage` handler to call `store_incoming_message()`
-
----
-
 ## Tauri Commands
 
+### Core
 | Command | Description |
 |---------|-------------|
-| `start_node` | Initialize P2P node, auto-connect to bootstraps |
+| `start_node` | Initialize P2P node |
 | `stop_node` | Gracefully disconnect |
 | `get_peers` | List connected peers |
 | `get_peer_id` | Get local peer ID |
-| `connect_peer` | Dial a peer by multiaddr |
-| `send_message` | Send chat message to peer |
-| `get_conversations` | List all chat conversations |
-| `get_messages` | Get messages for a conversation |
-| `start_conversation` | Create/get conversation with peer |
-| `mark_conversation_read` | Clear unread count |
-| `get_contacts` | List saved contacts |
-| `add_contact` | Add a contact |
 
----
+### Chat
+| Command | Description |
+|---------|-------------|
+| `send_message` | Send chat message to peer |
+| `get_conversations` | List all conversations |
+| `get_messages` | Get messages for conversation |
+| `start_conversation` | Create conversation with peer |
+
+### Identity (New in v0.6.0)
+| Command | Description |
+|---------|-------------|
+| `get_user_id` | Get local Chat ID |
+| `lookup_user_id` | Find peer ID from Chat ID |
+| `update_profile` | Set name, bio, avatar |
+| `get_profile` | Get profile info |
+| `get_contact_card` | Generate shareable card |
+| `parse_contact_card` | Parse QR/URL data |
 
 ## Data Storage
 

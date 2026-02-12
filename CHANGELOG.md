@@ -2,6 +2,46 @@
 
 All notable changes to cinQ Connect are documented here.
 
+## [v0.6.0-identity] - 2026-02-11
+
+### Added
+- **User ID System** 🆔
+  - Phone-number style Chat IDs (e.g., `555-123-4567`)
+  - Auto-generated 10-digit IDs for testing
+  - Zone-prefixed format for SBT: `Z-XXX-XXX-XXXX` (e.g., `2-555-123-4567`)
+  - SQLite registry for user ID storage
+  - Reverse lookup: peer ID → user ID
+
+- **Contact Card System** 📇
+  - Shareable contact cards with name, bio, avatar
+  - QR code generation (JSON, URL, compact formats)
+  - `cinq://contact/` deep link protocol
+  - Profile management (display name, bio)
+
+- **SBT Integration Foundation** 🏷️
+  - `QuaiZone` enum (Cyprus=0, Paxos=1, Hydra=2)
+  - `SbtManager` for future on-chain verification
+  - `SbtProof` for signed identity attestations
+  - `upgrade_to_sbt()` for migrating test IDs to verified IDs
+  - 90+ billion unique ID capacity (9 zones × 10B each)
+
+### Technical
+- `userid.rs` - UserId struct with zone support, UserIdRegistry
+- `sbt.rs` - SBT contract ABI, SbtManager, SbtProof, SbtError
+- `ContactCard` - Shareable identity with QR/URL serialization
+- New Tauri commands: `get_user_id`, `lookup_user_id`, `update_profile`, `get_contact_card`, `parse_contact_card`
+- Added `base64` crate for URL-safe contact card encoding
+
+### ID Format
+| Type | Format | Example | Verified |
+|------|--------|---------|----------|
+| Legacy/Test | 10 digits | `555-123-4567` | ❌ |
+| SBT Cyprus | Zone 0 | `0-555-123-4567` | ✅ |
+| SBT Paxos | Zone 1 | `1-555-123-4567` | ✅ |
+| SBT Hydra | Zone 2 | `2-555-123-4567` | ✅ |
+
+---
+
 ## [v0.5.0-p2p-chat] - 2026-01-27
 
 ### Added

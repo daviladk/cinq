@@ -10,6 +10,8 @@ pub mod metrics;
 pub mod proxy;
 pub mod tunnel;
 pub mod stratum;
+pub mod userid;
+pub mod sbt;
 
 pub use bootstrap::{PeerStorage, BootstrapConfig, SavedPeer};
 pub use chat::{ChatManager, ChatMessage, Contact, Conversation, MessageStatus};
@@ -19,6 +21,8 @@ pub use metrics::BandwidthMetrics;
 pub use proxy::{Socks5Proxy, ProxyConfig, ProxyStatus};
 pub use tunnel::TunnelManager;
 pub use stratum::{StratumClient, PoolStats, Worker, StratumStatus, StratumError};
+pub use userid::{UserId, UserIdRegistry, UserIdRecord, ContactCard, USER_ID_DHT_PREFIX, QuaiZone};
+pub use sbt::{SbtManager, SbtInfo, SbtProof, SbtError};
 
 // Re-export protocol types for relay binary
 pub use protocol::{

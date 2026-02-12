@@ -8,16 +8,18 @@ mod grid;
 use grid::{CinqNode, BandwidthMetrics, GridPeer, ProxyStatus, NodeConfig, BootstrapConfig};
 use grid::{ChatManager, ChatMessage, Contact, Conversation, MessageStatus};
 use grid::{StratumClient, PoolStats, Worker, StratumStatus};
+use grid::{UserId, UserIdRegistry, UserIdRecord, USER_ID_DHT_PREFIX};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tauri::State;
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 
 /// Global state for the Cinq node
 pub struct CinqState {
     node: Arc<RwLock<Option<CinqNode>>>,
     chat: Arc<RwLock<Option<Arc<RwLock<ChatManager>>>>>,
     stratum: Arc<RwLock<Option<StratumClient>>>,
+    userid: Arc<RwLock<Option<Arc<RwLock<UserIdRegistry>>>>>,
 }
 
 impl CinqState {
@@ -26,6 +28,7 @@ impl CinqState {
             node: Arc::new(RwLock::new(None)),
             chat: Arc::new(RwLock::new(None)),
             stratum: Arc::new(RwLock::new(None)),
+            userid: Arc::new(RwLock::new(None)),
         }
     }
 }
@@ -91,6 +94,25 @@ async fn start_node(
                     }
                 }
             };
+            
+            // Initialize user ID registry
+            {
+                let mut userid_guard = state.userid.write().await;
+                match UserIdRegistry::new(&config.data_dir, &peer_id) {
+                    Ok(registry) => {
+                        // Get or create user ID
+                        if let Ok(user_id) = registry.get_or_create_local_user_id() {
+                            log::info!("User ID: {} ({})", user_id.display(), user_id.as_str());
+                        }
+                        let registry_arc = Arc::new(RwLock::new(registry));
+                        *userid_guard = Some(registry_arc);
+                        log::info!("User ID registry initialized");
+                    }
+                    Err(e) => {
+                        log::error!("Failed to init user ID registry: {}", e);
+                    }
+                }
+            }
             
             // Give the node access to chat manager for storing incoming messages
             if let Some(cm) = chat_arc {
@@ -539,6 +561,271 @@ async fn start_conversation(
 }
 
 // ============================================================================
+// User ID Commands - Short, memorable IDs for users
+// ============================================================================
+
+/// User ID info returned to frontend
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UserIdInfo {
+    /// Raw user ID (10-11 digits depending on zone)
+    pub user_id: String,
+    /// Formatted for display (XXX-XXX-XXXX or Z-XXX-XXX-XXXX)
+    pub display: String,
+    /// Associated peer ID
+    pub peer_id: String,
+    /// Whether this ID is SBT-verified (vs auto-generated test ID)
+    pub is_verified: bool,
+    /// Zone name if SBT-verified (e.g., "Cyprus", "Paxos", "Hydra")
+    pub zone_name: Option<String>,
+}
+
+/// Get local user's ID (creates one if needed)
+#[tauri::command]
+async fn get_user_id(state: State<'_, CinqState>) -> Result<CommandResponse<UserIdInfo>, String> {
+    let userid_guard = state.userid.read().await;
+    let node_guard = state.node.read().await;
+    
+    let peer_id = match node_guard.as_ref() {
+        Some(node) => node.peer_id_string(),
+        None => return Ok(CommandResponse::err("Node is not running")),
+    };
+    
+    match userid_guard.as_ref() {
+        Some(registry_arc) => {
+            let registry = registry_arc.read().await;
+            match registry.get_or_create_local_user_id() {
+                Ok(user_id) => Ok(CommandResponse::ok(UserIdInfo {
+                    user_id: user_id.as_str().to_string(),
+                    display: user_id.display(),
+                    peer_id,
+                    is_verified: user_id.is_verified(),
+                    zone_name: user_id.zone_name().map(|s| s.to_string()),
+                })),
+                Err(e) => Ok(CommandResponse::err(e)),
+            }
+        }
+        None => Ok(CommandResponse::err("User ID registry not initialized")),
+    }
+}
+
+/// Look up a peer ID from a user ID (checks local cache first)
+#[tauri::command]
+async fn lookup_user_id(
+    state: State<'_, CinqState>,
+    user_id: String,
+) -> Result<CommandResponse<Option<String>>, String> {
+    // Normalize the user ID (remove dashes if present)
+    let normalized = user_id.replace("-", "").replace(" ", "");
+    
+    // Validate format: either 10 digits (legacy) or 11 digits (zone-prefixed)
+    let is_valid = (normalized.len() == 10 || normalized.len() == 11) 
+        && normalized.chars().all(|c| c.is_ascii_digit());
+    
+    if !is_valid {
+        return Ok(CommandResponse::err(
+            "Invalid user ID format. Use 10 digits (555-123-4567) or zone-prefixed (2-555-123-4567)"
+        ));
+    }
+    
+    let userid_guard = state.userid.read().await;
+    
+    match userid_guard.as_ref() {
+        Some(registry_arc) => {
+            let registry = registry_arc.read().await;
+            
+            // Check local cache first
+            if let Some(peer_id) = registry.lookup_cached(&normalized) {
+                return Ok(CommandResponse::ok(Some(peer_id)));
+            }
+            
+            // TODO: Query DHT for the user ID
+            // For now, return None if not in cache
+            Ok(CommandResponse::ok(None))
+        }
+        None => Ok(CommandResponse::err("User ID registry not initialized")),
+    }
+}
+
+/// Cache a user ID -> peer ID mapping (e.g., after receiving a message)
+#[tauri::command]
+async fn cache_user_id(
+    state: State<'_, CinqState>,
+    user_id: String,
+    peer_id: String,
+    display_name: Option<String>,
+) -> Result<CommandResponse<()>, String> {
+    let userid_guard = state.userid.read().await;
+    
+    match userid_guard.as_ref() {
+        Some(registry_arc) => {
+            let registry = registry_arc.read().await;
+            match registry.cache_user_id(&user_id, &peer_id, display_name.as_deref()) {
+                Ok(()) => Ok(CommandResponse::ok(())),
+                Err(e) => Ok(CommandResponse::err(e)),
+            }
+        }
+        None => Ok(CommandResponse::err("User ID registry not initialized")),
+    }
+}
+
+/// Get user ID for a known peer ID (reverse lookup from cache)
+#[tauri::command]
+async fn get_user_id_for_peer(
+    state: State<'_, CinqState>,
+    peer_id: String,
+) -> Result<CommandResponse<Option<String>>, String> {
+    let userid_guard = state.userid.read().await;
+    
+    match userid_guard.as_ref() {
+        Some(registry_arc) => {
+            let registry = registry_arc.read().await;
+            Ok(CommandResponse::ok(registry.get_user_id_for_peer(&peer_id)))
+        }
+        None => Ok(CommandResponse::err("User ID registry not initialized")),
+    }
+}
+
+/// Profile info returned to frontend
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ProfileInfo {
+    pub display_name: Option<String>,
+    pub bio: Option<String>,
+    pub avatar: Option<String>,
+}
+
+/// Update local user profile (name, bio, avatar)
+#[tauri::command]
+async fn update_profile(
+    state: State<'_, CinqState>,
+    display_name: Option<String>,
+    bio: Option<String>,
+    avatar: Option<String>,
+) -> Result<CommandResponse<()>, String> {
+    let userid_guard = state.userid.read().await;
+    
+    match userid_guard.as_ref() {
+        Some(registry_arc) => {
+            let registry = registry_arc.read().await;
+            match registry.update_profile(
+                display_name.as_deref(),
+                bio.as_deref(),
+                avatar.as_deref()
+            ) {
+                Ok(()) => Ok(CommandResponse::ok(())),
+                Err(e) => Ok(CommandResponse::err(e)),
+            }
+        }
+        None => Ok(CommandResponse::err("User ID registry not initialized")),
+    }
+}
+
+/// Get local user profile
+#[tauri::command]
+async fn get_profile(state: State<'_, CinqState>) -> Result<CommandResponse<ProfileInfo>, String> {
+    let userid_guard = state.userid.read().await;
+    
+    match userid_guard.as_ref() {
+        Some(registry_arc) => {
+            let registry = registry_arc.read().await;
+            match registry.get_profile() {
+                Ok((display_name, bio, avatar)) => Ok(CommandResponse::ok(ProfileInfo {
+                    display_name,
+                    bio,
+                    avatar,
+                })),
+                Err(e) => Ok(CommandResponse::err(e)),
+            }
+        }
+        None => Ok(CommandResponse::err("User ID registry not initialized")),
+    }
+}
+
+/// Contact card info for sharing (QR code, URL)
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ContactCardInfo {
+    /// Raw JSON for QR code
+    pub json: String,
+    /// Shareable URL (cinq://contact/...)
+    pub url: String,
+    /// Compact format for small QR codes
+    pub compact: String,
+    /// The actual card data
+    pub card: ContactCardData,
+}
+
+/// Contact card data structure for frontend
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ContactCardData {
+    pub user_id: String,
+    pub display_name: Option<String>,
+    pub peer_id: String,
+    pub bio: Option<String>,
+    pub is_verified: bool,
+    pub zone_name: Option<String>,
+}
+
+/// Get contact card for sharing (generates QR-ready data)
+#[tauri::command]
+async fn get_contact_card(state: State<'_, CinqState>) -> Result<CommandResponse<ContactCardInfo>, String> {
+    let userid_guard = state.userid.read().await;
+    
+    match userid_guard.as_ref() {
+        Some(registry_arc) => {
+            let registry = registry_arc.read().await;
+            match registry.create_contact_card() {
+                Ok(card) => Ok(CommandResponse::ok(ContactCardInfo {
+                    json: card.to_json(),
+                    url: card.to_url(),
+                    compact: card.to_compact(),
+                    card: ContactCardData {
+                        user_id: card.user_id.clone(),
+                        display_name: card.display_name.clone(),
+                        peer_id: card.peer_id.clone(),
+                        bio: card.bio.clone(),
+                        is_verified: card.is_verified,
+                        zone_name: card.zone_name.clone(),
+                    },
+                })),
+                Err(e) => Ok(CommandResponse::err(e)),
+            }
+        }
+        None => Ok(CommandResponse::err("User ID registry not initialized")),
+    }
+}
+
+/// Parse a contact card from URL or JSON (for scanning QR codes)
+#[tauri::command]
+async fn parse_contact_card(data: String) -> Result<CommandResponse<ContactCardData>, String> {
+    use grid::userid::ContactCard;
+    
+    // Try parsing as URL first
+    if let Some(card) = ContactCard::from_url(&data) {
+        return Ok(CommandResponse::ok(ContactCardData {
+            user_id: card.user_id,
+            display_name: card.display_name,
+            peer_id: card.peer_id,
+            bio: card.bio,
+            is_verified: card.is_verified,
+            zone_name: card.zone_name,
+        }));
+    }
+    
+    // Try parsing as JSON
+    if let Some(card) = ContactCard::from_json(&data) {
+        return Ok(CommandResponse::ok(ContactCardData {
+            user_id: card.user_id,
+            display_name: card.display_name,
+            peer_id: card.peer_id,
+            bio: card.bio,
+            is_verified: card.is_verified,
+            zone_name: card.zone_name,
+        }));
+    }
+    
+    Ok(CommandResponse::err("Invalid contact card format"))
+}
+
+// ============================================================================
 // StratumX Commands - Connect to local go-quai node
 // ============================================================================
 
@@ -665,6 +952,16 @@ fn main() {
             add_contact,
             mark_conversation_read,
             start_conversation,
+            // User ID commands
+            get_user_id,
+            lookup_user_id,
+            cache_user_id,
+            get_user_id_for_peer,
+            // Profile & Contact Card commands
+            update_profile,
+            get_profile,
+            get_contact_card,
+            parse_contact_card,
             // StratumX commands
             stratum_connect,
             stratum_disconnect,

@@ -4,24 +4,27 @@
 
 A decentralized peer-to-peer network for private messaging and bandwidth sharing using Qi tokens. Chat directly with peers, route traffic through a privacy-preserving mesh network with configurable hop counts.
 
-![Version](https://img.shields.io/badge/version-0.5.0-blue)
+![Version](https://img.shields.io/badge/version-0.6.0-blue)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-## ✨ Current Status (v0.5.0)
+## ✨ Current Status (v0.6.0)
 
-**P2P Chat Working!** 🎉
-- Direct peer-to-peer messaging across subnets
-- Messages stored in SQLite, delivered via libp2p
-- DHT-based peer discovery (works even when mDNS blocked)
+**User ID System + Contact Cards!** 🎉
+- Phone-number style Chat IDs (e.g., `555-123-4567`)
+- Contact cards with QR codes for easy sharing
+- SBT integration ready for on-chain identity verification
+- Zone-based IDs for Quai Network shards (Cyprus, Paxos, Hydra)
 
 ## Features
 
 - 💬 **P2P Chat** - Send messages directly to peers, no server required
+- 🆔 **Chat IDs** - Memorable phone-number style identifiers
+- 📇 **Contact Cards** - Share your identity via QR codes or URLs
 - 🔐 **Pelagus Wallet Integration** - Connect your Quai Network wallet
 - 🌐 **P2P Mesh Network** - Decentralized peer discovery via mDNS and Kademlia DHT
 - 🔒 **Encrypted Connections** - All peer traffic secured with Noise protocol
-- 🧅 **Privacy Routing** - Configurable 0/1/3 hop routing (coming soon)
+- 🏷️ **SBT Ready** - Soul Bound Token integration for verified identities
 - 📊 **Bandwidth Metering** - Track usage for Qi-based payments
 - 🖥️ **SOCKS5 Proxy** - Route any app through the network (infrastructure ready)
 

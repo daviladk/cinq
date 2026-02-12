@@ -8,6 +8,33 @@ import { invoke } from '@tauri-apps/api/core';
 import * as wallet from './wallet';
 import { renderApp } from './ui';
 
+// Chat types
+interface ChatMessage {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  timestamp: number;
+  is_outgoing: boolean;
+  status: 'Pending' | 'Sent' | 'Delivered' | 'Read' | 'Failed';
+}
+
+interface Conversation {
+  id: string;
+  peer_id: string;
+  display_name: string;
+  last_message: string | null;
+  last_message_at: number | null;
+  unread_count: number;
+}
+
+// User ID info
+interface UserIdInfo {
+  user_id: string;
+  display: string;
+  peer_id: string;
+}
+
 // Application state
 interface AppState {
   // P2P Node
@@ -15,11 +42,24 @@ interface AppState {
   peerId: string | null;
   peers: string[];
   
+  // User ID
+  userId: string | null;         // Raw 10-digit user ID
+  userIdDisplay: string | null;  // Formatted XXX-XXX-XXXX
+  
   // Wallet
   walletInitialized: boolean;
   paymentCode: string | null;
   quaiAddress: string | null;
   balance: bigint;
+  quaiBalance: bigint;  // Quai balance for DeFi/dApps
+  hasSavedWallet: boolean;
+  network: 'orchard' | 'mainnet';
+  
+  // Chat
+  conversations: Conversation[];
+  currentConversation: Conversation | null;
+  messages: ChatMessage[];
+  chatView: 'list' | 'conversation';
   
   // UI
   currentView: 'landing' | 'main' | 'wallet-setup';
@@ -29,11 +69,21 @@ const state: AppState = {
   nodeRunning: false,
   peerId: null,
   peers: [],
+  userId: null,
+  userIdDisplay: null,
   walletInitialized: false,
   paymentCode: null,
   quaiAddress: null,
   balance: 0n,
+  quaiBalance: 0n,
+  hasSavedWallet: false,
+  network: (localStorage.getItem('cinq_network') as 'orchard' | 'mainnet') || 'orchard',
   currentView: 'landing',
+  // Chat state
+  conversations: [],
+  currentConversation: null,
+  messages: [],
+  chatView: 'list',
 };
 
 // Response type from Rust backend
@@ -41,6 +91,39 @@ interface CommandResponse<T> {
   success: boolean;
   data: T | null;
   error: string | null;
+}
+
+// ============================================================================
+// User ID Functions
+// ============================================================================
+
+async function getUserId(): Promise<UserIdInfo | null> {
+  try {
+    const result = await invoke<CommandResponse<UserIdInfo>>('get_user_id');
+    if (result.success && result.data) {
+      state.userId = result.data.user_id;
+      state.userIdDisplay = result.data.display;
+      return result.data;
+    }
+    return null;
+  } catch (error) {
+    console.error('Failed to get user ID:', error);
+    return null;
+  }
+}
+
+async function lookupUserId(userId: string): Promise<string | null> {
+  try {
+    const result = await invoke<CommandResponse<string | null>>('lookup_user_id', { userId });
+    if (result.success) {
+      return result.data;
+    }
+    console.error('Lookup failed:', result.error);
+    return null;
+  } catch (error) {
+    console.error('Failed to lookup user ID:', error);
+    return null;
+  }
 }
 
 // Tauri command wrappers
@@ -52,8 +135,13 @@ async function startNode(): Promise<void> {
     }
     state.nodeRunning = true;
     state.peerId = result.data;
+    
+    // Fetch user ID after node starts
+    await getUserId();
+    
     updateUI();
     console.log('Node started:', result.data);
+    console.log('User ID:', state.userIdDisplay);
   } catch (error) {
     console.error('Failed to start node:', error);
     throw error;
@@ -68,6 +156,8 @@ async function stopNode(): Promise<void> {
     }
     state.nodeRunning = false;
     state.peerId = null;
+    state.userId = null;
+    state.userIdDisplay = null;
     state.peers = [];
     updateUI();
     console.log('Node stopped');
@@ -99,13 +189,155 @@ async function getPeers(): Promise<string[]> {
   }
 }
 
+// ============================================================================
+// Chat Functions
+// ============================================================================
+
+async function getConversations(): Promise<Conversation[]> {
+  try {
+    const result = await invoke<CommandResponse<Conversation[]>>('get_conversations');
+    if (result.success && result.data) {
+      state.conversations = result.data;
+      return result.data;
+    }
+    return [];
+  } catch (error) {
+    console.error('Failed to get conversations:', error);
+    return [];
+  }
+}
+
+async function getMessages(conversationId: string): Promise<ChatMessage[]> {
+  try {
+    const result = await invoke<CommandResponse<ChatMessage[]>>('get_messages', {
+      conversationId,
+      limit: 100,
+    });
+    if (result.success && result.data) {
+      state.messages = result.data.reverse(); // Show oldest first
+      return state.messages;
+    }
+    return [];
+  } catch (error) {
+    console.error('Failed to get messages:', error);
+    return [];
+  }
+}
+
+async function sendMessage(peerId: string, content: string): Promise<ChatMessage | null> {
+  try {
+    const result = await invoke<CommandResponse<ChatMessage>>('send_message', {
+      peerId,
+      content,
+    });
+    if (result.success && result.data) {
+      // Add to local messages
+      state.messages.push(result.data);
+      // Refresh conversations to update preview
+      await getConversations();
+      updateUI();
+      return result.data;
+    }
+    console.error('Send message failed:', result.error);
+    return null;
+  } catch (error) {
+    console.error('Failed to send message:', error);
+    return null;
+  }
+}
+
+// Start conversation with a peer ID or user ID
+async function startConversationByUserId(userIdOrPeerId: string): Promise<void> {
+  let peerId = userIdOrPeerId;
+  let displayName = userIdOrPeerId;
+  
+  // Check if this looks like a user ID (10 digits, possibly with dashes)
+  const normalized = userIdOrPeerId.replace(/-/g, '').replace(/\s/g, '');
+  if (normalized.length === 10 && /^\d+$/.test(normalized)) {
+    // It's a user ID - look up the peer ID
+    const foundPeerId = await lookupUserId(normalized);
+    if (foundPeerId) {
+      peerId = foundPeerId;
+      // Format user ID for display
+      displayName = `${normalized.slice(0, 3)}-${normalized.slice(3, 6)}-${normalized.slice(6)}`;
+    } else {
+      // User ID not found in cache - for now, we can't proceed
+      // TODO: Search DHT
+      console.error('User ID not found:', normalized);
+      alert(`User ID ${displayName} not found. They need to be online first.`);
+      return;
+    }
+  } else if (peerId.length > 12) {
+    // It's a peer ID - shorten for display
+    displayName = peerId.slice(0, 12) + '...';
+  }
+  
+  await startConversation(peerId, displayName);
+}
+
+async function startConversation(peerId: string, displayName?: string): Promise<void> {
+  // Create or get conversation with this peer
+  const name = displayName || (peerId.length > 12 ? peerId.slice(0, 12) + '...' : peerId);
+  
+  try {
+    // Send an empty message just to create the conversation
+    // Or find existing conversation
+    let conversation = state.conversations.find(c => c.peer_id === peerId);
+    
+    if (!conversation) {
+      // We'll create it when they send their first message
+      // For now, create a temporary one
+      conversation = {
+        id: 'new-' + peerId,
+        peer_id: peerId,
+        display_name: name,
+        last_message: null,
+        last_message_at: null,
+        unread_count: 0,
+      };
+      state.conversations.unshift(conversation);
+    }
+    
+    state.currentConversation = conversation;
+    state.messages = [];
+    state.chatView = 'conversation';
+    
+    if (!conversation.id.startsWith('new-')) {
+      await getMessages(conversation.id);
+    }
+    
+    updateUI();
+  } catch (error) {
+    console.error('Failed to start conversation:', error);
+  }
+}
+
+function openConversation(conversation: Conversation): void {
+  state.currentConversation = conversation;
+  state.chatView = 'conversation';
+  getMessages(conversation.id).then(() => updateUI());
+}
+
+function backToConversationList(): void {
+  state.currentConversation = null;
+  state.chatView = 'list';
+  state.messages = [];
+  updateUI();
+}
+
 // Wallet integration
 async function initializeNewWallet(): Promise<{ mnemonic: string; paymentCode: string; quaiAddress: string }> {
-  const result = await wallet.createWallet({ network: 'mainnet' });
+  const result = await wallet.createWallet({ network: state.network });
   
   state.walletInitialized = true;
+  state.hasSavedWallet = true;
   state.paymentCode = result.paymentCode;
   state.quaiAddress = result.quaiAddress;
+  
+  // Save to localStorage (in production, use secure storage!)
+  localStorage.setItem('cinq_mnemonic', result.mnemonic);
+  localStorage.setItem('cinq_wallet', await wallet.serializeWallet());
+  localStorage.setItem('cinq_network', state.network);
   
   // Start listening for payments
   wallet.onPaymentReceived((payment) => {
@@ -115,20 +347,76 @@ async function initializeNewWallet(): Promise<{ mnemonic: string; paymentCode: s
   });
   
   wallet.startPolling();
-  updateUI();
+  // Don't call updateUI() here - let the caller show the mnemonic modal first
   
   return result;
 }
 
 async function restoreWallet(mnemonic: string): Promise<void> {
-  const { paymentCode, quaiAddress } = await wallet.importWallet(mnemonic, { network: 'mainnet' });
+  const { paymentCode, quaiAddress } = await wallet.importWallet(mnemonic, { network: state.network });
   
   state.walletInitialized = true;
+  state.hasSavedWallet = true;
   state.paymentCode = paymentCode;
   state.quaiAddress = quaiAddress;
   
+  // Save to localStorage
+  localStorage.setItem('cinq_mnemonic', mnemonic);
+  localStorage.setItem('cinq_wallet', await wallet.serializeWallet());
+  localStorage.setItem('cinq_network', state.network);
+  
   await refreshBalance();
   wallet.startPolling();
+  updateUI();
+}
+
+async function switchNetwork(network: 'orchard' | 'mainnet'): Promise<void> {
+  if (network === state.network) return;
+  
+  const mnemonic = localStorage.getItem('cinq_mnemonic');
+  if (!mnemonic) {
+    console.error('No mnemonic found');
+    return;
+  }
+  
+  // Stop polling on old network
+  wallet.stopPolling();
+  
+  // Update state
+  state.network = network;
+  localStorage.setItem('cinq_network', network);
+  
+  // Re-import wallet on new network
+  try {
+    const { paymentCode, quaiAddress } = await wallet.importWallet(mnemonic, { network });
+    state.paymentCode = paymentCode;
+    state.quaiAddress = quaiAddress;
+    state.balance = 0n;  // Reset balance, will be fetched
+    
+    localStorage.setItem('cinq_wallet', await wallet.serializeWallet());
+    
+    await refreshBalance();
+    wallet.startPolling();
+    
+    showNotification(`Switched to ${network === 'mainnet' ? 'Mainnet' : 'Orchard Testnet'}`);
+  } catch (error) {
+    console.error('Failed to switch network:', error);
+    // Revert
+    state.network = network === 'mainnet' ? 'orchard' : 'mainnet';
+    localStorage.setItem('cinq_network', state.network);
+  }
+  
+  updateUI();
+}
+
+function clearSavedWallet(): void {
+  localStorage.removeItem('cinq_wallet');
+  localStorage.removeItem('cinq_mnemonic');
+  state.walletInitialized = false;
+  state.hasSavedWallet = false;
+  state.paymentCode = null;
+  state.quaiAddress = null;
+  state.balance = 0n;
   updateUI();
 }
 
@@ -136,8 +424,14 @@ async function refreshBalance(): Promise<void> {
   if (!state.walletInitialized) return;
   
   try {
-    const { balance } = await wallet.getBalance();
-    state.balance = balance;
+    // Fetch both Qi and Quai balances
+    const [qiResult, quaiBalance] = await Promise.all([
+      wallet.getBalance(),
+      wallet.getQuaiBalance()
+    ]);
+    
+    state.balance = qiResult.balance;
+    state.quaiBalance = quaiBalance;
     updateUI();
   } catch (error) {
     console.error('Failed to refresh balance:', error);
@@ -180,6 +474,18 @@ function updateUI(): void {
     refreshBalance,
     sendPayment: wallet.sendPayment,
     formatQi: wallet.formatQi,
+    connectWithSavedWallet: async () => {
+      // This is handled by the normal flow now
+      await startNode();
+    },
+    clearSavedWallet,
+    switchNetwork,
+    // Chat actions
+    getConversations,
+    openConversation,
+    backToConversationList,
+    sendMessage,
+    startConversation: startConversationByUserId, // Use the user ID aware version
   });
 }
 
@@ -203,26 +509,39 @@ async function init(): Promise<void> {
   const storedWallet = localStorage.getItem('cinq_wallet');
   const storedMnemonic = localStorage.getItem('cinq_mnemonic'); // Note: In production, use secure storage!
   
+  // Track if there's a saved wallet (even before loading)
+  state.hasSavedWallet = !!(storedWallet && storedMnemonic);
+  
   if (storedWallet && storedMnemonic) {
     try {
-      await wallet.deserializeWallet(storedWallet, storedMnemonic);
+      // Restore wallet with the correct network
+      await wallet.deserializeWallet(storedWallet, storedMnemonic, { network: state.network });
       state.walletInitialized = true;
       state.paymentCode = wallet.getPaymentCode();
-      await refreshBalance();
+      state.quaiAddress = wallet.getQuaiAddress();
+      
+      // Refresh balance in background (don't block UI)
+      refreshBalance().catch(e => console.warn('Balance refresh failed:', e));
       wallet.startPolling();
+      console.log('Restored wallet:', state.paymentCode?.slice(0, 20) + '...');
     } catch (error) {
       console.error('Failed to restore wallet:', error);
       // Clear corrupted data
       localStorage.removeItem('cinq_wallet');
       localStorage.removeItem('cinq_mnemonic');
+      state.hasSavedWallet = false;
     }
   }
   
   // Initial render
   updateUI();
   
-  // Start peer polling
-  setInterval(getPeers, 10000);
+  // Start peer polling when connected
+  setInterval(() => {
+    if (state.nodeRunning) {
+      getPeers();
+    }
+  }, 10000);
 }
 
 // Export for use in UI

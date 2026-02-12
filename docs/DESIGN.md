@@ -1,8 +1,8 @@
 # cinQ Connect - Design Document
 
-> **Version:** 0.1.0  
-> **Date:** January 24, 2026  
-> **Status:** Foundation / MVP
+> **Version:** 0.6.0  
+> **Date:** February 11, 2026  
+> **Status:** Identity System / SBT Ready
 
 ---
 
@@ -13,9 +13,90 @@
 ### Core Principles
 
 - **Privacy by default** - Users control their privacy level
+- **Human-friendly identity** - Phone-number style Chat IDs
+- **On-chain verification** - SBT-backed identity for trust
 - **Fair, flat pricing** - No surprises, measurable like Quai's hash-to-Qi model
 - **Decentralized infrastructure** - No central servers, every node contributes
 - **Sustainable economics** - 90/10 split funds ongoing development
+
+---
+
+## Identity System
+
+### Chat IDs (Phone Number Style)
+
+Users get memorable identifiers instead of complex peer IDs:
+
+| Peer ID | Chat ID |
+|---------|---------|
+| `12D3KooWP7zQ4dLEw3JiPdrerChHsTzhjfxs69oEBcxZieXU1sAu` | `555-123-4567` |
+
+### ID Formats
+
+| Type | Format | Example | Status |
+|------|--------|---------|--------|
+| Legacy/Test | 10 digits | `555-123-4567` | Unverified |
+| SBT Cyprus | Zone 0 + 10 | `0-555-123-4567` | ✅ Verified |
+| SBT Paxos | Zone 1 + 10 | `1-555-123-4567` | ✅ Verified |
+| SBT Hydra | Zone 2 + 10 | `2-555-123-4567` | ✅ Verified |
+
+### Quai Zone Mapping
+
+Zone prefixes act like country codes, using Quai Network's sharded architecture:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    QUAI NETWORK ZONES                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   Zone 0 (Cyprus)  ──►  Chat IDs: 0-XXX-XXX-XXXX                │
+│   Zone 1 (Paxos)   ──►  Chat IDs: 1-XXX-XXX-XXXX                │
+│   Zone 2 (Hydra)   ──►  Chat IDs: 2-XXX-XXX-XXXX                │
+│   Zones 3-8        ──►  Future expansion (9 zones total)        │
+│                                                                 │
+│   Total Capacity: 9 zones × 10B IDs = 90+ billion unique IDs    │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Soul Bound Token (SBT) Integration
+
+SBTs are non-transferable NFTs that prove on-chain identity:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    SBT MINTING FLOW                             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  1. User chooses zone (Cyprus/Paxos/Hydra)                      │
+│  2. Calls mint() on zone's SBT contract                         │
+│  3. Contract assigns unique 10-digit ID                         │
+│  4. User gets verified Chat ID: Z-XXX-XXX-XXXX                  │
+│  5. Signs proof message with wallet                             │
+│  6. Publishes to DHT for global discovery                       │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Contact Cards
+
+Shareable identity info via QR codes or URLs:
+
+```json
+{
+  "user_id": "2-555-123-4567",
+  "display_name": "Alice Smith",
+  "peer_id": "12D3KooW...",
+  "bio": "DePIN enthusiast 🌐",
+  "is_verified": true,
+  "zone_name": "Hydra"
+}
+```
+
+**Sharing Formats:**
+- **URL:** `cinq://contact/eyJ1c2VyX2lkIjo...` (deep link)
+- **Compact:** `cinq:25551234567:P7zQ4dLEw3Ji:Alice` (small QR)
+- **JSON:** Full card data for QR codes
 
 ---
 
@@ -31,7 +112,8 @@
 | Multiplexing | Yamux |
 | Local Discovery | mDNS |
 | Wallet | Pelagus (Quai Network) |
-| Frontend | Static HTML/CSS/JS (no npm) |
+| Frontend | Vite + TypeScript |
+| Identity | SBT on Quai zones |
 
 ### Network Topology
 

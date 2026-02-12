@@ -39,7 +39,7 @@ export interface WalletConfig {
 }
 
 const DEFAULT_CONFIG: WalletConfig = {
-  network: 'mainnet',
+  network: 'orchard',  // Use testnet for development
   pollingInterval: 30000,
 };
 
@@ -197,6 +197,34 @@ export async function getTotalBalance(): Promise<bigint> {
   }
   
   return await wallet.getTotalBalance();
+}
+
+/**
+ * Get Quai balance (account-based, for DeFi/dApps)
+ */
+export async function getQuaiBalance(): Promise<bigint> {
+  try {
+    const { JsonRpcProvider } = await import('quais');
+    const quaiAddress = walletState.quaiAddress;
+    
+    if (!quaiAddress) {
+      return 0n;
+    }
+    
+    // Get RPC URL based on stored network
+    const network = localStorage.getItem('cinq_network') || 'orchard';
+    const rpcUrl = network === 'mainnet' 
+      ? 'https://rpc.quai.network'
+      : 'https://rpc.orchard.quai.network';
+    
+    const provider = new JsonRpcProvider(rpcUrl);
+    const balance = await provider.getBalance(quaiAddress);
+    
+    return balance;
+  } catch (error) {
+    console.error('Failed to get Quai balance:', error);
+    return 0n;
+  }
 }
 
 /**
