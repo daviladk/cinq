@@ -232,11 +232,11 @@ function renderMain(state: AppState, actions: AppActions): string {
       <div class="dashboard-layout">
         <!-- Left Gauge Panel -->
         <div class="gauge-panel">
+          ${renderWalletMini(state, isMainnet)}
           ${renderSystemMonitor()}
           ${renderBandwidthStats()}
           ${renderDePINStats(state)}
           ${renderEarnings()}
-          ${renderWalletMini(state, isMainnet)}
           ${renderNetworkInfo(state, shortPeerId)}
         </div>
         
@@ -261,21 +261,19 @@ function renderMain(state: AppState, actions: AppActions): string {
   `;
 }
 
-// Render circular gauge SVG
-function renderGauge(percent: number, color: string = ''): string {
-  const circumference = 2 * Math.PI * 18; // radius = 18
-  const filled = (percent / 100) * circumference;
-  const colorClass = percent > 80 ? 'red' : percent > 50 ? 'yellow' : color || 'green';
+// Render status bar
+function renderStatusBar(percent: number, label: string): string {
+  const colorClass = percent > 80 ? 'red' : percent > 50 ? 'yellow' : 'green';
   
   return `
-    <div class="gauge-circle">
-      <svg class="gauge-svg" viewBox="0 0 44 44">
-        <circle class="gauge-bg" cx="22" cy="22" r="18"/>
-        <circle class="gauge-fill ${colorClass}" cx="22" cy="22" r="18" 
-          stroke-dasharray="${filled} ${circumference}"
-          stroke-dashoffset="0"/>
-      </svg>
-      <span class="gauge-value">${percent}%</span>
+    <div class="status-bar-row">
+      <div class="status-bar-label">
+        <span class="label-text">${label}</span>
+        <span class="label-value">${percent}%</span>
+      </div>
+      <div class="status-bar">
+        <div class="status-bar-fill ${colorClass}" style="width: ${percent}%"></div>
+      </div>
     </div>
   `;
 }
@@ -289,27 +287,9 @@ function renderSystemMonitor(): string {
   return `
     <div class="gauge-card">
       <h4>🖥️ System Monitor</h4>
-      <div class="gauge-row">
-        ${renderGauge(cpuUsage)}
-        <div class="gauge-info">
-          <span class="value">${cpuUsage}%</span>
-          <span class="label">CPU</span>
-        </div>
-      </div>
-      <div class="gauge-row">
-        ${renderGauge(ramUsage)}
-        <div class="gauge-info">
-          <span class="value">${ramUsage}%</span>
-          <span class="label">RAM</span>
-        </div>
-      </div>
-      <div class="gauge-row">
-        ${renderGauge(gpuUsage)}
-        <div class="gauge-info">
-          <span class="value">${gpuUsage}%</span>
-          <span class="label">GPU</span>
-        </div>
-      </div>
+      ${renderStatusBar(cpuUsage, 'CPU')}
+      ${renderStatusBar(ramUsage, 'RAM')}
+      ${renderStatusBar(gpuUsage, 'GPU')}
     </div>
   `;
 }
@@ -367,34 +347,39 @@ function renderEarnings(): string {
 
 function renderWalletMini(state: AppState, isMainnet: boolean): string {
   return `
-    <div class="gauge-card">
-      <h4>
-        💳 Wallet
-        <button id="network-toggle-btn" class="btn-network-mini ${isMainnet ? 'mainnet' : 'testnet'}">
-          ${isMainnet ? '🔴' : '🧪'}
-        </button>
-      </h4>
-      <div id="network-dropdown" class="network-dropdown hidden">
-        <button class="network-option ${!isMainnet ? 'active' : ''}" data-network="orchard">
-          🧪 Orchard (Testnet)
-        </button>
-        <button class="network-option ${isMainnet ? 'active' : ''}" data-network="mainnet">
-          🔴 Mainnet
-        </button>
-      </div>
-      <div class="wallet-mini">
-        <div class="wallet-balance">
-          <span class="currency">Qi</span>
-          <span class="amount qi">${formatQi(state.balance)}</span>
-        </div>
-        <div class="wallet-balance">
-          <span class="currency">Quai</span>
-          <span class="amount quai">${formatQuai(state.quaiBalance)}</span>
+    <div class="gauge-card wallet-card">
+      <div class="wallet-header-row">
+        <h4>💳 Wallet</h4>
+        <div class="network-toggle-wrapper">
+          <button id="network-toggle-btn" class="btn-network-toggle ${isMainnet ? 'mainnet' : 'testnet'}">
+            ${isMainnet ? '🔴 Mainnet' : '🧪 Testnet'}
+            <span class="toggle-arrow">▼</span>
+          </button>
+          <div id="network-dropdown" class="network-dropdown hidden">
+            <button class="network-option ${!isMainnet ? 'active' : ''}" data-network="orchard">
+              🧪 Orchard (Testnet)
+            </button>
+            <button class="network-option ${isMainnet ? 'active' : ''}" data-network="mainnet">
+              🔴 Mainnet
+            </button>
+          </div>
         </div>
       </div>
-      <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
-        <button id="refresh-balance-btn" class="btn-mini">↻</button>
-        <button id="view-seed-btn" class="btn-mini">🔑</button>
+      <div class="wallet-balances">
+        <div class="balance-row">
+          <span class="balance-icon">⚡</span>
+          <span class="balance-label">Qi</span>
+          <span class="balance-amount qi">${formatQi(state.balance)}</span>
+        </div>
+        <div class="balance-row">
+          <span class="balance-icon">💎</span>
+          <span class="balance-label">Quai</span>
+          <span class="balance-amount quai">${formatQuai(state.quaiBalance)}</span>
+        </div>
+      </div>
+      <div class="wallet-actions">
+        <button id="refresh-balance-btn" class="btn-mini" title="Refresh">↻</button>
+        <button id="view-seed-btn" class="btn-mini" title="Recovery Phrase">🔑</button>
       </div>
     </div>
   `;
@@ -699,26 +684,34 @@ function attachLandingHandlers(state: AppState, actions: AppActions): void {
   });
 }
 
+// Flag to track if global handlers are attached
+let globalHandlersAttached = false;
+
 function attachMainHandlers(state: AppState, actions: AppActions): void {
-  // Network toggle dropdown
+  // Update body data attribute with current network
+  document.body.dataset.network = state.network;
+  
+  // Direct handler for network toggle button - add each time since DOM is re-rendered
   const networkToggleBtn = document.getElementById('network-toggle-btn');
   const networkDropdown = document.getElementById('network-dropdown');
   
-  networkToggleBtn?.addEventListener('click', () => {
-    networkDropdown?.classList.toggle('hidden');
-  });
+  if (networkToggleBtn) {
+    networkToggleBtn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('Network toggle clicked!');
+      networkDropdown?.classList.toggle('hidden');
+    };
+  }
   
-  // Close dropdown when clicking outside
-  document.addEventListener('click', (e) => {
-    if (!networkToggleBtn?.contains(e.target as Node) && !networkDropdown?.contains(e.target as Node)) {
-      networkDropdown?.classList.add('hidden');
-    }
-  }, { once: true });
-  
-  // Network option selection
+  // Network option buttons
   document.querySelectorAll('.network-option').forEach(btn => {
-    btn.addEventListener('click', async () => {
+    (btn as HTMLElement).onclick = async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       const network = (btn as HTMLElement).dataset.network as 'orchard' | 'mainnet';
+      console.log('Network option clicked:', network);
+      
       if (network === state.network) {
         networkDropdown?.classList.add('hidden');
         return;
@@ -743,8 +736,24 @@ function attachMainHandlers(state: AppState, actions: AppActions): void {
         console.error('Failed to switch network:', error);
         showToast('Failed to switch network');
       }
-    });
+    };
   });
+  
+  // Attach global click-outside handler only once
+  if (!globalHandlersAttached) {
+    globalHandlersAttached = true;
+    
+    document.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      const dropdown = document.getElementById('network-dropdown');
+      const toggleBtn = document.getElementById('network-toggle-btn');
+      
+      // Close dropdown when clicking outside
+      if (dropdown && !dropdown.contains(target) && !toggleBtn?.contains(target)) {
+        dropdown.classList.add('hidden');
+      }
+    });
+  }
   
   // Copy payment code
   document.getElementById('copy-payment-code')?.addEventListener('click', () => {

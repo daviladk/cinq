@@ -873,49 +873,56 @@ button:disabled {
 }
 
 /* Circular Gauge */
-.gauge-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+/* Status Bar (replaces circular gauge) */
+.status-bar-row {
   margin-bottom: 0.75rem;
 }
 
-.gauge-row:last-child {
+.status-bar-row:last-child {
   margin-bottom: 0;
 }
 
-.gauge-circle {
-  position: relative;
-  width: 48px;
-  height: 48px;
+.status-bar-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.35rem;
 }
 
-.gauge-svg {
-  width: 48px;
-  height: 48px;
-  transform: rotate(-90deg);
+.status-bar-label .label-text {
+  font-size: 0.8rem;
+  color: var(--text-dim);
 }
 
-.gauge-bg {
-  fill: none;
-  stroke: var(--surface-2);
-  stroke-width: 4;
+.status-bar-label .label-value {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
 }
 
-.gauge-fill {
-  fill: none;
-  stroke: var(--accent);
-  stroke-width: 4;
-  stroke-linecap: round;
-  transition: stroke-dasharray 0.5s ease;
+.status-bar {
+  height: 6px;
+  background: var(--surface-2);
+  border-radius: 3px;
+  overflow: hidden;
 }
 
-.gauge-fill.green {
-  stroke: var(--green);
+.status-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease;
 }
 
-.gauge-fill.yellow {
-  stroke: #f0ad4e;
+.status-bar-fill.green {
+  background: var(--green);
+}
+
+.status-bar-fill.yellow {
+  background: #f0ad4e;
+}
+
+.status-bar-fill.red {
+  background: #e74c3c;
 }
 
 .gauge-fill.red {
@@ -1124,17 +1131,116 @@ button:disabled {
   border-color: var(--accent);
 }
 
-.btn-network-mini {
-  padding: 0.2rem 0.4rem;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.8rem;
+/* Wallet Header Row */
+.wallet-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
 }
 
-.btn-network-mini:hover {
+.wallet-header-row h4 {
+  margin: 0;
+}
+
+.network-toggle-wrapper {
+  position: relative;
+  z-index: 10;
+}
+
+/* New network toggle button (text-based) */
+.btn-network-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.6rem;
   background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  color: var(--text);
+}
+
+.btn-network-toggle:hover {
+  background: var(--border);
+  border-color: var(--accent);
+}
+
+.btn-network-toggle .toggle-arrow {
+  font-size: 0.6rem;
+  opacity: 0.7;
+}
+
+.btn-network-toggle.testnet {
+  border-color: var(--green);
+}
+
+.btn-network-toggle.mainnet {
+  border-color: #e74c3c;
+}
+
+/* Network dropdown in wallet card */
+.network-toggle-wrapper .network-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 160px;
+  z-index: 200;
+}
+
+/* Wallet Card specific styling */
+.wallet-card {
+  background: linear-gradient(135deg, var(--surface) 0%, var(--surface-2) 100%);
+  border-color: var(--accent);
+}
+
+.wallet-balances {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.balance-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: var(--surface);
+  border-radius: 8px;
+}
+
+.balance-row .balance-icon {
+  font-size: 1rem;
+}
+
+.balance-row .balance-label {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.balance-row .balance-amount {
+  margin-left: auto;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.balance-row .balance-amount.qi {
+  color: var(--green);
+}
+
+.balance-row .balance-amount.quai {
+  color: var(--accent);
+}
+
+.wallet-actions {
+  display: flex;
+  gap: 0.5rem;
 }
 
 /* Chat Card Header */
