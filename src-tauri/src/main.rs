@@ -5,10 +5,10 @@
 
 mod grid;
 
-use grid::{CinqNode, BandwidthMetrics, GridPeer, ProxyStatus, NodeConfig, BootstrapConfig};
+use grid::{CinqNode, BandwidthMetrics, GridPeer, ProxyStatus, NodeConfig};
 use grid::{ChatManager, ChatMessage, Contact, Conversation, MessageStatus};
 use grid::{StratumClient, PoolStats, Worker, StratumStatus};
-use grid::{UserId, UserIdRegistry, UserIdRecord, USER_ID_DHT_PREFIX};
+use grid::UserIdRegistry;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tauri::State;

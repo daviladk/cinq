@@ -5,11 +5,9 @@
 
 use clap::Parser;
 use libp2p::{
-    autonat, dcutr, identify, kad,
+    autonat, dcutr, identify,
     identity::{self, Keypair},
     mdns, noise, relay,
-    multiaddr::Protocol,
-    request_response,
     swarm::SwarmEvent,
     tcp, yamux, Multiaddr, PeerId, Swarm,
 };

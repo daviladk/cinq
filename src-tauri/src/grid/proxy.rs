@@ -410,7 +410,7 @@ async fn handle_socks5_connection(
             target_host.clone(),
             target_port,
         ).await {
-            Ok((tunnel_id, to_peer_tx, mut from_peer_rx, ready_rx)) => {
+            Ok((tunnel_id, _to_peer_tx, mut from_peer_rx, ready_rx)) => {
                 // Wait for the tunnel to be established (with timeout)
                 match tokio::time::timeout(
                     std::time::Duration::from_secs(10),
@@ -515,7 +515,7 @@ async fn handle_socks5_connection(
     let target_addr = format!("{}:{}", target_host, target_port);
     
     match TcpStream::connect(&target_addr).await {
-        Ok(mut target_stream) => {
+        Ok(target_stream) => {
             // Send success reply
             send_socks5_reply(&mut stream, SOCKS5_REP_SUCCESS).await?;
             

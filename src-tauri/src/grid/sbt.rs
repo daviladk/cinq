@@ -183,7 +183,7 @@ impl SbtManager {
     }
     
     /// Get user's Chat ID from their wallet (queries the SBT contract)
-    pub async fn get_user_id(&self, wallet: &str, zone: QuaiZone) -> Result<Option<UserId>, SbtError> {
+    pub async fn get_user_id(&self, _wallet: &str, zone: QuaiZone) -> Result<Option<UserId>, SbtError> {
         let _contract = self.contracts.for_zone(zone)
             .ok_or(SbtError::ContractNotDeployed(zone))?;
         
@@ -201,7 +201,7 @@ impl SbtManager {
     /// Verify that a wallet owns a specific Chat ID
     pub async fn verify_ownership(
         &self, 
-        wallet: &str, 
+        _wallet: &str, 
         user_id: &UserId
     ) -> Result<bool, SbtError> {
         let zone_code = user_id.zone.ok_or(

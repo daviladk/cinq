@@ -258,7 +258,7 @@ impl TunnelManager {
         
         // Channels for bidirectional data flow
         let (to_target_tx, to_target_rx) = mpsc::channel::<Vec<u8>>(256);
-        let (from_target_tx, from_target_rx) = mpsc::channel::<Vec<u8>>(256);
+        let (_from_target_tx, from_target_rx) = mpsc::channel::<Vec<u8>>(256);
         
         let tunnel = ExitTunnel {
             tunnel_id,

@@ -5,7 +5,7 @@ use libp2p::{
     identity::{self, Keypair},
     mdns, noise, relay,
     multiaddr::Protocol,
-    request_response::{self, ResponseChannel},
+    request_response::{self},
     swarm::SwarmEvent,
     tcp, yamux, Multiaddr, PeerId, Swarm,
 };
@@ -19,7 +19,7 @@ use tokio::sync::{mpsc, RwLock};
 use super::bootstrap::{PeerStorage, BootstrapConfig};
 use super::metrics::BandwidthMetrics;
 use super::protocol::{
-    CinqBehaviour, CinqBehaviourEvent, CinqRelayBehaviour, CinqRelayBehaviourEvent,
+    CinqBehaviour, CinqBehaviourEvent,
     CinqRequest, CinqResponse, 
     new_cinq_protocol, new_kademlia, new_identify, new_autonat,
 };
@@ -284,7 +284,7 @@ impl CinqNode {
         let peers = self.peers.clone();
         let peer_storage = self.peer_storage.clone();
         let tunnel_manager = self.tunnel_manager.clone();
-        let metrics = self.metrics.clone();
+        let _metrics = self.metrics.clone();
         let chat_manager = self.chat_manager.clone();
 
         // Spawn the swarm event loop
@@ -495,7 +495,7 @@ impl CinqNode {
                                                         CinqResponse::ProxyClosed { tunnel_id }
                                                     }
                                                     // Handle incoming chat message
-                                                    CinqRequest::ChatMessage { message_id, sender_name, encrypted_content, timestamp } => {
+                                                    CinqRequest::ChatMessage { message_id, sender_name: _, encrypted_content, timestamp } => {
                                                         log::info!("ChatMessage from {}: id={}", peer, message_id);
                                                         
                                                         let content = String::from_utf8_lossy(&encrypted_content);
