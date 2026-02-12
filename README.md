@@ -57,6 +57,9 @@ A Qi-backed compute marketplace where hardware providers earn native Qi for FLOP
 git clone https://github.com/daviladk/cinq.git
 cd cinq
 
+# Install UI dependencies
+cd ui && npm install && cd ..
+
 # Run in development mode
 cargo tauri dev
 
