@@ -1,33 +1,32 @@
-# cinQ Connect - Project Status
+# cinQ - Project Status
 
-> **Last Updated:** February 11, 2026  
-> **Version:** 0.6.0-identity  
+> **Last Updated:** February 12, 2026  
+> **Version:** 0.6.0 (Phase 2: Gateway Shell)  
 > **Build Status:** ✅ Working
 
 ---
 
-## 🎉 Latest Achievement
+## 🎯 Project Vision
 
-**User Identity System with Contact Cards!** Phone-number style Chat IDs with SBT integration ready for on-chain verified identities.
+**cinQ** is a decentralized Infrastructure-as-a-Service (IaaS) platform on Quai Network. Unlike speculative DePIN models, cinQ uses Qi (energy-backed currency) to create a compute marketplace where FLOPs have real value.
 
 ---
 
-## New in v0.6.0
+## 🎉 Current Phase: Gateway Shell + Messaging Alpha
 
-### Chat IDs (Like Phone Numbers)
-- 10-digit format: `555-123-4567`
-- Zone-prefixed for SBT: `2-555-123-4567` (Hydra zone)
-- Auto-generated test IDs, upgradeable to SBT-verified
+Building the Tauri desktop app with **E2EE messaging as an early adoption hook** before full IaaS marketplace.
 
-### Contact Cards (QR Sharing)
-- Share your identity via QR code or URL
-- Includes: Chat ID, display name, bio, peer ID
-- Deep link: `cinq://contact/...`
+### Messaging Alpha (User Acquisition)
+- Phone-number style Chat IDs: `555-123-4567`
+- Contact cards with QR sharing
+- Serverless E2EE messaging via P2P mesh
+- SBT integration ready for $CINQ identity
 
-### SBT Ready (Soul Bound Tokens)
-- Quai zones: Cyprus (0), Paxos (1), Hydra (2)
-- Verified vs unverified ID status
-- 90+ billion unique IDs across zones
+### Infrastructure Foundation
+- libp2p mesh networking (Kademlia DHT, mDNS)
+- Noise protocol encryption
+- Bandwidth metering for Qi payments
+- SOCKS5 proxy (tunnel infrastructure)
 
 ---
 

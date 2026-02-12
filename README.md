@@ -1,8 +1,8 @@
-# cinQ Connect
+# cinQ
 
-**P2P Chat & DePIN Bandwidth Marketplace for Quai Network**
+**Decentralized Infrastructure-as-a-Service on Quai Network**
 
-A decentralized peer-to-peer network for private messaging and bandwidth sharing using Qi tokens. Chat directly with peers, route traffic through a privacy-preserving mesh network with configurable hop counts.
+A Qi-backed compute marketplace where hardware providers earn native Qi for FLOPs. The Qora Agent Swarm orchestrates workloads across idle gaming PCs, servers, and edge devices—creating the foundation for a truly sovereign internet.
 
 ![Version](https://img.shields.io/badge/version-0.6.0-blue)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
@@ -10,23 +10,37 @@ A decentralized peer-to-peer network for private messaging and bandwidth sharing
 
 ## ✨ Current Status (v0.6.0)
 
-**User ID System + Contact Cards!** 🎉
-- Phone-number style Chat IDs (e.g., `555-123-4567`)
-- Contact cards with QR codes for easy sharing
-- SBT integration ready for on-chain identity verification
-- Zone-based IDs for Quai Network shards (Cyprus, Paxos, Hydra)
+**Phase 2: Gateway Shell with Messaging Alpha** 🎉
+- P2P mesh networking foundation (libp2p + Kademlia DHT)
+- E2EE messaging for early user adoption
+- Phone-number style Chat IDs (`555-123-4567`)
+- Contact cards with QR sharing
+- Pelagus wallet integration
+
+## Vision
+
+**Core:** Qi-backed IaaS marketplace where FLOPs = Qi, eliminating speculative token economics.
+
+**Roadmap:**
+- Phase 1 ✅ Genesis Node (P2P connectivity, Qi settlement prototype)
+- Phase 2 🔄 Gateway Shell (Tauri app + **Messaging Alpha** for adoption)
+- Phase 3 ⏳ Streaming & Edge (Voice/Video, RF hardware integration)
+- Phase 4 ⏳ Sovereign OS (CRDTs, Qora orchestration, full AWS replacement)
 
 ## Features
 
-- 💬 **P2P Chat** - Send messages directly to peers, no server required
-- 🆔 **Chat IDs** - Memorable phone-number style identifiers
-- 📇 **Contact Cards** - Share your identity via QR codes or URLs
-- 🔐 **Pelagus Wallet Integration** - Connect your Quai Network wallet
+### Infrastructure (Core)
 - 🌐 **P2P Mesh Network** - Decentralized peer discovery via mDNS and Kademlia DHT
 - 🔒 **Encrypted Connections** - All peer traffic secured with Noise protocol
-- 🏷️ **SBT Ready** - Soul Bound Token integration for verified identities
 - 📊 **Bandwidth Metering** - Track usage for Qi-based payments
-- 🖥️ **SOCKS5 Proxy** - Route any app through the network (infrastructure ready)
+- 🖥️ **SOCKS5 Proxy** - Route any app through the network
+- 🔐 **Pelagus Wallet** - Native Qi payments
+
+### Messaging Alpha (Adoption Hook)
+- 💬 **E2EE Chat** - Serverless messaging via the mesh
+- 🆔 **Chat IDs** - Phone-number style identifiers
+- 📇 **Contact Cards** - QR codes & deep links for sharing
+- 🏷️ **SBT Ready** - Soul Bound Token identity for $CINQ reputation
 
 ## Quick Start
 

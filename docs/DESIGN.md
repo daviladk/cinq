@@ -1,23 +1,31 @@
-# cinQ Connect - Design Document
+# cinQ - Design Document
 
 > **Version:** 0.6.0  
-> **Date:** February 11, 2026  
-> **Status:** Identity System / SBT Ready
+> **Date:** February 12, 2026  
+> **Status:** Phase 2 - Gateway Shell
 
 ---
 
 ## Overview
 
-**cinQ Connect** is a DePIN (Decentralized Physical Infrastructure Network) application built on the Quai Network. It provides privacy-preserving internet access through a peer-to-peer mesh network where users can route their traffic through other nodes for anonymity, and earn $Qi by providing relay and bootstrap services to others.
+**cinQ** is a decentralized Infrastructure-as-a-Service (IaaS) platform built on Quai Network. By linking Qi directly to FLOPs, cinQ creates a marketplace where hardware providers are compensated in energy-backed currency—eliminating speculative token economics.
 
-### Core Principles
+### Core Vision
 
-- **Privacy by default** - Users control their privacy level
-- **Human-friendly identity** - Phone-number style Chat IDs
-- **On-chain verification** - SBT-backed identity for trust
-- **Fair, flat pricing** - No surprises, measurable like Quai's hash-to-Qi model
-- **Decentralized infrastructure** - No central servers, every node contributes
-- **Sustainable economics** - 90/10 split funds ongoing development
+- **Qi = FLOPs** - Energy-anchored compute pricing
+- **Qora Agent Swarm** - AI-orchestrated workload management
+- **Harvest Idle Silicon** - Gaming PCs, servers, EVs → productive mesh
+- **10/90 Deposit Model** - High-quality, audit-ready nodes
+- **$CINQ Soulbound Identity** - Non-tradable reputation (1:1 mint, 100:1 redeem)
+
+### Development Phases
+
+| Phase | Focus | Status |
+|-------|-------|--------|
+| 1. Genesis Node | P2P connectivity, Qi settlement CLI | ✅ Complete |
+| 2. Gateway Shell | Tauri app + **Messaging Alpha** | 🔄 Current |
+| 3. Streaming & Edge | Voice/Video, RF hardware (Wingbits/Helium) | ⏳ Planned |
+| 4. Sovereign OS | CRDTs, Qora orchestration, AWS replacement | ⏳ Planned |
 
 ---
 
