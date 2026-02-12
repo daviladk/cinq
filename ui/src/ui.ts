@@ -101,7 +101,7 @@ function renderLanding(state: AppState, actions: AppActions): string {
     return `
       <div class="landing">
         <div class="landing-content">
-          <h1 class="logo">CIN<span>Q</span></h1>
+          <h1 class="logo">cin<span>Q</span></h1>
           <p class="tagline">Welcome back!</p>
           
           <div class="wallet-preview">
@@ -139,7 +139,7 @@ function renderLanding(state: AppState, actions: AppActions): string {
     return `
       <div class="landing">
         <div class="landing-content">
-          <h1 class="logo">CIN<span>Q</span></h1>
+          <h1 class="logo">cin<span>Q</span></h1>
           <p class="tagline">Loading your wallet...</p>
         </div>
       </div>
@@ -149,7 +149,7 @@ function renderLanding(state: AppState, actions: AppActions): string {
     return `
       <div class="landing">
         <div class="landing-content">
-          <h1 class="logo">CIN<span>Q</span></h1>
+          <h1 class="logo">cin<span>Q</span></h1>
           <p class="tagline">Decentralized Infrastructure for Quai Network</p>
           
           <div class="features">
@@ -217,7 +217,7 @@ function renderMain(state: AppState, actions: AppActions): string {
   return `
     <div class="main-app">
       <header class="header">
-        <div class="logo-small">CIN<span>Q</span></div>
+        <div class="logo-small">cin<span>Q</span></div>
         <div class="header-right">
           <div class="network-badge ${isMainnet ? 'mainnet' : 'testnet'}">
             ${isMainnet ? '🔴 MAINNET' : '🧪 TESTNET'}
