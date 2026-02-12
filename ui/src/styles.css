@@ -823,18 +823,366 @@ button:disabled {
 }
 
 /* ============================================================================
+   New Dashboard Layout - Gauge Panel + Main Content
+   ============================================================================ */
+
+.dashboard-layout {
+  display: flex;
+  gap: 1.5rem;
+  height: calc(100vh - 80px);
+  padding: 1.5rem;
+  overflow: hidden;
+}
+
+/* Left Sidebar - Stats & Gauges */
+.gauge-panel {
+  width: 280px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.gauge-panel::-webkit-scrollbar {
+  width: 4px;
+}
+
+.gauge-panel::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+/* Gauge Card */
+.gauge-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.gauge-card h4 {
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Circular Gauge */
+.gauge-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.gauge-row:last-child {
+  margin-bottom: 0;
+}
+
+.gauge-circle {
+  position: relative;
+  width: 48px;
+  height: 48px;
+}
+
+.gauge-svg {
+  width: 48px;
+  height: 48px;
+  transform: rotate(-90deg);
+}
+
+.gauge-bg {
+  fill: none;
+  stroke: var(--surface-2);
+  stroke-width: 4;
+}
+
+.gauge-fill {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 4;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.5s ease;
+}
+
+.gauge-fill.green {
+  stroke: var(--green);
+}
+
+.gauge-fill.yellow {
+  stroke: #f0ad4e;
+}
+
+.gauge-fill.red {
+  stroke: #e74c3c;
+}
+
+.gauge-value {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.gauge-label {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.gauge-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.gauge-info .value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.gauge-info .label {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+/* Bandwidth Stats */
+.bandwidth-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.bandwidth-item:last-child {
+  border-bottom: none;
+}
+
+.bandwidth-item .direction {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.bandwidth-item .direction .arrow {
+  font-size: 1rem;
+}
+
+.bandwidth-item .arrow.up {
+  color: var(--green);
+}
+
+.bandwidth-item .arrow.down {
+  color: var(--accent);
+}
+
+.bandwidth-item .speed {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* DePIN Network Stats */
+.depin-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+}
+
+.depin-stat .stat-name {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.depin-stat .stat-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.depin-stat .stat-value.online {
+  color: var(--green);
+}
+
+.depin-stat .stat-value.secure {
+  color: var(--accent);
+}
+
+/* Earnings Card */
+.earnings-display {
+  text-align: center;
+  padding: 0.5rem 0;
+}
+
+.earnings-amount {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--green);
+  margin-bottom: 0.25rem;
+}
+
+.earnings-usd {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+/* Network Info */
+.network-info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem 0;
+  font-size: 0.85rem;
+}
+
+.network-info-item .info-label {
+  color: var(--text-dim);
+}
+
+.network-info-item .info-value {
+  color: var(--text);
+  font-weight: 500;
+  font-family: monospace;
+}
+
+/* Wallet Mini Card in Sidebar */
+.wallet-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.wallet-balance {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+}
+
+.wallet-balance .currency {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.wallet-balance .amount {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.wallet-balance .amount.qi {
+  color: var(--green);
+}
+
+.wallet-balance .amount.quai {
+  color: var(--accent);
+}
+
+/* Main Content Area */
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.main-content .card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Mini Buttons */
+.btn-mini {
+  padding: 0.35rem 0.5rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-mini:hover {
+  background: var(--border);
+  border-color: var(--accent);
+}
+
+.btn-network-mini {
+  padding: 0.2rem 0.4rem;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.btn-network-mini:hover {
+  background: var(--surface-2);
+}
+
+/* Chat Card Header */
+.chat-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1rem;
+}
+
+.chat-card-header h3 {
+  margin: 0;
+}
+
+.chat-id-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.chat-id-badge code {
+  font-size: 0.8rem;
+  padding: 0.25rem 0.5rem;
+  background: var(--surface-2);
+  border-radius: 4px;
+  color: var(--text);
+}
+
+/* ============================================================================
    Chat Styles
    ============================================================================ */
 
 .chat-card {
-  grid-column: span 2;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .chat-container {
   display: flex;
   flex-direction: column;
-  min-height: 400px;
-  max-height: 500px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .chat-header {
@@ -881,6 +1229,25 @@ button:disabled {
 .conversation-list {
   flex: 1;
   overflow-y: auto;
+  min-height: 0;
+}
+
+.conversation-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.messages-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-height: 0;
 }
 
 .conversation-item {
@@ -986,21 +1353,7 @@ button:disabled {
   font-size: 0.8rem;
 }
 
-/* Conversation View */
-.conversation-view {
-  display: flex;
-  flex-direction: column;
-}
-
-.messages-container {
-  flex: 1;
-  overflow-y: auto;
-  padding: 1rem 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
+/* Message Styles */
 .message {
   max-width: 80%;
   padding: 0.75rem 1rem;

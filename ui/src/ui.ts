@@ -212,8 +212,6 @@ function renderLanding(state: AppState, actions: AppActions): string {
 
 function renderMain(state: AppState, actions: AppActions): string {
   const shortPeerId = state.peerId ? `${state.peerId.slice(0, 8)}...` : 'Not connected';
-  const shortPaymentCode = state.paymentCode ? `${state.paymentCode.slice(0, 12)}...` : 'N/A';
-  const shortQuaiAddress = state.quaiAddress ? `${state.quaiAddress.slice(0, 10)}...${state.quaiAddress.slice(-6)}` : 'N/A';
   const isMainnet = state.network === 'mainnet';
   
   return `
@@ -231,111 +229,232 @@ function renderMain(state: AppState, actions: AppActions): string {
         </div>
       </header>
       
-      <div class="dashboard">
-        <div class="card wallet-card">
-          <div class="wallet-header">
-            <h3>💰 Wallet</h3>
-            <div class="network-toggle">
-              <button id="network-toggle-btn" class="btn-network ${isMainnet ? 'mainnet' : 'testnet'}">
-                ${isMainnet ? '🔴 Mainnet' : '🧪 Orchard'}
-                <span class="toggle-arrow">▼</span>
-              </button>
-              <div id="network-dropdown" class="network-dropdown hidden">
-                <button class="network-option ${!isMainnet ? 'active' : ''}" data-network="orchard">
-                  🧪 Orchard (Testnet)
-                </button>
-                <button class="network-option ${isMainnet ? 'active' : ''}" data-network="mainnet">
-                  🔴 Mainnet
-                </button>
+      <div class="dashboard-layout">
+        <!-- Left Gauge Panel -->
+        <div class="gauge-panel">
+          ${renderSystemMonitor()}
+          ${renderBandwidthStats()}
+          ${renderDePINStats(state)}
+          ${renderEarnings()}
+          ${renderWalletMini(state, isMainnet)}
+          ${renderNetworkInfo(state, shortPeerId)}
+        </div>
+        
+        <!-- Main Content - Messages -->
+        <div class="main-content">
+          <div class="card chat-card">
+            <div class="chat-card-header">
+              <h3>💬 Messages</h3>
+              <div class="chat-id-badge">
+                <span>Your ID: </span>
+                <code id="user-id-display">${state.userIdDisplay || 'Loading...'}</code>
+                <button id="copy-user-id" class="btn-icon" title="Copy Chat ID">📋</button>
               </div>
             </div>
-          </div>
-          <div class="balances">
-            <div class="balance-item">
-              <span class="balance-label">Qi (Payments)</span>
-              <span class="balance-value qi">${formatQi(state.balance)}</span>
-            </div>
-            <div class="balance-item">
-              <span class="balance-label">Quai (DeFi)</span>
-              <span class="balance-value quai">${formatQuai(state.quaiBalance)}</span>
-            </div>
-          </div>
-          <div class="wallet-addresses">
-            <div class="address-row">
-              <label>Qi Payment Code:</label>
-              <code id="payment-code" title="${state.paymentCode || ''}">${shortPaymentCode}</code>
-              <button id="copy-payment-code" class="btn-icon" title="Copy Payment Code">📋</button>
-            </div>
-            <div class="address-row">
-              <label>Quai Address (DeFi):</label>
-              <code id="quai-address" title="${state.quaiAddress || ''}">${shortQuaiAddress}</code>
-              <button id="copy-quai-address" class="btn-icon" title="Copy Quai Address">📋</button>
-            </div>
-          </div>
-          <div class="wallet-actions">
-            <button id="refresh-balance-btn" class="btn-secondary">Refresh Balance</button>
-            <button id="view-seed-btn" class="btn-link">🔑 View Recovery Phrase</button>
+            ${renderChat(state)}
           </div>
         </div>
-        
-        <!-- Recovery phrase modal -->
-        <div id="view-seed-modal" class="modal hidden">
-          <div class="modal-content">
-            <h3>🔑 Recovery Phrase</h3>
-            <p class="warning-text">⚠️ Never share these words with anyone!</p>
-            <div class="mnemonic-words" id="view-mnemonic-words"></div>
-            <div class="modal-buttons">
-              <button id="close-seed-modal-btn" class="btn-primary">Close</button>
-            </div>
+      </div>
+      
+      ${renderModals(state, isMainnet)}
+    </div>
+  `;
+}
+
+// Render circular gauge SVG
+function renderGauge(percent: number, color: string = ''): string {
+  const circumference = 2 * Math.PI * 18; // radius = 18
+  const filled = (percent / 100) * circumference;
+  const colorClass = percent > 80 ? 'red' : percent > 50 ? 'yellow' : color || 'green';
+  
+  return `
+    <div class="gauge-circle">
+      <svg class="gauge-svg" viewBox="0 0 44 44">
+        <circle class="gauge-bg" cx="22" cy="22" r="18"/>
+        <circle class="gauge-fill ${colorClass}" cx="22" cy="22" r="18" 
+          stroke-dasharray="${filled} ${circumference}"
+          stroke-dashoffset="0"/>
+      </svg>
+      <span class="gauge-value">${percent}%</span>
+    </div>
+  `;
+}
+
+function renderSystemMonitor(): string {
+  // TODO: Get actual system metrics from Tauri backend
+  const cpuUsage = 12;
+  const ramUsage = 38;
+  const gpuUsage = 5;
+  
+  return `
+    <div class="gauge-card">
+      <h4>🖥️ System Monitor</h4>
+      <div class="gauge-row">
+        ${renderGauge(cpuUsage)}
+        <div class="gauge-info">
+          <span class="value">${cpuUsage}%</span>
+          <span class="label">CPU</span>
+        </div>
+      </div>
+      <div class="gauge-row">
+        ${renderGauge(ramUsage)}
+        <div class="gauge-info">
+          <span class="value">${ramUsage}%</span>
+          <span class="label">RAM</span>
+        </div>
+      </div>
+      <div class="gauge-row">
+        ${renderGauge(gpuUsage)}
+        <div class="gauge-info">
+          <span class="value">${gpuUsage}%</span>
+          <span class="label">GPU</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderBandwidthStats(): string {
+  // TODO: Get actual bandwidth from backend
+  return `
+    <div class="gauge-card">
+      <h4>📡 Bandwidth</h4>
+      <div class="bandwidth-item">
+        <span class="direction"><span class="arrow up">↑</span> Upload</span>
+        <span class="speed">0.0 MB/s</span>
+      </div>
+      <div class="bandwidth-item">
+        <span class="direction"><span class="arrow down">↓</span> Download</span>
+        <span class="speed">0.0 MB/s</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderDePINStats(state: AppState): string {
+  const peerCount = state.peers.length + 1;
+  return `
+    <div class="gauge-card">
+      <h4>🌐 DePIN Network</h4>
+      <div class="depin-stat">
+        <span class="stat-name">Mesh Nodes</span>
+        <span class="stat-value online">${peerCount}</span>
+      </div>
+      <div class="depin-stat">
+        <span class="stat-name">Security</span>
+        <span class="stat-value secure">● High</span>
+      </div>
+      <div class="depin-stat">
+        <span class="stat-name">Status</span>
+        <span class="stat-value online">Online</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderEarnings(): string {
+  // TODO: Get actual earnings from backend
+  return `
+    <div class="gauge-card">
+      <h4>💰 Today's Earnings</h4>
+      <div class="earnings-display">
+        <div class="earnings-amount">0.0000 Qi</div>
+        <div class="earnings-usd">≈ $0.00 USD</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderWalletMini(state: AppState, isMainnet: boolean): string {
+  return `
+    <div class="gauge-card">
+      <h4>
+        💳 Wallet
+        <button id="network-toggle-btn" class="btn-network-mini ${isMainnet ? 'mainnet' : 'testnet'}">
+          ${isMainnet ? '🔴' : '🧪'}
+        </button>
+      </h4>
+      <div id="network-dropdown" class="network-dropdown hidden">
+        <button class="network-option ${!isMainnet ? 'active' : ''}" data-network="orchard">
+          🧪 Orchard (Testnet)
+        </button>
+        <button class="network-option ${isMainnet ? 'active' : ''}" data-network="mainnet">
+          🔴 Mainnet
+        </button>
+      </div>
+      <div class="wallet-mini">
+        <div class="wallet-balance">
+          <span class="currency">Qi</span>
+          <span class="amount qi">${formatQi(state.balance)}</span>
+        </div>
+        <div class="wallet-balance">
+          <span class="currency">Quai</span>
+          <span class="amount quai">${formatQuai(state.quaiBalance)}</span>
+        </div>
+      </div>
+      <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
+        <button id="refresh-balance-btn" class="btn-mini">↻</button>
+        <button id="view-seed-btn" class="btn-mini">🔑</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderNetworkInfo(state: AppState, shortPeerId: string): string {
+  return `
+    <div class="gauge-card">
+      <h4>⛓️ Quai Network</h4>
+      <div class="network-info-item">
+        <span class="info-label">Chain</span>
+        <span class="info-value">${state.network === 'mainnet' ? 'Colosseum' : 'Orchard'}</span>
+      </div>
+      <div class="network-info-item">
+        <span class="info-label">Mesh ID</span>
+        <span class="info-value">${shortPeerId}</span>
+      </div>
+      <div class="network-info-item">
+        <span class="info-label">Uptime</span>
+        <span class="info-value" id="uptime-display">0:00</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderModals(state: AppState, isMainnet: boolean): string {
+  const shortPaymentCode = state.paymentCode ? `${state.paymentCode.slice(0, 12)}...` : 'N/A';
+  const shortQuaiAddress = state.quaiAddress ? `${state.quaiAddress.slice(0, 10)}...${state.quaiAddress.slice(-6)}` : 'N/A';
+  
+  return `
+    <!-- Recovery phrase modal -->
+    <div id="view-seed-modal" class="modal hidden">
+      <div class="modal-content">
+        <h3>🔑 Recovery Phrase</h3>
+        <p class="warning-text">⚠️ Never share these words with anyone!</p>
+        <div class="mnemonic-words" id="view-mnemonic-words"></div>
+        <div class="modal-buttons">
+          <button id="close-seed-modal-btn" class="btn-primary">Close</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Wallet Details Modal -->
+    <div id="wallet-details-modal" class="modal hidden">
+      <div class="modal-content">
+        <h3>💳 Wallet Details</h3>
+        <div class="wallet-addresses">
+          <div class="address-row">
+            <label>Qi Payment Code:</label>
+            <code id="payment-code" title="${state.paymentCode || ''}">${shortPaymentCode}</code>
+            <button id="copy-payment-code" class="btn-icon" title="Copy Payment Code">📋</button>
+          </div>
+          <div class="address-row">
+            <label>Quai Address:</label>
+            <code id="quai-address" title="${state.quaiAddress || ''}">${shortQuaiAddress}</code>
+            <button id="copy-quai-address" class="btn-icon" title="Copy Quai Address">📋</button>
           </div>
         </div>
-        
-        <div class="card node-card">
-          <h3>🌐 Mesh Connection</h3>
-          <p class="card-description">You're connected to the cinQ P2P network</p>
-          <div class="node-info">
-            <div class="info-row user-id-row">
-              <span>Your Chat ID:</span>
-              <code id="user-id-display" class="user-id" title="Share this ID with friends to chat">${state.userIdDisplay || 'Loading...'}</code>
-              <button id="copy-user-id" class="btn-icon" title="Copy Chat ID">📋</button>
-            </div>
-            <div class="info-row">
-              <span>Mesh ID:</span>
-              <code class="peer-id-small" title="Technical peer ID">${shortPeerId}</code>
-            </div>
-            <div class="info-row status-row">
-              <span class="status-indicator online">● Online</span>
-            </div>
-          </div>
-          <button id="disconnect-btn" class="btn-danger">Disconnect from Mesh</button>
-        </div>
-        
-        <div class="card stats-card">
-          <h3>📊 Network Stats</h3>
-          <div class="stats-grid">
-            <div class="stat-item">
-              <span class="stat-value">${state.peers.length + 1}</span>
-              <span class="stat-label">Nodes Online</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-value">0 KB</span>
-              <span class="stat-label">Bandwidth Shared</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-value">0.00 Qi</span>
-              <span class="stat-label">Earned This Session</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-value" id="uptime-display">0:00</span>
-              <span class="stat-label">Uptime</span>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Chat Card -->
-        <div class="card chat-card">
-          <h3>💬 Messages</h3>
-          ${renderChat(state)}
+        <div class="modal-buttons">
+          <button id="close-wallet-modal-btn" class="btn-primary">Close</button>
         </div>
       </div>
     </div>
