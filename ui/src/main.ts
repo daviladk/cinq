@@ -36,14 +36,24 @@ const state: AppState = {
   currentView: 'landing',
 };
 
+// Response type from Rust backend
+interface CommandResponse<T> {
+  success: boolean;
+  data: T | null;
+  error: string | null;
+}
+
 // Tauri command wrappers
 async function startNode(): Promise<void> {
   try {
-    const result = await invoke<{ peer_id: string }>('start_node');
+    const result = await invoke<CommandResponse<string>>('start_node');
+    if (!result.success || !result.data) {
+      throw new Error(result.error || 'Failed to start node');
+    }
     state.nodeRunning = true;
-    state.peerId = result.peer_id;
+    state.peerId = result.data;
     updateUI();
-    console.log('Node started:', result.peer_id);
+    console.log('Node started:', result.data);
   } catch (error) {
     console.error('Failed to start node:', error);
     throw error;
@@ -52,7 +62,10 @@ async function startNode(): Promise<void> {
 
 async function stopNode(): Promise<void> {
   try {
-    await invoke('stop_node');
+    const result = await invoke<CommandResponse<null>>('stop_node');
+    if (!result.success) {
+      console.warn('Stop node warning:', result.error);
+    }
     state.nodeRunning = false;
     state.peerId = null;
     state.peers = [];
@@ -64,12 +77,22 @@ async function stopNode(): Promise<void> {
   }
 }
 
+interface GridPeer {
+  peer_id: string;
+  addresses: string[];
+  protocols: string[];
+  is_relay: boolean;
+}
+
 async function getPeers(): Promise<string[]> {
   try {
-    const peers = await invoke<string[]>('get_connected_peers');
-    state.peers = peers;
-    updateUI();
-    return peers;
+    const result = await invoke<CommandResponse<GridPeer[]>>('get_peers');
+    if (result.success && result.data) {
+      state.peers = result.data.map(p => p.peer_id);
+      updateUI();
+      return state.peers;
+    }
+    return [];
   } catch (error) {
     console.error('Failed to get peers:', error);
     return [];

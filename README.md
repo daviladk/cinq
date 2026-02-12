@@ -37,7 +37,7 @@ A decentralized peer-to-peer network for private messaging and bandwidth sharing
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/cinq.git
+git clone https://github.com/daviladk/cinq.git
 cd cinq
 
 # Run in development mode

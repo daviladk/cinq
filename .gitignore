@@ -38,3 +38,4 @@ src-tauri/Frameworks/
 # Keypairs (NEVER commit these)
 *.bin
 keypair.bin
+*.zip
