@@ -163,11 +163,21 @@ cinQ provides a stable, zero-collateral environment for high-tier hardware provi
 
 ### Hardware Migration Paths
 
-**Compute Tier (Flux/Dabba Pro):** cinQ can utilize the enterprise-grade hardware currently powering Flux nodes or Dabba Pro routers (India-based DePIN routers, providing a regional onboarding path for the Indian community). By flashing these units with the qi-agent-sdk, providers move from earning project-specific utility tokens to earning Native Qi, anchored by real-world energy costs.
+**The Vampire Migration Tool:** cinQ includes a one-click onboarding path for "Refugee Hardware"—providers whose DePIN investments are now earning below electricity costs. The tool:
 
-**Location & Security Tier (Wingbits/Helium):** The Gateway supports specialized hardware like high-gain 1090MHz and 915MHz antennas. These units are repurposed as Long-Range Sentinel Links, providing the "heartbeat" and geographic verification needed to secure a hex without requiring high-bandwidth fiber.
+1. **Auto-detects** hardware capabilities (CPU/GPU/RAM/Antenna)
+2. **Assigns optimal role** in the Qora Swarm
+3. **Starts earning Qi immediately**—no token speculation, no collateral lockup
 
-**The "Vampire Migration" Tool:** The Gateway includes a one-click onboarding path for "Refugee Hardware." It detects the hardware's CPU/RAM/Antenna capabilities and automatically assigns it a role in the Qora Swarm, allowing users to reclaim the value of their previous DePIN investments.
+| Source Hardware | cinQ Role | Why It's Better |
+|----------------|-----------|----------------|
+| **Flux nodes** | Compute Provider | No more FLUX volatility—Qi tracks energy costs |
+| **Helium hotspots** | Long-Range Sentinel | Earn for geographic verification, not devalued HNT |
+| **Dabba routers** | Regional Gateway (India) | Revenue tied to bandwidth, not DABBA speculation |
+| **Akash providers** | HPC Pool | AI-managed pricing, no manual bidding wars |
+| **Mining rigs** | Qi Mining + Compute | Dual revenue—mine Qi idle, earn Qi on jobs |
+
+**The Value Proposition:** If your hardware earns less than your electricity bill, cinQ makes it profitable by anchoring payments to physics, not hype.
 
 ---
 

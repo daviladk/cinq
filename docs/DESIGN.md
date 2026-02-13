@@ -94,6 +94,46 @@ Most DePIN projects share a fundamental flaw: **their token economics are discon
 
 **Key Difference:** In cinQ, provider revenue is tied to **physics** (energy consumed), not **hype** (token speculation). An efficient RTX 4090 will always be profitable because Qi/TFLOP tracks real energy costs.
 
+### Vampire Migration: Rescuing Stranded Hardware
+
+Millions of dollars in DePIN hardware is sitting idle or earning below electricity costs. cinQ offers these "refugee" providers an escape hatch:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              VAMPIRE MIGRATION TOOL                             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   ONE-CLICK ONBOARDING FOR DEPIN REFUGEES                       │
+│                                                                 │
+│   Step 1: Install cinQ Gateway on existing hardware             │
+│   Step 2: Auto-detect CPU/GPU/RAM/Antenna capabilities          │
+│   Step 3: Assign optimal role in Qora Swarm                     │
+│   Step 4: Start earning Qi immediately                          │
+│                                                                 │
+│   YOUR HARDWARE. YOUR ELECTRICITY. FINALLY PROFITABLE.          │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Hardware Migration Paths:**
+
+| Source | Hardware Type | cinQ Role |
+|--------|--------------|----------|
+| **Flux** | High-spec servers, GPUs | Compute Provider - heavy AI/HPC workloads |
+| **Helium** | LoRa hotspots, antennas | Long-Range Sentinel - geographic verification, mesh heartbeat |
+| **Dabba** | India-based routers | Regional Gateway - bandwidth for Indian community |
+| **Wingbits** | ADS-B antennas (1090MHz) | Location Oracle - aviation data, hex verification |
+| **Akash** | GPU clusters | HPC Pool - AI training, rendering |
+| **Mining Rigs** | ASICs, GPUs | Qi Mining + Compute - dual revenue streams |
+
+**Why Providers Migrate:**
+- **Immediate profitability** - Qi tracks energy costs, not speculation
+- **No collateral lockup** - Unlike Flux's tiered collateral system
+- **AI-managed workloads** - Qora handles routing, no manual bidding
+- **Dual revenue** - Mine Qi during idle periods, earn Qi during compute jobs
+
+**The Value Proposition:** If your DePIN hardware is earning less than your electricity bill, cinQ turns it profitable by anchoring payments to the energy you actually consume.
+
 ### FLOPs as Trustless Oracle
 
 **Why FLOPs matter for AI agents:** Autonomous agents need a payment system that is simple, mathematical, and auditable. FLOPs provide exactly that.
