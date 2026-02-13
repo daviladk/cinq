@@ -25,6 +25,23 @@
 
 cinQ is a decentralized Infrastructure-as-a-Service (IaaS) plugin for Quai Stratum X nodes. Unlike traditional DePIN models that rely on volatile native tokens, cinQ utilizes Qi, Quai's energy-backed currency. By linking Qi directly to FLOPs (Floating Point Operations), cinQ creates a marketplace where hardware providers are compensated in a currency that reflects the real-world cost of compute. This architecture removes the need for marketing-driven hype, replacing it with an autonomous, energy-anchored economy managed by AI agents.
 
+### FLOPs as Trustless Oracle
+
+**The Core Insight:** AI agents need payments that are simple, mathematical, and auditable. FLOPs provide exactly that:
+
+| Property | Benefit for Agents |
+|----------|--------------------|
+| **Simple** | 1 TFLOP = 1 TFLOP. No pricing complexity. |
+| **Mathematical** | Measurable, benchmarkable, deterministic. |
+| **Auditable** | Anomalies are detectable by math—fraud stands out. |
+
+**Traditional pricing:** "Pay $0.0001 per token" — What is a token worth? Arbitrary.  
+**cinQ pricing:** "Pay 1 Qi per TFLOP" — Verifiable unit of work. Physics.
+
+**Security Model:** Agents request jobs and pay Qi. Providers submit completion proofs. The network verifies FLOPs delivered ≈ FLOPs paid. Mismatches trigger disputes, reputation hits, and slashing. Agents can't be fooled when payment = physics.
+
+This is why Qi is perfect for autonomous AI economies—it's a **verifiable work receipt** that agents trust without human intervention.
+
 ---
 
 ## 2. The Decentralized Host

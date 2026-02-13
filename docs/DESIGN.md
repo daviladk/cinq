@@ -18,6 +18,46 @@
 - **10/90 Deposit Model** - High-quality, audit-ready nodes
 - **$CINQ Soulbound Identity** - Non-tradable reputation (1:1 mint, 100:1 redeem)
 
+### FLOPs as Trustless Oracle
+
+**Why FLOPs matter for AI agents:** Autonomous agents need a payment system that is simple, mathematical, and auditable. FLOPs provide exactly that.
+
+| Property | Why It Matters |
+|----------|----------------|
+| **Simple** | 1 TFLOP = 1 TFLOP. No complex pricing tiers or hidden fees. |
+| **Mathematical** | Measurable, benchmarkable, deterministic. |
+| **Understandable** | Anyone can verify: "I paid for X FLOPs, I got X FLOPs" |
+| **Auditable** | Anomalies stand out immediately—fraud is detectable by math. |
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              WHY QI FOR AGENTIC TRANSACTIONS                    │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   Traditional Cloud Pricing:                                    │
+│   └── "Pay $0.0001 per token" ← What is a token worth? Arbitrary│
+│                                                                 │
+│   cinQ/Qi Pricing:                                              │
+│   └── "Pay 1 Qi per TFLOP" ← Verifiable unit of work. Math.    │
+│                                                                 │
+│   THE SECURITY MODEL:                                           │
+│   ┌────────────────────────────────────────────────────────┐    │
+│   │ Agent requests job → pays 50 Qi                        │    │
+│   │ Provider claims completion → submits proof             │    │
+│   │ Network verifies: FLOPs delivered ≈ FLOPs paid?        │    │
+│   │   ✓ Match → settlement                                 │    │
+│   │   ✗ Mismatch → dispute, reputation hit, slashing       │    │
+│   └────────────────────────────────────────────────────────┘    │
+│                                                                 │
+│   Agents can't be fooled when payment = physics.                │
+│   Malicious node claims 100 TFLOPs but delivers 10?             │
+│   The math doesn't lie. The network detects and penalizes.      │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+This is why Quai's Qi is perfect for autonomous AI economies—it's not just "energy-backed currency," it's a **verifiable work receipt** that agents can trust without human intervention.
+
 ### Development Phases
 
 | Phase | Focus | Status |
