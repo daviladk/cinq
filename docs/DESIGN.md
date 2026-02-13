@@ -171,7 +171,17 @@ Your cinQ ID lives at a **Quai address** - any compatible wallet works:
 - Tap card to sign (like tapping a credit card)
 - **Recoverable**: Lost cards? Get new ones, enter your PIN, done
 - PIN is easier to remember than 24 random words
-- More intuitive: "my ID is this card + my PIN"
+- **Biometric authentication**: Fingerprint verification on supported cards
+- More intuitive: "my ID is this card + my PIN + my fingerprint"
+
+**Three-Factor Identity with Tangem:**
+| Factor | What It Proves |
+|--------|----------------|
+| 🔐 **Something you have** | Tangem NFC card |
+| 🔢 **Something you know** | PIN code |
+| 👆 **Something you are** | Biometrics (fingerprint) |
+
+*This makes your cinQ ID stronger than most government IDs - backed by hardware, cryptography, and biometrics.*
 
 **Recovery comparison:**
 | Wallet | Lost Device Recovery | What You Must Remember |
@@ -179,9 +189,13 @@ Your cinQ ID lives at a **Quai address** - any compatible wallet works:
 | **Pelagus** | Enter seed phrase on new device | 12-24 random words |
 | **Tangem** | Order new cards, enter PIN | 4-6 digit PIN |
 
-*Tangem's PIN-based recovery makes it significantly more practical for permanent identity.*
+**Recommendation:** For your cinQ ID (something you'll keep forever), Tangem's PIN + biometric model is more forgiving and more secure than seed phrases. Reserve Pelagus for daily spending wallets.
 
-**Recommendation:** For your cinQ ID (something you'll keep forever), Tangem's PIN model is more forgiving than seed phrases. Reserve Pelagus for daily spending wallets.
+**Potential Tangem Partnership:**
+- cinQ as a flagship "identity wallet" use case
+- Co-branded "cinQ Identity Card" edition
+- Hardware discount program for cinQ users
+- Marketing: "Your digital identity, in your wallet"
 
 **SBT Metadata (stored on-chain):**
 ```json
