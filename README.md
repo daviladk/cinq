@@ -2,7 +2,7 @@
 
 **Decentralized Infrastructure-as-a-Service on Quai Network**
 
-A Qi-backed compute marketplace where hardware providers earn native Qi for FLOPs. The Qora Agent Swarm orchestrates workloads across idle gaming PCs, servers, and edge devices—creating the foundation for a truly sovereign internet.
+A Qi-backed compute marketplace where hardware providers earn native Qi for FLOPs. The Qora Agent Swarm orchestrates workloads across idle gaming PCs, servers, and edge devices, creating the foundation for a truly sovereign internet.
 
 > **Network Backbone:** cinQ leverages **Stratum X nodes** as the DePIN network foundation. The architecture is also compatible with standard Quai nodes for broader deployment flexibility.
 
