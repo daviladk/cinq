@@ -126,17 +126,77 @@ SBTs are non-transferable NFTs that prove on-chain identity:
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  1. User connects wallet (Pelagus)                              │
-│  2. Selects Quai shard (Cyprus, Paxos, Hydra, etc.)             │
+│  2. Wallet address reveals zone (Cyprus, Paxos, Hydra, etc.)    │
 │  3. Pays mint fee on that shard (sybil resistance)              │
-│  4. Contract assigns zone prefix + unique 10-digit Chat ID      │
-│  5. User gets verified identity: 1-555-123-4567 (Cyprus)        │
-│  6. Signs proof message with wallet                             │
-│  7. Publishes to DHT for global discovery                       │
+│  4. Contract assigns next sequential Chat ID for that zone      │
+│  5. Chat ID is MINTED INTO THE SBT as permanent metadata        │
+│  6. SBT lives in user's Pelagus wallet forever (non-transferable)│
 │                                                                 │
-│  Your zone prefix = the shard where you minted = permanent      │
+│  Your Chat ID = Your SBT = Your Phone Number on cinQ            │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+#### Authentication Flow (Login)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    LOGIN WITH WALLET                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  1. User opens cinQ app → clicks "Connect Wallet"               │
+│  2. Wallet popup → User approves connection                     │
+│  3. cinQ reads wallet contents:                                 │
+│     ├── cinQ SBT found? → Extract Chat ID from metadata         │
+│     ├── Genesis NFT found? → Show Genesis badge                 │
+│     └── Alpha badge found? → Show Alpha badge                   │
+│  4. User is logged in as their Chat ID (e.g., 1-555-0001)       │
+│                                                                 │
+│  NO PASSWORDS. NO ACCOUNTS. WALLET = IDENTITY.                  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Wallet Options
+
+Your cinQ ID lives at a **Quai address** - any compatible wallet works:
+
+| Wallet | Type | Backup Method | Best For |
+|--------|------|---------------|----------|
+| **Pelagus** | Software | Seed phrase (12-24 words) | Desktop/browser users |
+| **Tangem** | Hardware (NFC cards) | PIN code + replacement cards | Security-conscious, mobile |
+
+**Why Tangem is ideal for identity:**
+- No seed phrase to lose/leak/forget
+- Tap card to sign (like tapping a credit card)
+- **Recoverable**: Lost cards? Get new ones, enter your PIN, done
+- PIN is easier to remember than 24 random words
+- More intuitive: "my ID is this card + my PIN"
+
+**Recovery comparison:**
+| Wallet | Lost Device Recovery | What You Must Remember |
+|--------|---------------------|----------------------|
+| **Pelagus** | Enter seed phrase on new device | 12-24 random words |
+| **Tangem** | Order new cards, enter PIN | 4-6 digit PIN |
+
+*Tangem's PIN-based recovery makes it significantly more practical for permanent identity.*
+
+**Recommendation:** For your cinQ ID (something you'll keep forever), Tangem's PIN model is more forgiving than seed phrases. Reserve Pelagus for daily spending wallets.
+
+**SBT Metadata (stored on-chain):**
+```json
+{
+  "chatId": "1-555-0001",
+  "mintedAt": 1707700000,
+  "zone": 1
+}
+```
+
+**What cinQ can verify:**
+- Chat ID is real (SBT exists on-chain)
+- User owns it (wallet signature)
+- Zone is correct (matches wallet address prefix)
+- Any badges (Genesis/Alpha NFTs in same wallet)
 
 #### SBT Mint Pricing (Anti-Sybil)
 
@@ -156,32 +216,73 @@ The goal is **economic friction, not gatekeeping**. The mint fee should be:
 - 90% → Foundation (funds development)
 - 10% → Contract maintenance (covers gas)
 
+#### Rollout Phases
+
+**Phase 1: Testnet (Alpha)**
+- Regular sequential Chat IDs **without zone prefix** (e.g., `555-0001`, `555-0002`)
+- No zone prefix = instant visual indicator it's a testnet ID
+- Testing on Quai testnet - no real value at stake
+- Alpha testers help find bugs, stress-test the network
+- All testnet IDs are ephemeral - won't carry over to mainnet
+
+**Phase 2: Mainnet Launch (Genesis)**
+- Genesis NFT mint opens for early adopters
+- Real SBT identity minted on Quai mainnet
+- **Zone prefix auto-detected** from user's wallet address
+- Chat ID format: `{zone}-{area}-{number}` (e.g., `1-555-0001` for Cyprus)
+- Network goes live with actual Qi transactions
+
+**Zone Detection at Mint:**
+```
+User connects wallet → Address prefix reveals zone → SBT contract reads zone
+                                                   → Chat ID includes zone prefix
+                                                   
+Example: 0x00... address = Cyprus (Zone 1) → Chat ID: 1-XXX-XXXX
+         0x1E... address = Paxos (Zone 2)  → Chat ID: 2-XXX-XXXX
+         0x2C... address = Hydra (Zone 3)  → Chat ID: 3-XXX-XXXX
+```
+
+*Quai addresses encode their zone at the protocol level - no guessing required.*
+
+---
+
 #### Early Adopter Benefits
 
-**Genesis NFT (First 100 users)** - A commemorative collectible for OGs:
+**Genesis NFT** - Free mint commemorative collectible for mainnet OGs:
 
 | Item | Who Qualifies | What You Get |
 |------|---------------|---------------|
-| 🌟 **Genesis NFT** | First 100 SBT mints | Collectible NFT + "Genesis" badge on profile |
-| 🧪 **Alpha Badge** | Had legacy ID before SBT launch | "Alpha Tester" badge on profile |
+| 🌟 **Genesis NFT** | First 1,000-10,000 mainnet SBT mints | Free mint collectible + "Genesis" badge |
+| 🧪 **Alpha Badge** | Participated in testnet | "Alpha Tester" badge on mainnet profile |
 
-*These are status symbols only - $CINQ is earned through participation, not just minting.*
+*Quantity TBD based on testnet excitement - could be 1,000 or 10,000 free mints.*
 
-**Genesis Holder Perks (requires activity):**
-- **2x $CINQ multiplier** on all earnings for first 90 days
-- **Priority access** to new features and beta tests
-- **Custom Chat ID** reservation (first pick of vanity numbers)
-- **Lifetime "Genesis" badge** visible on profile
+*Free to mint - the value is exclusivity and community, not financial advantage.*
+
+**Genesis Ambassadors** - Our founding members become the voice of cinQ:
+
+| Perk | Description |
+|------|-------------|
+| 🏆 **Hall of Fame** | Permanent listing on cinQ website/app as founding members |
+| 💬 **Genesis Discord** | Private channel with direct team access |
+| 🎨 **Flex NFT** | Unique collectible art usable as PFP |
+| 🔑 **Early Access** | First to test new features before public release |
+| 🎙️ **AMA Invites** | Exclusive Q&A sessions with the team |
+| 📱 **Vanity Chat ID** | First pick of custom Chat IDs (e.g., 1-555-ALICE) |
+| 🗣️ **Alpha Voice** | Input on roadmap priorities and feature decisions |
 
 **Alpha Tester Perks:**
-- **1.5x $CINQ multiplier** on earnings for first 90 days
-- **"Alpha" badge** visible on profile
-- Stacks with Genesis (total 3x multiplier for Genesis + Alpha)
+- **"Alpha Tester" badge** visible on mainnet profile
+- **Recognition** in Hall of Fame as pre-launch contributor
+- Access to Genesis Discord channel
 
-These points can be:
-- **Converted to Qi** at a redemption rate (100:1)
-- **Staked for reputation** - higher score = priority in job queues
-- **Used for premium features** - custom Chat IDs, profile themes
+**What Genesis is NOT:**
+- ❌ No token airdrops
+- ❌ No earnings multipliers
+- ❌ No referral bonuses
+- ❌ No financial advantage over other users
+
+*Genesis status is about being part of the founding community - ambassadors who believe in cinQ and help shape its future.*
 
 ### $CINQ Points (Reputation GameFi)
 
@@ -257,27 +358,37 @@ Since $CINQ is redeemable at **100:1 for Qi**, the Foundation must hold reserves
 
 **Bootstrap Phase (Multiplier Bonuses):**
 
-**Genesis NFT holders earn faster, not free money.** Qi ≈ $0.50-1.00 USD:
+**Genesis NFT = Status + Access, not earnings boost:**
 
-| Bonus Program | Multiplier | Duration | Who Qualifies |
-|---------------|------------|----------|---------------|
-| Genesis NFT | 2x $CINQ | 90 days | First 100 SBT mints |
-| Alpha Badge | 1.5x $CINQ | 90 days | Had legacy ID |
-| **Genesis + Alpha** | **3x $CINQ** | **90 days** | Both qualifications |
+| Perk | What Genesis Holders Get |
+|------|-------------------------|
+| 🌟 Badge | Permanent "Genesis" badge on profile |
+| 🎫 Priority | First access to new features |
+| 📱 Vanity ID | Reserve custom Chat ID before public |
+| 📣 Voice | Direct feedback channel with team |
 
-*No upfront $CINQ handout - rewards come from actually using the network.*
+*No $CINQ multipliers - everyone earns the same rate for the same work.*
 
-**Example earnings (90-day active user):**
-- Daily check-ins (90 days): 900 $CINQ → 2,700 with Genesis 3x
-- 30-day streak bonus: 500 $CINQ → 1,500 with Genesis 3x  
-- Relay 100 GB traffic: 5,000 $CINQ → 15,000 with Genesis 3x
-- **Active Genesis holder**: ~20K $CINQ = 200 Qi = ~$100
+**How $CINQ is actually earned:**
 
-**Why multipliers instead of handouts?**
-- Rewards actual participation, not just minting
-- Prevents grab-and-run behavior
-- OGs who use the network get ~$100 value
-- Inactive holders get nothing (their loss)
+| Activity | $CINQ Rate | Notes |
+|----------|------------|-------|
+| Relay bandwidth | ~1 per 10 MB | Scales with actual traffic relayed |
+| Compute job | Varies | Based on job size/complexity |
+| Storage hosting | ~10 per GB/month | Long-term hosting rewards |
+| Node uptime | ~1 per hour | Only for relay nodes serving traffic |
+
+**Example earnings (realistic):**
+- Chat-only user: **0 $CINQ** (consuming, not providing)
+- Light relay (10 GB/month): ~1,000 $CINQ = 10 Qi = ~$5/month
+- Heavy relay (100 GB/month): ~10,000 $CINQ = 100 Qi = ~$50/month
+- Compute provider: Depends entirely on jobs completed
+
+**Key philosophy:**
+- $CINQ is **proof of contribution**, not engagement farming
+- If you're not providing value, you don't earn
+- No artificial inflation from check-ins or streaks
+- Genesis NFT is about **status**, not financial advantage
 
 **Ongoing Operations:**
 - After bootstrap, the 10% fee covers all $CINQ redemptions
