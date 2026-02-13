@@ -24,10 +24,35 @@
 
 | Property | Why It Matters |
 |----------|----------------|
-| **Simple** | 1 TFLOP = 1 TFLOP. No complex pricing tiers or hidden fees. |
+| **Simple** | FLOP is a fixed unit of work. No pricing complexity. |
 | **Mathematical** | Measurable, benchmarkable, deterministic. |
 | **Understandable** | Anyone can verify: "I paid for X FLOPs, I got X FLOPs" |
 | **Auditable** | Anomalies stand out immediately—fraud is detectable by math. |
+
+**Important:** The Qi/TFLOP rate is **not** fixed at 1:1. It floats based on energy costs:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              QI/TFLOP PRICING MODEL                             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   FIXED: The unit (FLOP) - physics, measurable, deterministic   │
+│   FLOATS: The price (Qi/FLOP) - tracks real energy costs        │
+│                                                                 │
+│   Formula:                                                      │
+│   Qi/TFLOP = (Qi/kWh from Energy Oracle) ÷ (TFLOPs/kWh)        │
+│                                                                 │
+│   Example:                                                      │
+│   ├── RTX 4090: 82 TFLOPs @ 450W = 182 TFLOPs/kWh              │
+│   ├── If Qi/kWh = 0.10 Qi → 1 TFLOP ≈ 0.00055 Qi               │
+│   │                                                             │
+│   ├── Old GPU: 10 TFLOPs @ 300W = 33 TFLOPs/kWh                │
+│   └── Same energy → 1 TFLOP ≈ 0.003 Qi (less efficient)        │
+│                                                                 │
+│   WHO TRACKS THIS? The Indexer Agent                            │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -817,21 +842,22 @@ Agents are just "the human, but automated and always online."
 
 Strategies for maximizing FLOPs yield and Qi earnings:
 
-### Qi Compute Oracle
+### Qi Compute Oracle (via Indexer Agent)
 
-Just as Qi has an energy oracle to anchor its value to real-world electricity costs, cinQ requires a **Compute Oracle** to price FLOPs:
+Just as Qi has an energy oracle to anchor its value to real-world electricity costs, cinQ requires a **Compute Oracle** to price FLOPs. This is managed by the **Indexer Agent**:
 
-| Oracle | Tracks | Output |
-|--------|--------|--------|
-| Energy Oracle | kWh prices globally | Qi/kWh rate |
-| **Compute Oracle** | FLOP benchmarks | Qi/TFLOP rate |
+| Oracle | Tracks | Output | Managed By |
+|--------|--------|--------|------------|
+| Energy Oracle | kWh prices globally | Qi/kWh rate | Quai Network |
+| **Compute Oracle** | FLOP benchmarks | Qi/TFLOP rate | Indexer Agent |
 
-The Compute Oracle aggregates:
-- Cloud spot prices (AWS/GCP benchmarks as reference)
-- Network-wide job completion times
-- Hardware performance databases
+The Indexer Agent aggregates:
+- **Energy Oracle data** - Current Qi/kWh from Quai
+- **Hardware benchmarks** - TFLOPs/watt per GPU class (published to DHT)
+- **Network job history** - Actual completion times/costs
+- **Cloud spot prices** - AWS/GCP as external reference
 
-This keeps **FLOPs = Qi** anchored to real compute costs, not speculation.
+This keeps **FLOPs → Qi** anchored to real compute costs, not speculation. The rate floats with energy markets, but the unit (FLOP) is always physics.
 
 ### GPU Partitioning
 

@@ -87,6 +87,15 @@ Powered by the **Qi Agent SDK**, eliminates the need for complex escrow contract
 ### Sentinel Agent (The Auditor)
 The swarm's "eyes" on data integrity. Its mathematical verification serves as the "Proof of Service" required to trigger the Settlement Agent's direct payment.
 
+### Indexer Agent (The Economist)
+Tracks real compute costs across the network to determine Qi/TFLOP pricing. Aggregates:
+- **Energy Oracle data** - Current Qi/kWh rates from Quai Network
+- **Hardware benchmarks** - TFLOPs/watt for each GPU class
+- **Network job history** - Actual completion times and costs
+- **External references** - Cloud spot prices (AWS/GCP) as sanity check
+
+The Indexer publishes the current **Qi/TFLOP rate** to the DHT, which all other agents use for pricing. This is how cinQ anchors compute costs to real-world energy—the rate floats, but it's always grounded in physics.
+
 ### Identity Agent (The Guardian)
 Manages Soulbound $CINQ and its temporal decay, recording human contribution based on verified native Qi expenditure.
 
