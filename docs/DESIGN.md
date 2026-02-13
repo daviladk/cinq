@@ -213,6 +213,28 @@ $CINQ points gamify engagement like credit card rewards:
 
 This creates a flywheel: **Use cinQ → Earn points → Higher reputation → Better rates → Use cinQ more**
 
+#### Foundation Reserve (Qi Liability)
+
+Since $CINQ is redeemable at **100:1 for Qi**, the Foundation must hold reserves:
+
+| Bonus Program | Max $CINQ | Max Users | Total $CINQ | Qi Reserve Needed |
+|---------------|-----------|-----------|-------------|-------------------|
+| Alpha Legacy ID | 5,000 | ~1,000 | 5M | 50,000 Qi |
+| Alpha Messages | 2,500 | ~500 | 1.25M | 12,500 Qi |
+| Alpha Relay | 2,500 | ~200 | 500K | 5,000 Qi |
+| Founder Badge (first 1K) | 10,000 | 1,000 | 10M | 100,000 Qi |
+| Pioneer Badge (first 10K) | 5,000 | 9,000 | 45M | 450,000 Qi |
+| Early Adopter (first 100K) | 1,000 | 90,000 | 90M | 900,000 Qi |
+| **Total Max Liability** | — | — | **~152M $CINQ** | **~1.52M Qi** |
+
+**Mitigation:**
+- Decay (1%/month) reduces outstanding liability over time
+- Not all users will redeem (many will hold for tier benefits)
+- SBT mint fees (90% to Foundation) replenish reserves
+- Daily earning caps prevent runaway inflation
+
+**Reserve Policy:** Foundation should hold 2x expected redemption (~500K Qi buffer).
+
 ### Contact Cards
 
 Shareable identity info via QR codes or URLs:
