@@ -45,19 +45,22 @@ Users get memorable identifiers instead of complex peer IDs:
 | Type | Format | Example | Status |
 |------|--------|---------|--------|
 | Legacy/Test | 10 digits | `555-123-4567` | Unverified |
-| SBT Cyprus | Zone 0 + 10 | `0-555-123-4567` | ✅ Verified |
-| SBT Paxos | Zone 1 + 10 | `1-555-123-4567` | ✅ Verified |
-| SBT Hydra | Zone 2 + 10 | `2-555-123-4567` | ✅ Verified |
+| SBT Verified | 10 digits | `555-123-4567` | ✅ On-chain |
 
-### Quai Zone Mapping
+*Note: Zone prefixes (0-XXX, 1-XXX, etc.) may be added later as the network scales across Quai shards. At launch, all users get simple 10-digit IDs.*
 
-Zone prefixes act like country codes, using Quai Network's sharded architecture:
+### Scaling to Quai Zones (Future)
+
+As the network grows, we can expand across Quai's sharded architecture:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    QUAI NETWORK ZONES                            │
+│                    FUTURE ZONE EXPANSION                         │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
+│   Launch: Single zone, 10-digit IDs (10B capacity)              │
+│                                                                 │
+│   Growth Phase:                                                 │
 │   Zone 0 (Cyprus)  ──►  Chat IDs: 0-XXX-XXX-XXXX                │
 │   Zone 1 (Paxos)   ──►  Chat IDs: 1-XXX-XXX-XXXX                │
 │   Zone 2 (Hydra)   ──►  Chat IDs: 2-XXX-XXX-XXXX                │
@@ -68,6 +71,8 @@ Zone prefixes act like country codes, using Quai Network's sharded architecture:
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+Zones are **backend infrastructure**, not user choices. The system auto-assigns based on capacity.
+
 ### Soul Bound Token (SBT) Integration
 
 SBTs are non-transferable NFTs that prove on-chain identity:
@@ -77,13 +82,12 @@ SBTs are non-transferable NFTs that prove on-chain identity:
 │                    SBT MINTING FLOW                             │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│  1. User chooses zone (Cyprus/Paxos/Hydra)                      │
+│  1. User connects wallet (Pelagus)                              │
 │  2. Pays mint fee (sybil resistance)                            │
-│  3. Calls mint() on zone's SBT contract                         │
-│  4. Contract assigns unique 10-digit ID                         │
-│  5. User gets verified Chat ID: Z-XXX-XXX-XXXX                  │
-│  6. Signs proof message with wallet                             │
-│  7. Publishes to DHT for global discovery                       │
+│  3. Contract assigns unique 10-digit Chat ID                    │
+│  4. User gets verified identity: XXX-XXX-XXXX                   │
+│  5. Signs proof message with wallet                             │
+│  6. Publishes to DHT for global discovery                       │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -98,14 +102,70 @@ The goal is **economic friction, not gatekeeping**. The mint fee should be:
 | Approach | Price | Rationale |
 |----------|-------|-----------|
 | **Flat Fee** | ~$5-10 Qi | Coffee money - accessible but not free |
-| **Zone-Based** | Zone 0: $5, Zone 1: $7, Zone 2: $10 | Premium zones cost more |
 | **Tiered** | First: $1, Second: $10, Third: $100 | Exponential discourages multiples |
 
 **Philosophy:** Freedom over identity verification. We're not trying to create a police state—we're creating friction that makes spam uneconomical while preserving pseudonymity. If someone wants 10 identities and pays 10x, that's their choice.
 
 **Revenue Split:**
 - 90% → Foundation (funds development)
-- 10% → Zone contract (covers gas, contract maintenance)
+- 10% → Contract maintenance (covers gas)
+
+#### Early Adopter Benefits
+
+First users help bootstrap the network and deserve recognition:
+
+| Milestone | Bonus | Benefit |
+|-----------|-------|---------|
+| First 1,000 IDs | 🥇 **Founder Badge** | 10,000 $CINQ points |
+| First 10,000 IDs | 🥈 **Pioneer Badge** | 5,000 $CINQ points |
+| First 100,000 IDs | 🥉 **Early Adopter Badge** | 1,000 $CINQ points |
+
+These points can be:
+- **Converted to Qi** at a redemption rate (e.g., 100:1)
+- **Staked for reputation** - higher score = priority in job queues
+- **Used for premium features** - custom Chat IDs, profile themes
+
+### $CINQ Points (Reputation GameFi)
+
+$CINQ points gamify engagement like credit card rewards:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    EARNING $CINQ POINTS                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  DAILY ACTIONS                          POINTS                  │
+│  ─────────────────────────────────────────────────              │
+│  • Come online (daily check-in)         +10                     │
+│  • Send first message of day            +5                      │
+│  • Relay 1 GB of traffic                +50                     │
+│  • Complete a compute job               +100                    │
+│  • Refer a friend (on mint)             +500                    │
+│                                                                 │
+│  STREAKS                                                        │
+│  ─────────────────────────────────────────────────              │
+│  • 7-day streak                         +100 bonus              │
+│  • 30-day streak                        +500 bonus              │
+│  • 365-day streak                       +5,000 bonus            │
+│                                                                 │
+│  REPUTATION TIERS                                               │
+│  ─────────────────────────────────────────────────              │
+│  • Bronze   (0-999)       → Basic access                        │
+│  • Silver   (1K-9.9K)     → Priority job queue                  │
+│  • Gold     (10K-99K)     → Reduced fees (5%)                   │
+│  • Platinum (100K+)       → VIP support, beta features          │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Points Properties
+
+- **Soulbound** - Points are tied to your SBT, not tradable
+- **Decay** - Inactive accounts lose 1% per month (use it or lose it)
+- **Convertible** - Redeem for Qi at 100:1 ratio (subject to change)
+- **Non-inflatable** - Total supply capped per epoch
+
+This creates a flywheel: **Use cinQ → Earn points → Higher reputation → Better rates → Use cinQ more**
 
 ### Contact Cards
 
@@ -113,12 +173,13 @@ Shareable identity info via QR codes or URLs:
 
 ```json
 {
-  "user_id": "2-555-123-4567",
+  "user_id": "555-123-4567",
   "display_name": "Alice Smith",
   "peer_id": "12D3KooW...",
   "bio": "DePIN enthusiast 🌐",
   "is_verified": true,
-  "zone_name": "Hydra"
+  "reputation_tier": "Gold",
+  "cinq_points": 45230
 }
 ```
 
