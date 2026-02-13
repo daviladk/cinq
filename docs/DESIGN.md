@@ -199,15 +199,109 @@ Millions of dollars in DePIN hardware is sitting idle or earning below electrici
 
 This is why Quai's Qi is perfect for autonomous AI economies—it's not just "energy-backed currency," it's a **verifiable work receipt** that agents can trust without human intervention.
 
-### Development Phases
+### The Agent Economy: Active From Day 1
 
-| Phase | Focus | Status |
-|-------|-------|--------|
-| 1. Genesis Node | P2P connectivity, Qi settlement CLI | ✅ Complete |
-| 2. Gateway Shell | Tauri app + **Messaging Alpha** | 🔄 Current |
-| 3. Streaming & Edge | Voice/Video, RF hardware (Wingbits/Helium) | ⏳ Planned |
-| 4. Agent Economy | Provider agents, UTXO micropayments, Qora treasury | ⏳ Planned |
-| 5. Sovereign OS | CRDTs, full IaaS marketplace, AWS replacement | ⏳ Planned |
+**Agents don't arrive in a later phase—they ARE the network from testnet onward.**
+
+Even the simplest message in testnet involves agents:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              TESTNET: 1-HOP ROUTING (AGENTS ACTIVE)             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   Alice sends "Hello" to Bob                                    │
+│        │                                                        │
+│        ▼                                                        │
+│   Navigator Agent: "Route via Node C" (DHT lookup)              │
+│        │                                                        │
+│        ▼                                                        │
+│   Relay Agent @ Node C: routes message → earns 0.0001 Qi        │
+│        │                                                        │
+│        ▼                                                        │
+│   Treasurer Agent: settles UTXO micropayment                    │
+│        │                                                        │
+│        ▼                                                        │
+│   Bob receives "Hello"                                          │
+│                                                                 │
+│   TOTAL: 3 agents involved, 1 micropayment settled.             │
+│   This is the FOUNDATION. Privacy/compute come later.           │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**The phases aren't about "adding agents"—they're about adding workloads and security layers:**
+
+| Phase | What Changes | Agents Doing |
+|-------|--------------|--------------|
+| **Testnet** | 1-hop routing, basic mesh | Navigate, Relay, Settle |
+| **Phase 2** | Messaging + Chat IDs | Same agents, user-facing app |
+| **Phase 3** | 3-hop onion routing, streaming | Privacy upgrade, bandwidth agents |
+| **Phase 4** | GPU compute marketplace | Provider agents, job orchestration |
+| **Phase 5** | Storage, CRDTs, federation | Storage agents, cross-network |
+
+**Critical Insight:** In testnet, users might even send transactions to themselves just to prove the pattern works. The economic primitive is exercised from day 1—we're not "adding payments later."
+
+### Development Phases (Agents Always Running)
+
+| Phase | Focus | Routing | Agent Activity |
+|-------|-------|---------|----------------|
+| Testnet | Prove the mesh works | 1-hop (single relay) | Agents settle micro-Qi, even self-tx |
+| 2. Gateway Shell | User app + Messaging | 1-hop (simple) | Relay + Gossip agents active |
+| 3. Streaming & Privacy | Voice/Video + Onion routing | 3-hop (privacy) | Bandwidth + Codec agents added |
+| 4. Full Compute | GPU marketplace | 3-hop | Provider + Job agents added |
+| 5. Sovereign OS | Storage, CRDTs | 3-hop | Storage + Federation agents |
+
+#### Testnet: The Economic Primitive
+
+Before anything else works, we prove:
+1. **Node A can find Node B** via DHT (Navigator Agent)
+2. **Node A can route through Node C** (Relay Agent earns Qi)
+3. **Micropayment settles** via UTXO (Treasurer Agent)
+
+Even if Node A sends to itself through C, the pattern is proven. This is the foundation.
+
+#### Phase 2: User-Facing App (Same Agents)
+
+Add the Tauri shell, Chat IDs, contact cards. The agents are already running—we just give humans a UI to interact with them.
+
+```
+Phase 2 Stack:
+├── Tauri app (UI layer)
+├── Chat IDs + Contact Cards (identity)
+├── E2EE messaging (encryption)
+└── SAME agents from testnet (1-hop, micro-Qi)
+```
+
+#### Phase 3: Privacy + Streaming (Upgrade Routing)
+
+Now we add complexity:
+- **3-hop onion routing** for privacy
+- **Bandwidth agents** for streaming
+- Each hop earns Qi → 3x the micropayments per message
+
+```
+Message with 3-hop routing:
+     │
+     ├── Relay Agent A → earns 0.0001 Qi
+     ├── Relay Agent B → earns 0.0001 Qi  
+     ├── Relay Agent C → earns 0.0001 Qi
+     │
+     └── Total: 0.0003 Qi (3x testnet cost, 3x privacy)
+```
+
+Streaming (voice/video) uses the same pattern but more bytes → more Qi.
+
+#### Phase 4: Compute (Add GPU Workloads)
+
+The agent economy is proven. Now we add heavy workloads:
+- Provider agents offer GPU/CPU
+- Job agents orchestrate multi-node tasks
+- Same UTXO micropayments, larger values
+
+#### Phase 5: Sovereign OS (Full Stack)
+
+Storage agents, CRDTs, federation. The complete AWS replacement—but still using the same economic primitive proven in testnet.
 
 ---
 

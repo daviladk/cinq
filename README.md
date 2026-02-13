@@ -23,12 +23,16 @@ A Qi-backed compute marketplace where hardware providers earn native Qi for FLOP
 
 **Core:** Qi-backed IaaS marketplace where FLOPs = Qi, eliminating speculative token economics.
 
+**Foundation:** Agents run from day 1. Even the simplest testnet message involves Navigator, Relay, and Treasurer agents settling micropayments.
+
 **Roadmap:**
-- Phase 1 ✅ Genesis Node (P2P connectivity, Qi settlement prototype)
-- Phase 2 🔄 Gateway Shell (Tauri app + **Messaging Alpha** for adoption)
-- Phase 3 ⏳ Streaming & Edge (Voice/Video, RF hardware integration)
-- Phase 4 ⏳ Agent Economy (Provider agents, UTXO micropayments, Qora treasury)
-- Phase 5 ⏳ Sovereign OS (CRDTs, full IaaS marketplace, AWS replacement)
+- Testnet ✅ Agents active, 1-hop routing, prove micropayments work
+- Phase 2 🔄 Gateway Shell (Tauri app + Chat IDs + same agents)
+- Phase 3 ⏳ Privacy + Streaming (3-hop onion routing, voice/video)
+- Phase 4 ⏳ Full Compute (GPU marketplace, Provider agents)
+- Phase 5 ⏳ Sovereign OS (Storage, CRDTs, federation)
+
+> **Key Insight:** Phases add workloads and complexity, not agents. The economic primitive (micropayments via UTXO) is proven in testnet and used everywhere.
 
 ## Features
 
@@ -38,12 +42,14 @@ A Qi-backed compute marketplace where hardware providers earn native Qi for FLOP
 - 📊 **Bandwidth Metering** - Track usage for Qi-based payments
 - 🖥️ **SOCKS5 Proxy** - Route any app through the network
 - 🔐 **Pelagus Wallet** - Native Qi payments
+- 🤖 **Agent Economy** - Navigator, Relay, Treasurer agents active from testnet
 
 ### Messaging Alpha (Adoption Hook)
 - 💬 **E2EE Chat** - Serverless messaging via the mesh
 - 🆔 **Chat IDs** - Phone-number style identifiers
 - 📇 **Contact Cards** - QR codes & deep links for sharing
 - 🏷️ **SBT Ready** - Soul Bound Token identity for $CINQ reputation
+- 💸 **Micropayments** - Every message settles micro-Qi (agents earn from day 1)
 
 ### Identity Layer (Soulbound NFT)
 

@@ -358,17 +358,57 @@ The cinQ mesh utilizes the native properties of the Quai network to defend again
 
 ## 11. Development Roadmap
 
-### Phase 1: The "Genesis Node" (The Foundation)
+### Agents Run From Day 1
 
-**Tech Stack:** Rust (Back-end), libp2p (Networking), qi-agent-sdk (Settlement).
+**Agents don't arrive in a later phase—they ARE the network.** Even testnet with simple 1-hop routing involves:
 
-**Focus:** Core connectivity. Building the "Invisible Mesh."
+- **Navigator Agent** - DHT lookup to find route
+- **Relay Agent** - Routes message, earns micro-Qi
+- **Treasurer Agent** - Settles UTXO micropayment
 
-**Prototype Goal:** A CLI tool that allows two computers to find each other over the internet without a central server and settle a tiny amount of Qi for a 1KB data transfer.
+```
+TESTNET TRANSACTION (simplest possible):
 
-**The "WiFi" Angle:** Implementing a basic P2P Proxy. If Node A has internet and Node B doesn't, Node B can "buy" bandwidth from Node A using Qi.
+Alice → "Hello" → [Relay Node] → Bob
+                       │
+                       └── Relay earns 0.0001 Qi
+                       └── UTXO settles on-chain
 
-#### Phase 1 Status
+Even if Alice sends to herself, the economic primitive is proven.
+```
+
+**Phases add complexity and workloads, not agents:**
+
+| Phase | Routing | New Workloads |
+|-------|---------|---------------|
+| **Testnet** | 1-hop (single relay) | Basic messaging, prove economics |
+| **Phase 2** | 1-hop (simple) | User app, Chat IDs |
+| **Phase 3** | 3-hop (onion routing) | Privacy layer, streaming |
+| **Phase 4** | 3-hop | GPU compute marketplace |
+| **Phase 5** | 3-hop | Storage, CRDTs, federation |
+
+---
+
+### Testnet: Prove the Economic Primitive
+
+**Goal:** Before anything else, prove that micropayments work.
+
+**Minimum Viable Agent Economy:**
+1. Node A finds Node B via DHT → Navigator Agent works
+2. Node A routes through Node C → Relay Agent earns 0.0001 Qi
+3. UTXO micropayment settles → Treasurer Agent works
+
+Even if Node A sends to itself through C, the pattern is proven. This is the foundation everything else builds on.
+
+```
+TESTNET STACK:
+├── libp2p networking (Kademlia, Noise, Yamux)
+├── qi-agent-sdk integration
+├── Navigator Agent (route discovery)
+├── Relay Agent (message forwarding)
+├── Treasurer Agent (UTXO settlement)
+└── 1-hop routing (privacy comes later)
+```
 
 | Requirement | Status | Notes |
 |-------------|--------|-------|
@@ -384,43 +424,95 @@ The cinQ mesh utilizes the native properties of the Quai network to defend again
 
 ---
 
-### Phase 2: The "Gateway Shell" (The Prototype App) 🔄 CURRENT
+### Phase 2: The "Gateway Shell" (User App) 🔄 CURRENT
 
 **Tech Stack:** Tauri v2 (App Wrapper), React/TypeScript (UI), Rust (Tauri Commands).
 
-**Focus:** Wrapping the Rust engine in a beautiful, user-friendly interface + **Messaging Alpha** as early user acquisition.
+**Focus:** Wrap the working agent economy in a user-friendly interface.
 
-**Prototype Goal:** The first version of the cinQ Desktop App. Users can see their node status, their Qi balance, and a "Nearby Nodes" map.
+**Key Insight:** The agents are already running from testnet. Phase 2 just adds a UI layer and identity system (Chat IDs, contact cards).
+
+```
+PHASE 2 = TESTNET + UI:
+├── Tauri desktop app
+├── Chat IDs (phone-number style)
+├── Contact cards (QR codes)
+├── E2EE encryption layer
+└── SAME AGENTS (Navigator, Relay, Treasurer)
+└── SAME 1-hop routing
+└── SAME micropayments
+```
 
 **Messaging Alpha (Adoption Hook):**
 - E2EE chat via P2P mesh (no servers)
 - Phone-number style Chat IDs (e.g., `1-555-123-4567`)
 - Contact cards with QR codes for sharing
-- Foundation for Phase 3 voice/video
+- Agents earning micro-Qi per message (already working from testnet)
 
-**Why Messaging First?** Users need a reason to install the app before IaaS marketplace exists. E2EE chat provides immediate value while we build compute infrastructure.
-
----
-
-### Phase 3: The "Streaming & Edge" Layer
-
-**Tech Stack:** WebRTC (for Video/Voice), Arti (for Tor-style privacy), V2X Protocols.
-
-**Focus:** Moving large amounts of data.
-
-**Prototype Goal:** Encrypted Voice and Video calls where the "billing" happens per minute in real-time via the Treasurer Agent.
-
-**The "Antenna" Integration:** Supporting external RF hardware (Wingbits/Helium) to broadcast the mesh signal further, effectively "lighting up" the local hex.
+**Why This Works:** Users get a chat app. Under the hood, every message is a micropayment. They're training the agent economy without knowing it.
 
 ---
 
-### Phase 4: The "Agent Economy" (Compute Marketplace)
+### Phase 3: Privacy + Streaming (Upgrade Routing)
+
+**Tech Stack:** WebRTC (for Video/Voice), Arti (for Tor-style privacy).
+
+**Focus:** Add 3-hop onion routing for privacy, streaming workloads.
+
+**The Upgrade:** Moving from 1-hop (testnet/Phase 2) to 3-hop routing:
+
+```
+PHASE 2 (1-hop):
+Alice → Relay A → Bob
+        └── 0.0001 Qi
+
+PHASE 3 (3-hop onion routing):
+Alice → Relay A → Relay B → Relay C → Bob
+        └── 0.0001 Qi each = 0.0003 Qi total
+```
+
+**Why 3x Cost is Worth It:**
+- Each relay only knows previous + next hop (privacy)
+- No single node sees full path
+- Cost scales with privacy—users choose their level
+
+**Streaming (Voice/Video):**
+- Same 3-hop routing, more bytes
+- Bandwidth Agent meters MB transferred
+- Real-time micropayments during call
+
+```
+Video Call (1 minute @ 2 Mbps, 3-hop):
+├── 15 MB × 3 hops × 0.001 Qi/MB = 0.045 Qi
+├── Codec selection = 0.001 Qi
+├── Total: ~0.046 Qi (~$0.02/minute)
+```
+
+**The "Antenna" Integration:** Supporting external RF hardware (Wingbits/Helium) as edge relays.
+
+---
+
+### Phase 4: Full Compute Marketplace
 
 **Tech Stack:** qi-agent-sdk (UTXO), Qora Swarm, Docker/Wasm (Workload Isolation).
 
-**Focus:** Transitioning from "chat app" to "compute marketplace."
+**Focus:** Add GPU/CPU compute as a workload. Same agent pattern, larger values.
 
-**Prototype Goal:** Provider agents come online, accepting compute jobs from AI agents. The Indexer Agent publishes Qi/TFLOP rates to the DHT. Treasurer handles real-time UTXO micropayments.
+**New Agents:**
+- **Provider Agent** - Represents hardware owner, accepts jobs
+- **Job Agent** - Orchestrates multi-node workloads
+- **Indexer Agent** - Publishes Qi/TFLOP rates to DHT
+
+**Why This Is Easy:** We've proven micropayments in Phases 2-3. Compute is just "more Qi per job."
+
+```
+COMPUTE JOB:
+├── Navigator finds capable GPU node
+├── Provider Agent accepts job, quotes 50 Qi
+├── Job runs, Provider earns 50 Qi
+├── Treasurer settles UTXO
+└── SAME PATTERN as messaging, 500,000x larger value
+```
 
 **Key Milestones:**
 - Qora Swarm fully operational (Navigator, Treasurer, Sentinel, Indexer, Guardian)
@@ -428,17 +520,17 @@ The cinQ mesh utilizes the native properties of the Quai network to defend again
 - Job queue and AI-managed workload distribution
 - Vampire Migration tool for DePIN refugees
 
-**Why This Phase Matters:** This is where cinQ stops being a "messaging app" and becomes the **Energy Dollar marketplace for AI compute**.
-
 ---
 
 ### Phase 5: The "Sovereign OS" (Total Decentralization)
 
 **Tech Stack:** CRDTs (for Docs), Advanced Qora Orchestration, Reed-Solomon Storage.
 
-**Focus:** Replacing the entire Google/AWS suite.
+**Focus:** Storage workloads, federation, complete AWS replacement.
 
-**Prototype Goal:** A collaborative "Cloud Drive" and "Doc Editor" where the files are stored on the mesh and the AI agents (Qora) manage the permissions and syncing.
+**New Agents:**
+- **Storage Agent** - Manages CRDT replication, earns Qi per GB/month
+- **Federation Agent** - Bridges external networks
 
 **Key Milestones:**
 - Self-healing storage with Reed-Solomon sharding
