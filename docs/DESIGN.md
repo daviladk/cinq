@@ -40,38 +40,46 @@ Users get memorable identifiers instead of complex peer IDs:
 |---------|---------|
 | `12D3KooWP7zQ4dLEw3JiPdrerChHsTzhjfxs69oEBcxZieXU1sAu` | `555-123-4567` |
 
-### ID Formats
+### ID Formats & Zone Prefixes (Like Country Codes)
 
-| Type | Format | Example | Status |
-|------|--------|---------|--------|
-| Legacy/Test | 10 digits | `555-123-4567` | Unverified |
-| SBT Verified | 10 digits | `555-123-4567` | ✅ On-chain |
+Zones work like **country codes for phone numbers**, based on Quai Network shards:
 
-*Note: Zone prefixes (0-XXX, 1-XXX, etc.) may be added later as the network scales across Quai shards. At launch, all users get simple 10-digit IDs.*
-
-### Scaling to Quai Zones (Future)
-
-As the network grows, we can expand across Quai's sharded architecture:
+| Type | Format | Example | Description |
+|------|--------|---------|-------------|
+| Legacy (Alpha) | 10 digits | `555-123-4567` | Pre-SBT users, no zone prefix |
+| Cyprus (Zone 1) | 1 + 10 digits | `1-555-123-4567` | First shard, SBT verified |
+| Paxos (Zone 2) | 2 + 10 digits | `2-555-123-4567` | Second shard, SBT verified |
+| Hydra (Zone 3) | 3 + 10 digits | `3-555-123-4567` | Third shard, SBT verified |
+| Future Zones | N + 10 digits | `N-XXX-XXX-XXXX` | Expands with Quai shards |
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    FUTURE ZONE EXPANSION                         │
+│                    ZONE PREFIX SYSTEM                            │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│   Launch: Single zone, 10-digit IDs (10B capacity)              │
+│   Legacy Users (pre-SBT):                                       │
+│   └── No prefix: 555-123-4567 (alpha testers, unverified)       │
 │                                                                 │
-│   Growth Phase:                                                 │
-│   Zone 0 (Cyprus)  ──►  Chat IDs: 0-XXX-XXX-XXXX                │
-│   Zone 1 (Paxos)   ──►  Chat IDs: 1-XXX-XXX-XXXX                │
-│   Zone 2 (Hydra)   ──►  Chat IDs: 2-XXX-XXX-XXXX                │
-│   Zones 3-8        ──►  Future expansion (9 zones total)        │
+│   SBT Holders (verified on-chain):                              │
+│   ├── Cyprus (Zone 1): 1-555-123-4567                           │
+│   ├── Paxos  (Zone 2): 2-555-123-4567                           │
+│   ├── Hydra  (Zone 3): 3-555-123-4567                           │
+│   └── Future shards:   4-9+ as Quai expands                     │
 │                                                                 │
-│   Total Capacity: 9 zones × 10B IDs = 90+ billion unique IDs    │
+│   Per-Zone Capacity: 10 billion unique IDs                      │
+│   Total Capacity: Unlimited (grows with Quai shards)            │
+│                                                                 │
+│   Zone = Quai shard where SBT was minted                        │
+│   Your zone prefix is permanent (part of your identity)         │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-Zones are **backend infrastructure**, not user choices. The system auto-assigns based on capacity.
+**Why this works:**
+- **Infinite scalability** - Each Quai shard = new zone = 10B more IDs
+- **Sybil resistance** - SBT mint ties ID to on-chain payment
+- **Legacy recognition** - No prefix = OG alpha tester (collectors item!)
+- **Cross-shard routing** - Zone prefix tells network which shard to query
 
 ### Soul Bound Token (SBT) Integration
 
@@ -83,11 +91,14 @@ SBTs are non-transferable NFTs that prove on-chain identity:
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  1. User connects wallet (Pelagus)                              │
-│  2. Pays mint fee (sybil resistance)                            │
-│  3. Contract assigns unique 10-digit Chat ID                    │
-│  4. User gets verified identity: XXX-XXX-XXXX                   │
-│  5. Signs proof message with wallet                             │
-│  6. Publishes to DHT for global discovery                       │
+│  2. Selects Quai shard (Cyprus, Paxos, Hydra, etc.)             │
+│  3. Pays mint fee on that shard (sybil resistance)              │
+│  4. Contract assigns zone prefix + unique 10-digit Chat ID      │
+│  5. User gets verified identity: 1-555-123-4567 (Cyprus)        │
+│  6. Signs proof message with wallet                             │
+│  7. Publishes to DHT for global discovery                       │
+│                                                                 │
+│  Your zone prefix = the shard where you minted = permanent      │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -173,19 +184,27 @@ Shareable identity info via QR codes or URLs:
 
 ```json
 {
-  "user_id": "555-123-4567",
+  "chat_id": "1-555-123-4567",
+  "zone": 1,
   "display_name": "Alice Smith",
   "peer_id": "12D3KooW...",
   "bio": "DePIN enthusiast 🌐",
   "is_verified": true,
+  "is_legacy": false,
   "reputation_tier": "Gold",
   "cinq_points": 45230
 }
 ```
 
+**Zone Indicator:**
+- `zone: null` + `is_legacy: true` = Pre-SBT alpha user (OG!)
+- `zone: 1` = Cyprus shard SBT holder
+- `zone: 2` = Paxos shard SBT holder
+- etc.
+
 **Sharing Formats:**
 - **URL:** `cinq://contact/eyJ1c2VyX2lkIjo...` (deep link)
-- **Compact:** `cinq:25551234567:P7zQ4dLEw3Ji:Alice` (small QR)
+- **Compact:** `cinq:1-555-123-4567:P7zQ4dLEw3Ji:Alice` (includes zone)
 - **JSON:** Full card data for QR codes
 
 ---
