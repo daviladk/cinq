@@ -158,16 +158,17 @@ The goal is **economic friction, not gatekeeping**. The mint fee should be:
 
 #### Early Adopter Benefits
 
-First users help bootstrap the network and deserve recognition:
+**Capped at 1,000 users** to control budget and create exclusivity:
 
-| Milestone | Badge | Bonus |
-|-----------|-------|-------|
-| First 100 IDs | 🥇 **Founder Badge** | 1,000 $CINQ |
-| First 1,000 IDs | 🥈 **Pioneer Badge** | 500 $CINQ |
-| First 10,000 IDs | 🥉 **Early Adopter Badge** | 100 $CINQ |
+| Badge | Who Qualifies | Bonus |
+|-------|---------------|-------|
+| 🏆 **Early Adopter** | First 1,000 SBT mints | 500 $CINQ |
+| 🧪 **Alpha Tester** | Had legacy ID before SBT launch | +500 $CINQ |
+
+*Max per user: 1,000 $CINQ (alpha + early adopter)*
 
 These points can be:
-- **Converted to Qi** at a redemption rate (e.g., 100:1)
+- **Converted to Qi** at a redemption rate (100:1)
 - **Staked for reputation** - higher score = priority in job queues
 - **Used for premium features** - custom Chat IDs, profile themes
 
@@ -245,18 +246,21 @@ Since $CINQ is redeemable at **100:1 for Qi**, the Foundation must hold reserves
 
 **Bootstrap Phase (Early Bonuses):**
 
-Scaled to fit grant budget. Qi ≈ $0.50-1.00 USD (fluctuates with network hashrate):
+**Capped at 1,000 early adopters** for predictable budgeting. Qi ≈ $0.50-1.00 USD:
 
 | Bonus Program | $CINQ/user | Max Users | Total $CINQ | Qi Reserve | USD @ $0.50 |
 |---------------|------------|-----------|-------------|------------|-------------|
-| Alpha Legacy ID | 500 | 200 | 100K | 1,000 Qi | $500 |
-| Alpha Activity | 250 | 100 | 25K | 250 Qi | $125 |
-| Founder Badge (first 100) | 1,000 | 100 | 100K | 1,000 Qi | $500 |
-| Pioneer Badge (first 1K) | 500 | 900 | 450K | 4,500 Qi | $2,250 |
-| Early Adopter (first 10K) | 100 | 9,000 | 900K | 9,000 Qi | $4,500 |
-| **Bootstrap Total** | — | — | **~1.6M $CINQ** | **~16K Qi** | **~$8K** |
+| Alpha Tester (legacy ID) | 500 | 100 | 50K | 500 Qi | $250 |
+| Early Adopter Badge | 500 | 1,000 | 500K | 5,000 Qi | $2,500 |
+| **Bootstrap Total** | — | **1,000 cap** | **550K $CINQ** | **5.5K Qi** | **~$2,750** |
 
-*At $1/Qi: ~$16K bootstrap cost. Very manageable within grant budget.*
+*At $1/Qi: ~$5.5K bootstrap cost. Leaves room to increase if needed.*
+
+**Why cap at 1,000?**
+- Predictable budget (~$2.75-5.5K vs open-ended)
+- Creates scarcity/exclusivity for early adopter badge
+- Can always expand later if budget allows
+- Some signups won't be active anyway
 
 **Ongoing Operations:**
 - After bootstrap, the 10% fee covers all $CINQ redemptions
