@@ -78,14 +78,34 @@ SBTs are non-transferable NFTs that prove on-chain identity:
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  1. User chooses zone (Cyprus/Paxos/Hydra)                      │
-│  2. Calls mint() on zone's SBT contract                         │
-│  3. Contract assigns unique 10-digit ID                         │
-│  4. User gets verified Chat ID: Z-XXX-XXX-XXXX                  │
-│  5. Signs proof message with wallet                             │
-│  6. Publishes to DHT for global discovery                       │
+│  2. Pays mint fee (sybil resistance)                            │
+│  3. Calls mint() on zone's SBT contract                         │
+│  4. Contract assigns unique 10-digit ID                         │
+│  5. User gets verified Chat ID: Z-XXX-XXX-XXXX                  │
+│  6. Signs proof message with wallet                             │
+│  7. Publishes to DHT for global discovery                       │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+#### SBT Mint Pricing (Anti-Sybil)
+
+The goal is **economic friction, not gatekeeping**. The mint fee should be:
+- **Meaningful enough** that average users only want one identity
+- **Low enough** that anyone can afford their first
+- **Not prohibitive** - wealthy bad actors could still create multiple, and that's acceptable
+
+| Approach | Price | Rationale |
+|----------|-------|-----------|
+| **Flat Fee** | ~$5-10 Qi | Coffee money - accessible but not free |
+| **Zone-Based** | Zone 0: $5, Zone 1: $7, Zone 2: $10 | Premium zones cost more |
+| **Tiered** | First: $1, Second: $10, Third: $100 | Exponential discourages multiples |
+
+**Philosophy:** Freedom over identity verification. We're not trying to create a police state—we're creating friction that makes spam uneconomical while preserving pseudonymity. If someone wants 10 identities and pays 10x, that's their choice.
+
+**Revenue Split:**
+- 90% → Foundation (funds development)
+- 10% → Zone contract (covers gas, contract maintenance)
 
 ### Contact Cards
 
