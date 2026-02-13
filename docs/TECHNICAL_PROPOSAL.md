@@ -414,13 +414,37 @@ The cinQ mesh utilizes the native properties of the Quai network to defend again
 
 ---
 
-### Phase 4: The "Sovereign OS" (Total Decentralization)
+### Phase 4: The "Agent Economy" (Compute Marketplace)
 
-**Tech Stack:** CRDTs (for Docs), Qora (Advanced Orchestration).
+**Tech Stack:** qi-agent-sdk (UTXO), Qora Swarm, Docker/Wasm (Workload Isolation).
+
+**Focus:** Transitioning from "chat app" to "compute marketplace."
+
+**Prototype Goal:** Provider agents come online, accepting compute jobs from AI agents. The Indexer Agent publishes Qi/TFLOP rates to the DHT. Treasurer handles real-time UTXO micropayments.
+
+**Key Milestones:**
+- Qora Swarm fully operational (Navigator, Treasurer, Sentinel, Indexer, Guardian)
+- Provider registration and capability profiling
+- Job queue and AI-managed workload distribution
+- Vampire Migration tool for DePIN refugees
+
+**Why This Phase Matters:** This is where cinQ stops being a "messaging app" and becomes the **Energy Dollar marketplace for AI compute**.
+
+---
+
+### Phase 5: The "Sovereign OS" (Total Decentralization)
+
+**Tech Stack:** CRDTs (for Docs), Advanced Qora Orchestration, Reed-Solomon Storage.
 
 **Focus:** Replacing the entire Google/AWS suite.
 
 **Prototype Goal:** A collaborative "Cloud Drive" and "Doc Editor" where the files are stored on the mesh and the AI agents (Qora) manage the permissions and syncing.
+
+**Key Milestones:**
+- Self-healing storage with Reed-Solomon sharding
+- Real-time collaborative editing with CRDTs
+- Full IaaS marketplace (compute, storage, bandwidth)
+- "AWS Kill-Switch" immunity—dApps hosted entirely on mesh
 
 ---
 
