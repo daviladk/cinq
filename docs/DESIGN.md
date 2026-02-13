@@ -25,7 +25,8 @@
 | 1. Genesis Node | P2P connectivity, Qi settlement CLI | ✅ Complete |
 | 2. Gateway Shell | Tauri app + **Messaging Alpha** | 🔄 Current |
 | 3. Streaming & Edge | Voice/Video, RF hardware (Wingbits/Helium) | ⏳ Planned |
-| 4. Sovereign OS | CRDTs, Qora orchestration, AWS replacement | ⏳ Planned |
+| 4. Agent Economy | Provider agents, UTXO micropayments, Qora treasury | ⏳ Planned |
+| 5. Sovereign OS | CRDTs, full IaaS marketplace, AWS replacement | ⏳ Planned |
 
 ---
 

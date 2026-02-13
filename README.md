@@ -27,7 +27,8 @@ A Qi-backed compute marketplace where hardware providers earn native Qi for FLOP
 - Phase 1 ✅ Genesis Node (P2P connectivity, Qi settlement prototype)
 - Phase 2 🔄 Gateway Shell (Tauri app + **Messaging Alpha** for adoption)
 - Phase 3 ⏳ Streaming & Edge (Voice/Video, RF hardware integration)
-- Phase 4 ⏳ Sovereign OS (CRDTs, Qora orchestration, full AWS replacement)
+- Phase 4 ⏳ Agent Economy (Provider agents, UTXO micropayments, Qora treasury)
+- Phase 5 ⏳ Sovereign OS (CRDTs, full IaaS marketplace, AWS replacement)
 
 ## Features
 
