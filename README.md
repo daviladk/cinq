@@ -71,6 +71,21 @@ Your cinQ identity is **permanent**. Losing access means losing your reputation,
 
 Yes, any Quai-compatible wallet (Pelagus, etc.) works. But for a **permanent identity** that holds your reputation, contacts, and earnings history, hardware security makes sense. A browser extension wallet with seed phrase backup is technically possible but higher risk for something this permanent.
 
+### Accessibility Programs
+
+We believe digital identity shouldn't be gated by geography or income:
+
+| Program | Details |
+|---------|---------|
+| **Genesis Discount** | Early adopters receive Tangem discount codes through cinQ × Tangem partnership |
+| **Regional Pricing** | Subsidized hardware for developing markets (partnership in progress) |
+| **Earn-to-Own** | Contribute compute/relay → earn toward Tangem card cost |
+| **Free Tier** | Pelagus wallet always available (seed phrase backup required) |
+
+**Partnership Vision:** Bring hardware-backed digital identity to underserved regions. For many users, a cinQ ID may be their first verifiable credential—stronger than government-issued documents in areas with weak infrastructure.
+
+> 💡 **$60 is less than a passport** and lasts longer. But we're working to make secure identity accessible to everyone.
+
 ## Quick Start
 
 ### Prerequisites
