@@ -14,7 +14,7 @@
 6. [DePIN Infrastructure & Hardware Migration](#6-depin-infrastructure--hardware-migration)
 7. [Dynamic Resource Allocation](#7-dynamic-resource-allocation)
 8. [The Mesh Map & Urban Equity](#8-the-mesh-map--urban-equity)
-9. [The $CINQ Economy: User Incentive & Identity](#9-the-cinq-economy-user-incentive--identity)
+9. [The $CINQ Economy & Identity Layer](#9-the-cinq-economy--identity-layer)
 10. [Swarm Resilience: Adversarial Defense](#10-swarm-resilience-adversarial-defense)
 11. [Development Roadmap](#11-development-roadmap)
 12. [Conclusion](#12-conclusion)
@@ -65,7 +65,7 @@ Qora translates complex swarm telemetry into human-readable updates. She can pro
 Directed by Qora to act as the traffic controller, consuming FLOPs to calculate P2P routes and ensuring data is moved securely. It is tasked with identifying and unlocking underutilized computing power across the mesh.
 
 ### Settlement Agent (The Treasurer)
-Eliminates the need for complex escrow contracts. Under Qora's instruction, it audits the user's native Qi balance in real-time and orchestrates direct, programmatic transfers to providers as services are rendered.
+Powered by the **Qi Agent SDK**, eliminates the need for complex escrow contracts. Under Qora's instruction, it audits the user's native Qi balance in real-time and orchestrates direct, programmatic UTXO micropayments to providers as services are rendered—no manual funding or escrow lockup required.
 
 ### Sentinel Agent (The Auditor)
 The swarm's "eyes" on data integrity. Its mathematical verification serves as the "Proof of Service" required to trigger the Settlement Agent's direct payment.
@@ -138,7 +138,7 @@ This layer gamifies growth while enforcing algorithmic fairness through the Brai
 
 ---
 
-## 9. The $CINQ Economy: User Incentive & Identity
+## 9. The $CINQ Economy & Identity Layer
 
 The $CINQ economy is designed to reward long-term participation and high-integrity hardware provision through a dual-layered system of liquidity and reputation.
 
@@ -150,11 +150,41 @@ The $CINQ economy is designed to reward long-term participation and high-integri
 
 ### The cinQ Soulbound NFT (The Identity Pass)
 
-**Non-Transferable Credentials:** Upon joining the mesh, the Identity Agent (The Guardian) mints a unique Soulbound NFT to the user's wallet. This NFT is non-transferable and serves as the user's permanent "Digital Legacy" on the Quai network.
+**Non-Transferable Credentials:** Upon joining the mesh, users mint a Soulbound NFT to their wallet. This NFT is non-transferable and serves as the user's permanent "Digital Legacy" on the Quai network.
+
+**cinQ ID:** A phone-number style identifier (e.g., `1-555-123-4567`) is minted INTO the SBT metadata. The zone prefix (1=Cyprus, 2=Paxos, 3=Hydra) is auto-detected from the user's Quai wallet address.
 
 **Dynamic Metadata:** The NFT's metadata (visual traits, rank, and tier) evolves in real-time to reflect the user's total $CINQ earned and their historical uptime.
 
 **Privileged Access:** Higher-tier NFTs unlock "Priority Routing" from the Navigator Agent and allow hardware providers to bid on high-value "Sentinel" and "Conductor" contracts within the Qora swarm.
+
+### Recommended Hardware: Tangem Wallet
+
+Your cinQ identity is **permanent**. We recommend Tangem hardware wallets for maximum security:
+
+| Factor | Description |
+|--------|-------------|
+| **Something You Have** | NFC card (physical possession) |
+| **Something You Know** | PIN code (recoverable) |
+| **Something You Are** | Biometrics (fingerprint/face) |
+
+**Why Tangem?**
+- **PIN Recovery:** Lose your cards? Order new ones, enter your PIN, identity restored
+- **No Seed Phrases:** No 24 words to lose or get phished
+- **~$60 investment:** Small price for a lifetime digital identity
+
+> SBTs are non-transferable by design. Once minted to a wallet, the token cannot move. Choose your identity wallet carefully.
+
+### Accessibility Programs
+
+Digital identity shouldn't be gated by geography or income:
+
+| Program | Details |
+|---------|----------|
+| **Genesis Discount** | Early adopters receive Tangem discount codes via partnership |
+| **Regional Pricing** | Subsidized hardware for developing markets |
+| **Earn-to-Own** | Contribute compute/relay → earn toward Tangem card cost |
+| **Free Tier** | Pelagus wallet always available (seed phrase backup required) |
 
 #### On-Chain Identity Structure
 
@@ -262,21 +292,27 @@ The cinQ mesh utilizes the native properties of the Quai network to defend again
 | NAT traversal | ✅ | AutoNAT, DCUTR, UPnP, Relay |
 | Data transfer protocol | ✅ | `/cinq/transfer/1.0.0` |
 | Basic SOCKS5 proxy | ✅ | Foundation for "buy bandwidth" |
-| qi-agent-sdk integration | 🔄 | In progress |
-| Qi wallet integration | ⏳ | Next step |
-| Metered transfer + settlement | ⏳ | Pending |
+| qi-agent-sdk integration | ✅ | Micropayments via SDK |
+| Pelagus wallet integration | ✅ | Native Qi payments |
+| Metered transfer + settlement | 🔄 | In progress |
 
 ---
 
-### Phase 2: The "Gateway Shell" (The Prototype App)
+### Phase 2: The "Gateway Shell" (The Prototype App) 🔄 CURRENT
 
 **Tech Stack:** Tauri v2 (App Wrapper), React/TypeScript (UI), Rust (Tauri Commands).
 
-**Focus:** Wrapping the Rust engine in a beautiful, user-friendly interface.
+**Focus:** Wrapping the Rust engine in a beautiful, user-friendly interface + **Messaging Alpha** as early user acquisition.
 
 **Prototype Goal:** The first version of the cinQ Desktop App. Users can see their node status, their Qi balance, and a "Nearby Nodes" map.
 
-**Messaging Alpha:** High-speed, E2EE text messaging that doesn't go through a server, sharded via the Reed-Solomon logic.
+**Messaging Alpha (Adoption Hook):**
+- E2EE chat via P2P mesh (no servers)
+- Phone-number style Chat IDs (e.g., `1-555-123-4567`)
+- Contact cards with QR codes for sharing
+- Foundation for Phase 3 voice/video
+
+**Why Messaging First?** Users need a reason to install the app before IaaS marketplace exists. E2EE chat provides immediate value while we build compute infrastructure.
 
 ---
 
