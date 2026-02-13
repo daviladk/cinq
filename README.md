@@ -4,6 +4,8 @@
 
 A Qi-backed compute marketplace where hardware providers earn native Qi for FLOPs. The Qora Agent Swarm orchestrates workloads across idle gaming PCs, servers, and edge devices—creating the foundation for a truly sovereign internet.
 
+> **Network Backbone:** cinQ leverages **Stratum X nodes** as the DePIN network foundation. The architecture is also compatible with standard Quai nodes for broader deployment flexibility.
+
 ![Version](https://img.shields.io/badge/version-0.6.0-blue)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
 ![License](https://img.shields.io/badge/license-MIT-green)
