@@ -18,6 +18,28 @@
 - **10/90 Deposit Model** - High-quality, audit-ready nodes
 - **$CINQ Soulbound Identity** - Non-tradable reputation (1:1 mint, 100:1 redeem)
 
+### Qi: The Energy Dollar for AI
+
+> *"By denominating costs in Energy Dollars, we create a seamless accounting system where the currency of transaction aligns perfectly with the currency of computation."*  
+> — Alan Orwick, Quai Network Founder
+
+**Why Traditional Cryptocurrencies Fail for AI:**
+
+| Currency | Problem for AI |
+|----------|----------------|
+| **BTC/ETH** | Volatility makes long-running tasks unpredictable. An AI job taking hours could see compensation fluctuate wildly. |
+| **Stablecoins** | Oracle dependency introduces risk. Ties to traditional finance break crypto-native principles. |
+| **DePIN Tokens** | Speculative, marketing-driven. No intrinsic link to compute costs. |
+
+**Why Qi (Energy Dollar) Works:**
+
+- **Energy = AI Growth** - Data center consumption is the key driver of AI capabilities (projected 9.1% of US electricity by 2030)
+- **Direct Hardware Integration** - AI agents tap into the hardware they run on to validate energy consumption
+- **Proof of Work as Value Creation** - Nodes can generate the currency they need without external exchanges
+- **No Oracle Risk** - Qi is minted through energy expenditure, not pegged via price feeds
+
+cinQ implements this vision: **Qi is the currency of transaction, FLOPs are the currency of computation.**
+
 ### FLOPs as Trustless Oracle
 
 **Why FLOPs matter for AI agents:** Autonomous agents need a payment system that is simple, mathematical, and auditable. FLOPs provide exactly that.

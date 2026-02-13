@@ -23,7 +23,23 @@
 
 ## 1. Executive Summary
 
-cinQ is a decentralized Infrastructure-as-a-Service (IaaS) plugin for Quai Stratum X nodes. Unlike traditional DePIN models that rely on volatile native tokens, cinQ utilizes Qi, Quai's energy-backed currency. By linking Qi directly to FLOPs (Floating Point Operations), cinQ creates a marketplace where hardware providers are compensated in a currency that reflects the real-world cost of compute. This architecture removes the need for marketing-driven hype, replacing it with an autonomous, energy-anchored economy managed by AI agents.
+cinQ is a decentralized Infrastructure-as-a-Service (IaaS) plugin for Quai Stratum X nodes. Unlike traditional DePIN models that rely on volatile native tokens, cinQ utilizes Qi—Quai's **Energy Dollar**. By linking Qi directly to FLOPs (Floating Point Operations), cinQ creates a marketplace where hardware providers are compensated in a currency that reflects the real-world cost of compute. This architecture removes the need for marketing-driven hype, replacing it with an autonomous, energy-anchored economy managed by AI agents.
+
+### Why Qi (The Energy Dollar) for AI
+
+> *"By denominating costs in Energy Dollars, we create a seamless accounting system where the currency of transaction aligns perfectly with the currency of computation."*  
+> — Alan Orwick, Quai Network Founder
+
+**The Problem with Existing Currencies:**
+- **BTC/ETH volatility** makes long-running AI tasks unpredictable
+- **Stablecoins** rely on oracles and traditional finance—not crypto-native
+- **DePIN tokens** are speculative, with no intrinsic link to compute costs
+
+**Why Qi Works:**
+- Energy consumption is the **fundamental driver** of AI growth
+- Qi provides **direct hardware integration**—AI validates energy at the source
+- **No oracle risk**—Qi is minted through Proof-of-Work, not price feeds
+- The currency of transaction (Qi) aligns with the currency of computation (FLOPs)
 
 ### FLOPs as Trustless Oracle
 
