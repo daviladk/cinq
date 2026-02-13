@@ -352,6 +352,93 @@ NODE OPERATOR (5 GB browsing, 500 GB relaying, always-on)
 
 **Key insight:** If you contribute more than you consume, your privacy is free.
 
+### Agent Economics (Qora Swarm)
+
+Agents are automated representatives of humans and their hardware. They don't accumulate wealth—they coordinate resource allocation using Qi as the coordination signal.
+
+#### The Agent = The Human (Automated)
+
+```
+Human owns GPU rig
+       ↓
+Runs cinQ node → spawns "Provider Agent"
+       ↓
+Agent has wallet → receives Qi for work done
+       ↓
+Human withdraws to Quai whenever they want
+```
+
+The agent is the *interface* between hardware and the economic layer—automation, not autonomy.
+
+#### Agent Types
+
+| Agent Type | Role | Accumulates Qi? |
+|------------|------|-----------------|
+| **Consumer Agent** (Qora) | Orchestrates jobs, allocates budgets | No - pass-through only |
+| **Provider Agent** | Represents hardware owner, accepts jobs | Yes - for the human |
+
+#### Qora Treasury Flow
+
+```
+Human deposits 100 Qi into Qora Treasury
+         ↓
+Human requests: "Render this video"
+         ↓
+Qora splits treasury → creates UTXOs for:
+  • Router Agent (1 Qi) - finds best GPU nodes
+  • Compute Agent (80 Qi) - pays for GPU time
+  • Delivery Agent (5 Qi) - handles result transfer
+  • Reserve (14 Qi) - retries/overages
+         ↓
+Agents pay Provider Agents for actual work
+         ↓
+Unused Qi returns to treasury
+```
+
+#### What Agents Do With Qi
+
+| Use Case | Description |
+|----------|-------------|
+| **Pay infrastructure** | GPU node wants 0.5 Qi/min, agent pays in real-time |
+| **Bid for priority** | Scarce resource? Offer more to jump queue |
+| **Retry on failure** | Node drops? Pay another from reserve |
+| **Return surplus** | Job done cheap? Unused Qi flows back |
+
+#### Why UTXO Is Perfect
+
+Quai's UTXO model is ideal for agent micropayments:
+
+1. **Parallel execution** - Multiple agents spend simultaneously (no nonce coordination)
+2. **Atomic splits** - Qora splits 100 Qi into 5 agent UTXOs in one transaction
+3. **Payment channels** - Settle off-chain, batch to chain (Lightning-style)
+4. **No account state** - Each UTXO is independent, agents don't block each other
+5. **Natural audit trail** - UTXO graph = who paid whom for what
+
+#### The Full Circle
+
+```
+Consumer (Human)
+     │
+     ├── Deposits Qi → Qora Treasury
+     │
+     ▼
+Qora (Orchestrator Agent)
+     │
+     ├── Allocates budget to task agents
+     │
+     ▼
+Provider Agents (Hardware Owners)
+     │
+     ├── Do work → Receive Qi
+     │
+     ▼
+Provider (Human)
+     │
+     └── Withdraws Qi → Converts to Quai
+```
+
+Agents are just "the human, but automated and always online."
+
 ---
 
 ## Node Roles
