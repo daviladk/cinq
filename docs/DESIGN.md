@@ -78,8 +78,43 @@ Zones work like **country codes for phone numbers**, based on Quai Network shard
 **Why this works:**
 - **Infinite scalability** - Each Quai shard = new zone = 10B more IDs
 - **Sybil resistance** - SBT mint ties ID to on-chain payment
-- **Legacy recognition** - No prefix = OG alpha tester (collectors item!)
 - **Cross-shard routing** - Zone prefix tells network which shard to query
+
+### Legacy ID Migration
+
+Legacy IDs (no zone prefix) are **ephemeral alpha testing IDs**. They do NOT migrate to SBT:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    LEGACY → SBT MIGRATION                        │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   ALPHA PHASE (pre-SBT):                                        │
+│   └── User gets: 555-123-4567 (temporary, unverified)           │
+│                                                                 │
+│   SBT LAUNCH:                                                   │
+│   └── User mints SBT on Cyprus shard                            │
+│   └── Gets NEW number: 1-867-530-9999                           │
+│   └── Old legacy ID (555-123-4567) expires/becomes inactive     │
+│   └── Proof of alpha participation → Bonus $CINQ reward!        │
+│                                                                 │
+│   WHY NO MIGRATION?                                             │
+│   • Legacy IDs were never on-chain (no ownership proof)         │
+│   • SBT numbers are assigned at mint time by smart contract     │
+│   • Clean slate = no complex migration logic                    │
+│   • Alpha testers get rewarded with $CINQ, not number claims    │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Alpha Tester Rewards:**
+| Proof | Reward | How to Verify |
+|-------|--------|---------------|
+| Had legacy ID before SBT launch | 5,000 $CINQ | Signed message from old peer ID |
+| Sent 100+ messages in alpha | +2,500 $CINQ | DHT activity logs |
+| Relayed 1GB+ in alpha | +2,500 $CINQ | Bandwidth metrics |
+
+This rewards early adopters **without** complex ID migration. Your new SBT number is your permanent identity.
 
 ### Soul Bound Token (SBT) Integration
 
