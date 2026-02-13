@@ -110,9 +110,9 @@ Legacy IDs (no zone prefix) are **ephemeral alpha testing IDs**. They do NOT mig
 **Alpha Tester Rewards:**
 | Proof | Reward | How to Verify |
 |-------|--------|---------------|
-| Had legacy ID before SBT launch | 5,000 $CINQ | Signed message from old peer ID |
-| Sent 100+ messages in alpha | +2,500 $CINQ | DHT activity logs |
-| Relayed 1GB+ in alpha | +2,500 $CINQ | Bandwidth metrics |
+| Had legacy ID before SBT launch | 500 $CINQ | Signed message from old peer ID |
+| Sent 100+ messages in alpha | +250 $CINQ | DHT activity logs |
+| Relayed 1GB+ in alpha | +250 $CINQ | Bandwidth metrics |
 
 This rewards early adopters **without** complex ID migration. Your new SBT number is your permanent identity.
 
@@ -160,11 +160,11 @@ The goal is **economic friction, not gatekeeping**. The mint fee should be:
 
 First users help bootstrap the network and deserve recognition:
 
-| Milestone | Bonus | Benefit |
-|-----------|-------|---------|
-| First 1,000 IDs | 🥇 **Founder Badge** | 10,000 $CINQ points |
-| First 10,000 IDs | 🥈 **Pioneer Badge** | 5,000 $CINQ points |
-| First 100,000 IDs | 🥉 **Early Adopter Badge** | 1,000 $CINQ points |
+| Milestone | Badge | Bonus |
+|-----------|-------|-------|
+| First 100 IDs | 🥇 **Founder Badge** | 1,000 $CINQ |
+| First 1,000 IDs | 🥈 **Pioneer Badge** | 500 $CINQ |
+| First 10,000 IDs | 🥉 **Early Adopter Badge** | 100 $CINQ |
 
 These points can be:
 - **Converted to Qi** at a redemption rate (e.g., 100:1)
@@ -245,12 +245,18 @@ Since $CINQ is redeemable at **100:1 for Qi**, the Foundation must hold reserves
 
 **Bootstrap Phase (Early Bonuses):**
 
-| Bonus Program | Max $CINQ | Qi Reserve Needed | Funding Source |
-|---------------|-----------|-------------------|----------------|
-| Alpha Legacy ID | 5M | 50,000 Qi | Initial treasury |
-| Alpha Messages/Relay | 1.75M | 17,500 Qi | Initial treasury |
-| Founder/Pioneer/Early | 145M | 1,450,000 Qi | Initial treasury |
-| **Bootstrap Total** | **~152M** | **~1.52M Qi** | Must be pre-funded |
+Scaled to fit grant budget. Qi ≈ $0.50-1.00 USD (fluctuates with network hashrate):
+
+| Bonus Program | $CINQ/user | Max Users | Total $CINQ | Qi Reserve | USD @ $0.50 |
+|---------------|------------|-----------|-------------|------------|-------------|
+| Alpha Legacy ID | 500 | 200 | 100K | 1,000 Qi | $500 |
+| Alpha Activity | 250 | 100 | 25K | 250 Qi | $125 |
+| Founder Badge (first 100) | 1,000 | 100 | 100K | 1,000 Qi | $500 |
+| Pioneer Badge (first 1K) | 500 | 900 | 450K | 4,500 Qi | $2,250 |
+| Early Adopter (first 10K) | 100 | 9,000 | 900K | 9,000 Qi | $4,500 |
+| **Bootstrap Total** | — | — | **~1.6M $CINQ** | **~16K Qi** | **~$8K** |
+
+*At $1/Qi: ~$16K bootstrap cost. Very manageable within grant budget.*
 
 **Ongoing Operations:**
 - After bootstrap, the 10% fee covers all $CINQ redemptions
