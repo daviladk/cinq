@@ -773,6 +773,93 @@ Agents are just "the human, but automated and always online."
 
 ---
 
+## Compute Optimization
+
+Strategies for maximizing FLOPs yield and Qi earnings:
+
+### Qi Compute Oracle
+
+Just as Qi has an energy oracle to anchor its value to real-world electricity costs, cinQ requires a **Compute Oracle** to price FLOPs:
+
+| Oracle | Tracks | Output |
+|--------|--------|--------|
+| Energy Oracle | kWh prices globally | Qi/kWh rate |
+| **Compute Oracle** | FLOP benchmarks | Qi/TFLOP rate |
+
+The Compute Oracle aggregates:
+- Cloud spot prices (AWS/GCP benchmarks as reference)
+- Network-wide job completion times
+- Hardware performance databases
+
+This keeps **FLOPs = Qi** anchored to real compute costs, not speculation.
+
+### GPU Partitioning
+
+NVIDIA MIG (Multi-Instance GPU) and similar technologies allow splitting one GPU into isolated instances:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    GPU PARTITIONING                             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   Traditional: Wait for big job → 80% idle time                 │
+│                                                                 │
+│   With MIG: Run 4 small jobs simultaneously                     │
+│   ┌─────────┬─────────┬─────────┬─────────┐                     │
+│   │ Job A   │ Job B   │ Job C   │ Job D   │                     │
+│   │ 2 Qi    │ 1.5 Qi  │ 3 Qi    │ 2 Qi    │                     │
+│   └─────────┴─────────┴─────────┴─────────┘                     │
+│                                                                 │
+│   Result: Higher utilization = More Qi/hour                     │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Job Batching & Scheduling
+
+Qora queues similar workloads to reduce GPU cold-start overhead:
+
+- **Inference batching** - Group similar model requests
+- **Warm instance premium** - Pre-loaded models earn more
+- **Batch efficiency** - 10 small jobs batched > 10 jobs sequential
+
+### Data Locality & Caching
+
+Nodes that cache popular assets (model weights, datasets) earn routing preference:
+
+| Cache Type | Benefit | Qi Bonus |
+|------------|---------|----------|
+| LLM weights (Llama, Mistral) | Skip 4GB+ download | +15% job rate |
+| Stable Diffusion models | Instant inference | +10% job rate |
+| Popular datasets | Train locally | +20% job rate |
+
+**Data Locality Principle:** Jobs run where data already exists. No transfer = faster + cheaper = provider earns more.
+
+### Time-of-Day Scheduling
+
+Providers configure their off-peak electricity hours in the app:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    PROVIDER SETTINGS                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   Off-Peak Hours: [22:00] to [06:00]                            │
+│   Timezone: UTC+2 (Cyprus)                                      │
+│                                                                 │
+│   ☑ Accept heavy jobs during off-peak only                      │
+│   ☐ Available 24/7 for all job types                            │
+│                                                                 │
+│   Qora routes power-hungry jobs to your node when YOUR          │
+│   electricity is cheapest. Same Qi earned, lower power bill.    │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+The user tells Qora their rates - the AI doesn't know electricity prices, but it respects provider preferences.
+
+---
+
 ## Node Roles
 
 Every node provides BOTH services:

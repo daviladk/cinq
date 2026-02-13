@@ -99,7 +99,7 @@ cinQ provides a stable, zero-collateral environment for high-tier hardware provi
 
 ### Hardware Migration Paths
 
-**Compute Tier (Flux/Dabba Pro):** cinQ can utilize the enterprise-grade hardware currently powering Flux nodes or Dabba Pro routers. By flashing these units with the qi-agent-sdk, providers move from earning project-specific utility tokens to earning Native Qi, anchored by real-world energy costs.
+**Compute Tier (Flux/Dabba Pro):** cinQ can utilize the enterprise-grade hardware currently powering Flux nodes or Dabba Pro routers (India-based DePIN routers, providing a regional onboarding path for the Indian community). By flashing these units with the qi-agent-sdk, providers move from earning project-specific utility tokens to earning Native Qi, anchored by real-world energy costs.
 
 **Location & Security Tier (Wingbits/Helium):** The Gateway supports specialized hardware like high-gain 1090MHz and 915MHz antennas. These units are repurposed as Long-Range Sentinel Links, providing the "heartbeat" and geographic verification needed to secure a hex without requiring high-bandwidth fiber.
 
@@ -116,6 +116,18 @@ cinQ provides a stable, zero-collateral environment for high-tier hardware provi
 **Liquid Tagging:** The Navigator uses real-time tags to match workloads with the exact hardware required, ensuring that even non-standard or "mid-tier" PCs are fully monetized.
 
 **Fluid Scalability:** Users can contribute as much or as little power as they choose; the Swarm scales the workload to the device's current idle capacity, settling the payment instantly in Qi.
+
+### Compute Optimization Strategies
+
+**Qi Compute Oracle:** Just as Qi has an energy oracle, cinQ uses a Compute Oracle to anchor FLOP pricing to real-world compute costs (cloud benchmarks, job completion times). This keeps FLOPs = Qi grounded, not speculative.
+
+**GPU Partitioning:** Using NVIDIA MIG or similar, GPUs can run multiple smaller jobs simultaneously instead of waiting idle for large jobs. Higher utilization = more Qi/hour.
+
+**Job Batching:** Qora queues similar workloads to reduce cold-start overhead. Warm instances with pre-loaded models earn premium rates.
+
+**Data Locality & Caching:** Nodes caching popular model weights (Llama, Stable Diffusion) get routing preference—jobs run where data already exists, eliminating transfer costs.
+
+**Time-of-Day Scheduling:** Providers configure their off-peak electricity hours. Qora routes heavy jobs during these windows so providers earn the same Qi with lower electricity costs.
 
 ---
 
