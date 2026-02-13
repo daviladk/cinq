@@ -45,6 +45,32 @@ A Qi-backed compute marketplace where hardware providers earn native Qi for FLOP
 - 📇 **Contact Cards** - QR codes & deep links for sharing
 - 🏷️ **SBT Ready** - Soul Bound Token identity for $CINQ reputation
 
+### Identity Layer (Soulbound NFT)
+
+cinQ introduces a **permanent digital identity** backed by blockchain and hardware:
+
+| Component | Description |
+|-----------|-------------|
+| **Soulbound NFT (SBT)** | Non-transferable token minted to your wallet—cannot be moved, sold, or transferred. Your identity stays with you forever. |
+| **cinQ ID** | Phone-number style identifier (e.g., `1-555-0001`) minted INTO the SBT metadata. This is your permanent address on the network. |
+| **Zone Prefix** | Auto-detected from your Quai wallet address (1=Cyprus, 2=Paxos, 3=Hydra). Your ID reflects your shard. |
+| **Tangem Wallet** | Recommended hardware wallet where your SBT lives. NFC card + PIN + biometrics = three-factor identity. |
+
+**Why Tangem?**
+
+Your cinQ identity is **permanent**. Losing access means losing your reputation, contacts, and network history. Tangem provides:
+
+- **PIN Recovery** - Lose your cards? Order new ones, enter your PIN, identity restored
+- **Three-Factor Auth** - Something you have (card) + know (PIN) + are (biometrics)
+- **No Seed Phrases** - No 24 words to lose or get phished
+- **~$60 investment** - Small price for a lifetime digital identity
+
+> ⚠️ **SBTs are non-transferable by design.** Once minted to a wallet address, the token cannot move. Choose your identity wallet carefully—we recommend Tangem for maximum security.
+
+**Can I use a different wallet?**
+
+Yes, any Quai-compatible wallet (Pelagus, etc.) works. But for a **permanent identity** that holds your reputation, contacts, and earnings history, hardware security makes sense. A browser extension wallet with seed phrase backup is technically possible but higher risk for something this permanent.
+
 ## Quick Start
 
 ### Prerequisites
