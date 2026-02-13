@@ -58,6 +58,28 @@ cinQ is a decentralized Infrastructure-as-a-Service (IaaS) plugin for Quai Strat
 
 This is why Qi is perfect for autonomous AI economies—it's a **verifiable work receipt** that agents trust without human intervention.
 
+### Why DePIN Projects Struggle
+
+Most DePIN projects share a fundamental flaw: their token economics are disconnected from the utility they provide.
+
+**The DePIN Death Spiral:**
+1. Token price drops → Provider revenue drops
+2. Providers shut off hardware (unprofitable)
+3. Network capacity decreases → Service quality drops
+4. Users leave → Less demand for token
+5. Token price drops further → Repeat
+
+| Project | Problem |
+|---------|--------|
+| **Flux** | Token crashed 95%+ from ATH. Providers earning less than electricity costs. Human operators manually managing workloads—no AI orchestration. |
+| **Helium** | Per-device earnings collapsed as network grew. Migration to Solana signals tokenomics failure. |
+| **Dabba** | Human-controlled payment rails. Indian operators dependent on token speculation, not utility revenue. |
+| **Akash** | Manual, human-driven price discovery. AKT volatility makes long-term contracts risky. |
+
+**The Common Thread:** All pay providers in tokens whose value is speculative, not energy-anchored.
+
+**cinQ's Solution:** Provider revenue is tied to **physics** (energy consumed), not **hype** (token speculation). An efficient GPU will always be profitable because Qi/TFLOP tracks real energy costs. Energy-backed currency cannot death spiral.
+
 ---
 
 ## 2. The Decentralized Host

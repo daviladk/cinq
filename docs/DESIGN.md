@@ -40,6 +40,60 @@
 
 cinQ implements this vision: **Qi is the currency of transaction, FLOPs are the currency of computation.**
 
+### Why DePIN Projects Struggle
+
+Most DePIN projects share a fundamental flaw: **their token economics are disconnected from the utility they provide.** This creates a misalignment where:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              THE DEPIN DEATH SPIRAL                             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   1. Token price drops → Provider revenue drops                 │
+│   2. Providers shut off hardware (unprofitable)                 │
+│   3. Network capacity decreases → Service quality drops         │
+│   4. Users leave → Less demand for token                        │
+│   5. Token price drops further → Repeat                         │
+│                                                                 │
+│   The utility token BECOMES the vulnerability.                  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Case Studies:**
+
+| Project | Model | Problem |
+|---------|-------|--------|
+| **Flux** | Providers earn FLUX tokens | Token price crashed 95%+ from ATH. Providers earning less than electricity costs. Network relies on "true believers" subsidizing operations. Human operators manually managing workloads—no AI orchestration. |
+| **Helium** | Hotspot owners earn HNT | Early adopters earned well, but as network grew, per-device earnings collapsed. Migration to Solana signals tokenomics failure. Hardware sits idle as ROI disappeared. |
+| **Dabba** | Users pay DABBA to router operators | Human-controlled payment rails. Token value disconnected from bandwidth delivered. Indian operators dependent on token speculation, not utility revenue. |
+| **Akash** | Providers bid in AKT | Price discovery is manual and human-driven. No autonomous agent economy. AKT volatility makes long-term compute contracts risky. |
+| **Render** | GPU providers earn RNDR | Centralized job distribution. Single point of failure. Token speculation overshadows actual render utility. |
+
+**The Common Thread:** All these projects pay providers in a token whose value is determined by market speculation, not by the energy/compute actually delivered.
+
+**cinQ's Solution:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              THE ENERGY DOLLAR FLYWHEEL                         │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   1. Provider delivers 1 TFLOP of compute                       │
+│   2. Qi payment reflects actual energy cost (not speculation)   │
+│   3. Provider is ALWAYS profitable if efficient                 │
+│   4. More providers join → Network capacity grows               │
+│   5. Better service → More AI agents use the network            │
+│   6. More demand → More Qi flows → Repeat                       │
+│                                                                 │
+│   Energy-backed currency CANNOT death spiral.                   │
+│   Providers earn what they spend, plus margin.                  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key Difference:** In cinQ, provider revenue is tied to **physics** (energy consumed), not **hype** (token speculation). An efficient RTX 4090 will always be profitable because Qi/TFLOP tracks real energy costs.
+
 ### FLOPs as Trustless Oracle
 
 **Why FLOPs matter for AI agents:** Autonomous agents need a payment system that is simple, mathematical, and auditable. FLOPs provide exactly that.
