@@ -160,12 +160,12 @@ The goal is **economic friction, not gatekeeping**. The mint fee should be:
 
 **Capped at 1,000 users** to control budget and create exclusivity:
 
-| Badge | Who Qualifies | Bonus |
-|-------|---------------|-------|
-| 🏆 **Early Adopter** | First 1,000 SBT mints | 500 $CINQ |
-| 🧪 **Alpha Tester** | Had legacy ID before SBT launch | +500 $CINQ |
+| Badge | Who Qualifies | Bonus | ~USD Value |
+|-------|---------------|-------|------------|
+| 🏆 **Early Adopter** | First 1,000 SBT mints | 10,000 $CINQ | ~$50 |
+| 🧪 **Alpha Tester** | Had legacy ID before SBT launch | +10,000 $CINQ | +$50 |
 
-*Max per user: 1,000 $CINQ (alpha + early adopter)*
+*Max per user: 20,000 $CINQ = 200 Qi = ~$100 (alpha + early adopter)*
 
 These points can be:
 - **Converted to Qi** at a redemption rate (100:1)
@@ -250,14 +250,14 @@ Since $CINQ is redeemable at **100:1 for Qi**, the Foundation must hold reserves
 
 | Bonus Program | $CINQ/user | Max Users | Total $CINQ | Qi Reserve | USD @ $0.50 |
 |---------------|------------|-----------|-------------|------------|-------------|
-| Alpha Tester (legacy ID) | 500 | 100 | 50K | 500 Qi | $250 |
-| Early Adopter Badge | 500 | 1,000 | 500K | 5,000 Qi | $2,500 |
-| **Bootstrap Total** | — | **1,000 cap** | **550K $CINQ** | **5.5K Qi** | **~$2,750** |
+| Alpha Tester (legacy ID) | 10,000 | 100 | 1M | 10K Qi | $5,000 |
+| Early Adopter Badge | 10,000 | 1,000 | 10M | 100K Qi | $50,000 |
+| **Bootstrap Total** | — | **1,000 cap** | **11M $CINQ** | **110K Qi** | **~$55,000** |
 
-*At $1/Qi: ~$5.5K bootstrap cost. Leaves room to increase if needed.*
+*At $1/Qi: ~$110K bootstrap cost. Still well within $400K grant.*
 
 **Why cap at 1,000?**
-- Predictable budget (~$2.75-5.5K vs open-ended)
+- Predictable budget (~$55-110K vs open-ended)
 - Creates scarcity/exclusivity for early adopter badge
 - Can always expand later if budget allows
 - Some signups won't be active anyway
