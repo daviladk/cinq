@@ -114,11 +114,12 @@ cargo tauri build
 ### Usage
 
 1. **Connect Wallet** - Click "Connect to Pelagus" and approve in the extension
-2. **Add Escrow** - Click "+ Add 10 Qi" to fund your bandwidth escrow
-3. **Start Node** - Toggle the P2P Node switch to join the network
-4. **Start Proxy** - Toggle SOCKS5 Proxy to route traffic (127.0.0.1:1080)
+2. **Start Node** - Toggle the P2P Node switch to join the network
+3. **Start Proxy** - Toggle SOCKS5 Proxy to route traffic (127.0.0.1:1080)
 
 Configure your browser or apps to use SOCKS5 proxy at `127.0.0.1:1080`.
+
+> **Payments:** Qi micropayments handled automatically via Qi Agent SDK—no escrow needed.
 
 ## Architecture
 
@@ -185,7 +186,7 @@ cinq/
 - [x] P2P Chat messaging ✨ **NEW**
 - [ ] Message encryption (currently plaintext)
 - [ ] Complete P2P traffic routing
-- [ ] Escrow smart contract
+- [ ] Qi Agent SDK micropayments
 - [ ] Multi-hop onion routing
 - [ ] Bootstrap nodes for WAN discovery
 - [ ] Exit node earnings
