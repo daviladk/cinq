@@ -158,14 +158,25 @@ The goal is **economic friction, not gatekeeping**. The mint fee should be:
 
 #### Early Adopter Benefits
 
-**Capped at 100 users** to control budget and create exclusivity:
+**Genesis NFT (First 100 users)** - A commemorative collectible for OGs:
 
-| Badge | Who Qualifies | Bonus | ~USD Value |
-|-------|---------------|-------|------------|
-| 🏆 **Early Adopter** | First 100 SBT mints | 10,000 $CINQ | ~$50 |
-| 🧪 **Alpha Tester** | Had legacy ID before SBT launch | +10,000 $CINQ | +$50 |
+| Item | Who Qualifies | What You Get |
+|------|---------------|---------------|
+| 🌟 **Genesis NFT** | First 100 SBT mints | Collectible NFT + "Genesis" badge on profile |
+| 🧪 **Alpha Badge** | Had legacy ID before SBT launch | "Alpha Tester" badge on profile |
 
-*Max per user: 20,000 $CINQ = 200 Qi = ~$100 (alpha + early adopter)*
+*These are status symbols only - $CINQ is earned through participation, not just minting.*
+
+**Genesis Holder Perks (requires activity):**
+- **2x $CINQ multiplier** on all earnings for first 90 days
+- **Priority access** to new features and beta tests
+- **Custom Chat ID** reservation (first pick of vanity numbers)
+- **Lifetime "Genesis" badge** visible on profile
+
+**Alpha Tester Perks:**
+- **1.5x $CINQ multiplier** on earnings for first 90 days
+- **"Alpha" badge** visible on profile
+- Stacks with Genesis (total 3x multiplier for Genesis + Alpha)
 
 These points can be:
 - **Converted to Qi** at a redemption rate (100:1)
@@ -244,23 +255,29 @@ Since $CINQ is redeemable at **100:1 for Qi**, the Foundation must hold reserves
 - No external funding needed after bootstrap phase
 - Self-sustaining: more usage = more fees = more rewards = more usage
 
-**Bootstrap Phase (Early Bonuses):**
+**Bootstrap Phase (Multiplier Bonuses):**
 
-**Capped at 100 early adopters** for predictable budgeting. Qi ≈ $0.50-1.00 USD:
+**Genesis NFT holders earn faster, not free money.** Qi ≈ $0.50-1.00 USD:
 
-| Bonus Program | $CINQ/user | Max Users | Total $CINQ | Qi Reserve | USD @ $0.50 |
-|---------------|------------|-----------|-------------|------------|-------------|
-| Alpha Tester (legacy ID) | 10,000 | 100 | 1M | 10K Qi | $5,000 |
-| Early Adopter Badge | 10,000 | 100 | 1M | 10K Qi | $5,000 |
-| **Bootstrap Total** | — | **100 cap** | **2M $CINQ** | **20K Qi** | **~$10,000** |
+| Bonus Program | Multiplier | Duration | Who Qualifies |
+|---------------|------------|----------|---------------|
+| Genesis NFT | 2x $CINQ | 90 days | First 100 SBT mints |
+| Alpha Badge | 1.5x $CINQ | 90 days | Had legacy ID |
+| **Genesis + Alpha** | **3x $CINQ** | **90 days** | Both qualifications |
 
-*At $1/Qi: ~$20K bootstrap cost. Only ~5% of $400K grant.*
+*No upfront $CINQ handout - rewards come from actually using the network.*
 
-**Why cap at 100?**
-- Meaningful rewards ($50-100/user) without breaking the bank
-- Extreme scarcity/exclusivity for OG badge
-- Can always expand later if budget allows
-- Some signups won't be active anyway
+**Example earnings (90-day active user):**
+- Daily check-ins (90 days): 900 $CINQ → 2,700 with Genesis 3x
+- 30-day streak bonus: 500 $CINQ → 1,500 with Genesis 3x  
+- Relay 100 GB traffic: 5,000 $CINQ → 15,000 with Genesis 3x
+- **Active Genesis holder**: ~20K $CINQ = 200 Qi = ~$100
+
+**Why multipliers instead of handouts?**
+- Rewards actual participation, not just minting
+- Prevents grab-and-run behavior
+- OGs who use the network get ~$100 value
+- Inactive holders get nothing (their loss)
 
 **Ongoing Operations:**
 - After bootstrap, the 10% fee covers all $CINQ redemptions
