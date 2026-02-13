@@ -215,25 +215,47 @@ This creates a flywheel: **Use cinQ → Earn points → Higher reputation → Be
 
 #### Foundation Reserve (Qi Liability)
 
-Since $CINQ is redeemable at **100:1 for Qi**, the Foundation must hold reserves:
+Since $CINQ is redeemable at **100:1 for Qi**, the Foundation must hold reserves.
 
-| Bonus Program | Max $CINQ | Max Users | Total $CINQ | Qi Reserve Needed |
-|---------------|-----------|-----------|-------------|-------------------|
-| Alpha Legacy ID | 5,000 | ~1,000 | 5M | 50,000 Qi |
-| Alpha Messages | 2,500 | ~500 | 1.25M | 12,500 Qi |
-| Alpha Relay | 2,500 | ~200 | 500K | 5,000 Qi |
-| Founder Badge (first 1K) | 10,000 | 1,000 | 10M | 100,000 Qi |
-| Pioneer Badge (first 10K) | 5,000 | 9,000 | 45M | 450,000 Qi |
-| Early Adopter (first 100K) | 1,000 | 90,000 | 90M | 900,000 Qi |
-| **Total Max Liability** | — | — | **~152M $CINQ** | **~1.52M Qi** |
+**Self-Funding Model:**
 
-**Mitigation:**
-- Decay (1%/month) reduces outstanding liability over time
-- Not all users will redeem (many will hold for tier benefits)
-- SBT mint fees (90% to Foundation) replenish reserves
-- Daily earning caps prevent runaway inflation
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                 FOUNDATION REVENUE FLOW                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   Provider earns 100 Qi for compute job                         │
+│   ├── 90 Qi → Provider wallet                                   │
+│   └── 10 Qi → Foundation (10% fee)                              │
+│                                                                 │
+│   Foundation allocates that 10 Qi:                              │
+│   ├── 10 Qi → $CINQ Redemption Pool (1:1 backing)               │
+│   └── This backs 1,000 $CINQ at 100:1 ratio                     │
+│                                                                 │
+│   Result: Every $CINQ earned is fully backed by Qi              │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
 
-**Reserve Policy:** Foundation should hold 2x expected redemption (~500K Qi buffer).
+**Why this works:**
+- Foundation's 10% fee **equals** the Qi needed to back $CINQ rewards
+- Network activity funds its own reward pool
+- No external funding needed after bootstrap phase
+- Self-sustaining: more usage = more fees = more rewards = more usage
+
+**Bootstrap Phase (Early Bonuses):**
+
+| Bonus Program | Max $CINQ | Qi Reserve Needed | Funding Source |
+|---------------|-----------|-------------------|----------------|
+| Alpha Legacy ID | 5M | 50,000 Qi | Initial treasury |
+| Alpha Messages/Relay | 1.75M | 17,500 Qi | Initial treasury |
+| Founder/Pioneer/Early | 145M | 1,450,000 Qi | Initial treasury |
+| **Bootstrap Total** | **~152M** | **~1.52M Qi** | Must be pre-funded |
+
+**Ongoing Operations:**
+- After bootstrap, the 10% fee covers all $CINQ redemptions
+- Decay (1%/month) returns unredeemed $CINQ to the pool
+- Surplus builds a rainy day fund
 
 ### Contact Cards
 
