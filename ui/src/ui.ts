@@ -87,6 +87,8 @@ interface AppState {
   chatView: 'list' | 'conversation';
   // Qora state
   qora: QoraState;
+  // UI state
+  activeTab: 'messages' | 'qora';
 }
 
 interface AppActions {
@@ -117,6 +119,7 @@ interface AppActions {
   qoraGetQuestions: () => Promise<string[]>;
   qoraAnswerQuestion: (questionIndex: number, answer: string) => Promise<string | null>;
   qoraGetHistory: () => Promise<QoraMessage[]>;
+  setActiveTab: (tab: 'messages' | 'qora') => void;
 }
 
 export function renderApp(state: AppState, actions: AppActions): void {
@@ -291,12 +294,12 @@ function renderMain(state: AppState, actions: AppActions): string {
         <!-- Main Content - Tabbed: Messages / Qora -->
         <div class="main-content">
           <div class="content-tabs">
-            <button class="tab-btn active" data-tab="messages">💬 Messages</button>
-            <button class="tab-btn" data-tab="qora">🤖 Qora</button>
+            <button class="tab-btn ${state.activeTab === 'messages' ? 'active' : ''}" data-tab="messages">💬 Messages</button>
+            <button class="tab-btn ${state.activeTab === 'qora' ? 'active' : ''}" data-tab="qora">🤖 Qora</button>
           </div>
           
           <!-- Messages Tab -->
-          <div class="tab-content active" id="tab-messages">
+          <div class="tab-content ${state.activeTab === 'messages' ? 'active' : ''}" id="tab-messages">
             <div class="card chat-card">
               <div class="chat-card-header">
                 <h3>💬 Messages</h3>
@@ -311,7 +314,7 @@ function renderMain(state: AppState, actions: AppActions): string {
           </div>
           
           <!-- Qora Tab -->
-          <div class="tab-content" id="tab-qora">
+          <div class="tab-content ${state.activeTab === 'qora' ? 'active' : ''}" id="tab-qora">
             ${renderQoraPanel(state)}
           </div>
         </div>
@@ -377,7 +380,7 @@ function renderQoraPanel(state: AppState): string {
           <div class="qora-init-form">
             <div class="form-group">
               <label>Ollama URL</label>
-              <input type="text" id="qora-ollama-url" placeholder="http://localhost:11434" value="http://localhost:11434">
+              <input type="text" id="qora-ollama-url" placeholder="http://192.168.4.255:11434" value="http://192.168.4.255:11434">
             </div>
             <div class="form-group">
               <label>Model</label>
@@ -1153,16 +1156,11 @@ function attachMainHandlers(state: AppState, actions: AppActions): void {
   
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      const tab = (btn as HTMLElement).dataset.tab;
+      const tab = (btn as HTMLElement).dataset.tab as 'messages' | 'qora';
       if (!tab) return;
       
-      // Update button states
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      
-      // Update tab content
-      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-      document.getElementById(`tab-${tab}`)?.classList.add('active');
+      // Update state (this will re-render with correct active states)
+      actions.setActiveTab(tab);
     });
   });
   

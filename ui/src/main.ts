@@ -102,6 +102,7 @@ interface AppState {
   
   // UI
   currentView: 'landing' | 'main' | 'wallet-setup';
+  activeTab: 'messages' | 'qora';
 }
 
 const state: AppState = {
@@ -134,6 +135,8 @@ const state: AppState = {
     chatInput: '',
     isWorking: false,
   },
+  // UI state
+  activeTab: 'messages',
 };
 
 // Response type from Rust backend
@@ -584,6 +587,12 @@ async function qoraGetHistory(): Promise<QoraMessage[]> {
   }
 }
 
+// Tab state management
+function setActiveTab(tab: 'messages' | 'qora'): void {
+  state.activeTab = tab;
+  updateUI();
+}
+
 // Wallet integration
 async function initializeNewWallet(): Promise<{ mnemonic: string; paymentCode: string; quaiAddress: string }> {
   // Reset identity (get new Chat ID and Mesh ID for new wallet)
@@ -776,6 +785,8 @@ function updateUI(): void {
     qoraGetQuestions,
     qoraAnswerQuestion,
     qoraGetHistory,
+    // Tab state
+    setActiveTab,
   });
 }
 
