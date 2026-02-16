@@ -446,6 +446,26 @@ impl ChatManager {
         self.store_message(&msg)?;
         Ok(msg)
     }
+
+    /// Store an outgoing message with pre-generated ID (called from node.rs)
+    pub fn store_outgoing_message(&self, peer_id: &str, message_id: &str, content: &str, timestamp: u64) -> Result<ChatMessage, String> {
+        // Get or create conversation
+        let short_id = if peer_id.len() > 8 { &peer_id[..8] } else { peer_id };
+        let conv = self.get_or_create_conversation(peer_id, short_id)?;
+        
+        let msg = ChatMessage {
+            id: message_id.to_string(),
+            conversation_id: conv.id,
+            sender_id: self.local_peer_id.clone(),
+            content: content.to_string(),
+            timestamp,
+            is_outgoing: true,
+            status: MessageStatus::Pending,
+        };
+        
+        self.store_message(&msg)?;
+        Ok(msg)
+    }
     
     /// Store an incoming message from a peer
     pub fn store_incoming_message(&self, peer_id: &str, message_id: &str, content: &str, timestamp: u64) -> Result<ChatMessage, String> {

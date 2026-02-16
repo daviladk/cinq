@@ -31,10 +31,18 @@ interface Conversation {
   unread_count: number;
 }
 
+interface GridPeer {
+  peer_id: string;
+  addresses: string[];
+  connected: boolean;
+  last_seen: number;
+  chat_id: string | null;
+}
+
 interface AppState {
   nodeRunning: boolean;
   peerId: string | null;
-  peers: string[];
+  peers: GridPeer[];
   userId: string | null;         // Raw 10-digit user ID
   userIdDisplay: string | null;  // Formatted XXX-XXX-XXXX
   walletInitialized: boolean;
@@ -61,7 +69,7 @@ interface AppActions {
   sendPayment: (recipient: string, amount: bigint) => Promise<any>;
   formatQi: (amount: bigint) => string;
   connectWithSavedWallet: () => Promise<void>;
-  clearSavedWallet: () => void;
+  clearSavedWallet: () => Promise<void>;
   switchNetwork: (network: 'orchard' | 'mainnet') => Promise<void>;
   // Chat actions
   getConversations: () => Promise<Conversation[]>;
@@ -312,13 +320,13 @@ function renderBandwidthStats(): string {
 }
 
 function renderDePINStats(state: AppState): string {
-  const peerCount = state.peers.length + 1;
+  const peerCount = state.peers.length;
   return `
     <div class="gauge-card">
       <h4>🌐 DePIN Network</h4>
       <div class="depin-stat">
-        <span class="stat-name">Mesh Nodes</span>
-        <span class="stat-value online">${peerCount}</span>
+        <span class="stat-name">Peers</span>
+        <span class="stat-value ${peerCount > 0 ? 'online' : 'offline'}">${peerCount}</span>
       </div>
       <div class="depin-stat">
         <span class="stat-name">Security</span>
@@ -489,12 +497,17 @@ function renderConversationList(state: AppState): string {
         <div class="online-peers">
           <div class="peers-header">Online Peers (${peers.length})</div>
           <div class="peer-list">
-            ${peers.slice(0, 5).map(peerId => `
-              <button class="peer-item" data-peer-id="${peerId}">
+            ${peers.slice(0, 5).map(peer => {
+              // Display Chat ID if available, otherwise show "Unknown"
+              const displayId = peer.chat_id 
+                ? formatChatId(peer.chat_id)
+                : 'Unknown';
+              return `
+              <button class="peer-item" data-peer-id="${peer.peer_id}">
                 <span class="peer-status">●</span>
-                <span class="peer-id">${peerId.slice(0, 12)}...</span>
+                <span class="peer-id">${displayId}</span>
               </button>
-            `).join('')}
+            `;}).join('')}
           </div>
         </div>
       ` : ''}
@@ -547,6 +560,12 @@ function escapeHtml(text: string): string {
   return div.innerHTML;
 }
 
+// Format a 10-digit chat ID as XXX-XXX-XXXX
+function formatChatId(chatId: string): string {
+  if (chatId.length !== 10) return chatId;
+  return `${chatId.slice(0, 3)}-${chatId.slice(3, 6)}-${chatId.slice(6)}`;
+}
+
 function formatTime(timestamp: number): string {
   const date = new Date(timestamp);
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -594,8 +613,8 @@ function attachLandingHandlers(state: AppState, actions: AppActions): void {
   });
   
   // Use different wallet (for returning users who want to switch)
-  document.getElementById('use-different-wallet-btn')?.addEventListener('click', () => {
-    actions.clearSavedWallet();
+  document.getElementById('use-different-wallet-btn')?.addEventListener('click', async () => {
+    await actions.clearSavedWallet();
   });
   
   // Create new wallet (for first-time users)

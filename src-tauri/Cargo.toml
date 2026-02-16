@@ -67,6 +67,9 @@ fast-socks5 = "0.9"
 reqwest = { version = "0.11", features = ["json"] }
 base64 = "0.22.1"
 
+# Qora Agent - AI development assistant
+chrono = { version = "0.4", features = ["serde"] }
+
 # ============================================================================
 # Binaries
 # ============================================================================

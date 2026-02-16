@@ -2,8 +2,10 @@
 // Re-export grid modules for use in mobile builds
 
 pub mod grid;
+pub mod qora;
 
 pub use grid::{CinqNode, BandwidthMetrics};
+pub use qora::{QoraAgent, Task, TaskStatus, TaskQueue};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

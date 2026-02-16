@@ -4,11 +4,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod grid;
+mod qora;
 
 use grid::{CinqNode, BandwidthMetrics, GridPeer, ProxyStatus, NodeConfig};
 use grid::{ChatManager, ChatMessage, Contact, Conversation, MessageStatus};
 use grid::{StratumClient, PoolStats, Worker, StratumStatus};
 use grid::UserIdRegistry;
+use qora::{QoraAgent, Task};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tauri::State;
@@ -20,6 +22,7 @@ pub struct CinqState {
     chat: Arc<RwLock<Option<Arc<RwLock<ChatManager>>>>>,
     stratum: Arc<RwLock<Option<StratumClient>>>,
     userid: Arc<RwLock<Option<Arc<RwLock<UserIdRegistry>>>>>,
+    qora: Arc<RwLock<Option<QoraAgent>>>,
 }
 
 impl CinqState {
@@ -29,6 +32,7 @@ impl CinqState {
             chat: Arc::new(RwLock::new(None)),
             stratum: Arc::new(RwLock::new(None)),
             userid: Arc::new(RwLock::new(None)),
+            qora: Arc::new(RwLock::new(None)),
         }
     }
 }
@@ -55,11 +59,63 @@ impl<T: Serialize> CommandResponse<T> {
 // Tauri Commands - These are callable from the frontend
 // ============================================================================
 
+/// Reset identity - clears keypair and Chat ID for new wallet
+/// Call this when creating a new wallet to get fresh identities
+#[tauri::command]
+async fn reset_identity(state: State<'_, CinqState>) -> Result<CommandResponse<()>, String> {
+    // Stop node if running
+    {
+        let node_guard = state.node.read().await;
+        if node_guard.is_some() {
+            return Ok(CommandResponse::err("Stop the node before resetting identity"));
+        }
+    }
+    
+    // Get data directory
+    let data_dir = dirs::data_dir()
+        .ok_or("Could not find data directory")?
+        .join("cinq");
+    
+    // Delete keypair.bin to get a new Mesh ID
+    let keypair_path = data_dir.join("keypair.bin");
+    if keypair_path.exists() {
+        if let Err(e) = std::fs::remove_file(&keypair_path) {
+            log::warn!("Failed to delete keypair: {}", e);
+        } else {
+            log::info!("Deleted keypair.bin - new Mesh ID will be generated");
+        }
+    }
+    
+    // Clear Chat ID from registry
+    let userid_guard = state.userid.read().await;
+    if let Some(registry_arc) = userid_guard.as_ref() {
+        let registry = registry_arc.read().await;
+        if let Err(e) = registry.reset_local_identity() {
+            log::warn!("Failed to reset Chat ID: {}", e);
+        } else {
+            log::info!("Reset Chat ID - new one will be generated");
+        }
+    }
+    
+    // Also clear the chat database conversations (optional - fresh start)
+    let chat_db_path = data_dir.join("chat.db");
+    if chat_db_path.exists() {
+        if let Err(e) = std::fs::remove_file(&chat_db_path) {
+            log::warn!("Failed to delete chat.db: {}", e);
+        } else {
+            log::info!("Deleted chat.db - fresh message history");
+        }
+    }
+    
+    Ok(CommandResponse::ok(()))
+}
+
 /// Start the Cinq grid node
 #[tauri::command]
 async fn start_node(
     state: State<'_, CinqState>,
     bootstrap_addresses: Option<Vec<String>>,
+    seed_phrase: Option<String>,
 ) -> Result<CommandResponse<String>, String> {
     let mut node_guard = state.node.write().await;
     
@@ -72,6 +128,7 @@ async fn start_node(
     if let Some(addrs) = bootstrap_addresses {
         config.bootstrap_config.initial_bootstraps = addrs;
     }
+    // Note: seed_phrase is used for Chat ID (human identity), not Mesh ID (network plumbing)
     
     match CinqNode::with_config(config.clone()) {
         Ok(mut node) => {
@@ -95,12 +152,12 @@ async fn start_node(
                 }
             };
             
-            // Initialize user ID registry
+            // Initialize user ID registry with seed phrase for deterministic Chat ID
             {
                 let mut userid_guard = state.userid.write().await;
-                match UserIdRegistry::new(&config.data_dir, &peer_id) {
+                match UserIdRegistry::with_seed(&config.data_dir, &peer_id, seed_phrase) {
                     Ok(registry) => {
-                        // Get or create user ID
+                        // Get or create user ID (derived from seed if provided)
                         if let Ok(user_id) = registry.get_or_create_local_user_id() {
                             log::info!("User ID: {} ({})", user_id.display(), user_id.as_str());
                         }
@@ -926,11 +983,224 @@ async fn stratum_is_connected(state: State<'_, CinqState>) -> Result<CommandResp
     }
 }
 
+// ============================================================================
+// Qora AI Agent Commands
+// ============================================================================
+
+/// Qora state returned to frontend
+#[derive(Debug, Serialize, Deserialize)]
+pub struct QoraStatus {
+    pub initialized: bool,
+    pub ollama_available: bool,
+    pub model: String,
+    pub pending_tasks: usize,
+    pub pending_questions: Vec<String>,
+}
+
+/// Initialize Qora agent
+#[tauri::command]
+async fn qora_init(
+    state: State<'_, CinqState>,
+    ollama_url: Option<String>,
+    model: Option<String>,
+) -> Result<CommandResponse<QoraStatus>, String> {
+    let mut qora_guard = state.qora.write().await;
+    
+    // Get project root (current directory for now)
+    let project_root = std::env::current_dir()
+        .map(|p| p.parent().map(|pp| pp.to_path_buf()).unwrap_or(p))
+        .unwrap_or_else(|_| std::path::PathBuf::from("."));
+    
+    let url = ollama_url.unwrap_or_else(|| "http://localhost:11434".to_string());
+    let model_name = model.unwrap_or_else(|| "deepseek-coder:33b".to_string());
+    
+    let agent = QoraAgent::new(project_root, Some(url), Some(model_name.clone()));
+    
+    // Check if Ollama is available
+    let ollama_available = agent.health_check().await;
+    
+    let status = QoraStatus {
+        initialized: true,
+        ollama_available,
+        model: model_name,
+        pending_tasks: 0,
+        pending_questions: vec![],
+    };
+    
+    *qora_guard = Some(agent);
+    
+    log::info!("Qora initialized. Ollama available: {}", ollama_available);
+    Ok(CommandResponse::ok(status))
+}
+
+/// Get Qora status
+#[tauri::command]
+async fn qora_status(state: State<'_, CinqState>) -> Result<CommandResponse<QoraStatus>, String> {
+    let qora_guard = state.qora.read().await;
+    
+    match qora_guard.as_ref() {
+        Some(agent) => {
+            let state_data = agent.get_state().await;
+            let ollama_available = agent.health_check().await;
+            
+            Ok(CommandResponse::ok(QoraStatus {
+                initialized: true,
+                ollama_available,
+                model: state_data.model,
+                pending_tasks: agent.pending_task_count().await,
+                pending_questions: state_data.pending_questions,
+            }))
+        }
+        None => Ok(CommandResponse::ok(QoraStatus {
+            initialized: false,
+            ollama_available: false,
+            model: String::new(),
+            pending_tasks: 0,
+            pending_questions: vec![],
+        })),
+    }
+}
+
+/// Chat with Qora
+#[tauri::command]
+async fn qora_chat(
+    state: State<'_, CinqState>,
+    message: String,
+) -> Result<CommandResponse<String>, String> {
+    let qora_guard = state.qora.read().await;
+    
+    match qora_guard.as_ref() {
+        Some(agent) => {
+            match agent.chat(&message).await {
+                Ok(response) => Ok(CommandResponse::ok(response)),
+                Err(e) => Ok(CommandResponse::err(format!("Qora error: {}", e))),
+            }
+        }
+        None => Ok(CommandResponse::err("Qora not initialized. Call qora_init first.")),
+    }
+}
+
+/// Add a task for Qora
+#[tauri::command]
+async fn qora_add_task(
+    state: State<'_, CinqState>,
+    title: String,
+    description: String,
+) -> Result<CommandResponse<Task>, String> {
+    let qora_guard = state.qora.read().await;
+    
+    match qora_guard.as_ref() {
+        Some(agent) => {
+            match agent.add_task(&title, &description).await {
+                Ok(task) => Ok(CommandResponse::ok(task)),
+                Err(e) => Ok(CommandResponse::err(e)),
+            }
+        }
+        None => Ok(CommandResponse::err("Qora not initialized")),
+    }
+}
+
+/// Get all Qora tasks
+#[tauri::command]
+async fn qora_get_tasks(state: State<'_, CinqState>) -> Result<CommandResponse<Vec<Task>>, String> {
+    let qora_guard = state.qora.read().await;
+    
+    match qora_guard.as_ref() {
+        Some(agent) => {
+            let tasks = agent.get_tasks().await;
+            Ok(CommandResponse::ok(tasks))
+        }
+        None => Ok(CommandResponse::err("Qora not initialized")),
+    }
+}
+
+/// Tell Qora to work on the next pending task
+#[tauri::command]
+async fn qora_work(state: State<'_, CinqState>) -> Result<CommandResponse<Option<String>>, String> {
+    let qora_guard = state.qora.read().await;
+    
+    match qora_guard.as_ref() {
+        Some(agent) => {
+            match agent.work().await {
+                Ok(result) => Ok(CommandResponse::ok(result)),
+                Err(e) => Ok(CommandResponse::err(format!("Work failed: {}", e))),
+            }
+        }
+        None => Ok(CommandResponse::err("Qora not initialized")),
+    }
+}
+
+/// Answer one of Qora's pending questions
+#[tauri::command]
+async fn qora_answer_question(
+    state: State<'_, CinqState>,
+    question_index: usize,
+    answer: String,
+) -> Result<CommandResponse<String>, String> {
+    let qora_guard = state.qora.read().await;
+    
+    match qora_guard.as_ref() {
+        Some(agent) => {
+            match agent.answer_question(question_index, &answer).await {
+                Ok(response) => Ok(CommandResponse::ok(response)),
+                Err(e) => Ok(CommandResponse::err(e)),
+            }
+        }
+        None => Ok(CommandResponse::err("Qora not initialized")),
+    }
+}
+
+/// Get Qora's conversation history
+#[tauri::command]
+async fn qora_get_history(state: State<'_, CinqState>) -> Result<CommandResponse<Vec<qora::agent::QoraMessage>>, String> {
+    let qora_guard = state.qora.read().await;
+    
+    match qora_guard.as_ref() {
+        Some(agent) => {
+            let state_data = agent.get_state().await;
+            Ok(CommandResponse::ok(state_data.conversation))
+        }
+        None => Ok(CommandResponse::err("Qora not initialized")),
+    }
+}
+
+/// Start Qora working autonomously through all tasks
+/// Call this before going to work - she'll grind through the queue
+#[tauri::command]
+async fn qora_work_all(state: State<'_, CinqState>) -> Result<CommandResponse<String>, String> {
+    let qora_guard = state.qora.read().await;
+    
+    match qora_guard.as_ref() {
+        Some(agent) => {
+            match agent.work_all().await {
+                Ok(summary) => Ok(CommandResponse::ok(summary)),
+                Err(e) => Ok(CommandResponse::err(format!("Work failed: {}", e))),
+            }
+        }
+        None => Ok(CommandResponse::err("Qora not initialized")),
+    }
+}
+
+/// Get Qora's pending questions that need human input
+#[tauri::command]
+async fn qora_get_questions(state: State<'_, CinqState>) -> Result<CommandResponse<Vec<String>>, String> {
+    let qora_guard = state.qora.read().await;
+    
+    match qora_guard.as_ref() {
+        Some(agent) => {
+            let questions = agent.get_pending_questions().await;
+            Ok(CommandResponse::ok(questions))
+        }
+        None => Ok(CommandResponse::err("Qora not initialized")),
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_log::Builder::default().build())
         .manage(CinqState::new())
         .invoke_handler(tauri::generate_handler![
+            reset_identity,
             start_node,
             stop_node,
             get_peer_id,
@@ -969,6 +1239,17 @@ fn main() {
             stratum_get_workers,
             stratum_get_miners,
             stratum_is_connected,
+            // Qora AI agent commands
+            qora_init,
+            qora_status,
+            qora_chat,
+            qora_add_task,
+            qora_get_tasks,
+            qora_work,
+            qora_work_all,
+            qora_answer_question,
+            qora_get_questions,
+            qora_get_history,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Cinq Connect");

@@ -40,7 +40,7 @@ interface AppState {
   // P2P Node
   nodeRunning: boolean;
   peerId: string | null;
-  peers: string[];
+  peers: GridPeer[];
   
   // User ID
   userId: string | null;         // Raw 10-digit user ID
@@ -68,7 +68,7 @@ interface AppState {
 const state: AppState = {
   nodeRunning: false,
   peerId: null,
-  peers: [],
+  peers: [] as GridPeer[],
   userId: null,
   userIdDisplay: null,
   walletInitialized: false,
@@ -129,7 +129,12 @@ async function lookupUserId(userId: string): Promise<string | null> {
 // Tauri command wrappers
 async function startNode(): Promise<void> {
   try {
-    const result = await invoke<CommandResponse<string>>('start_node');
+    // Get the seed phrase from localStorage to derive Mesh ID
+    const seedPhrase = localStorage.getItem('cinq_mnemonic') || undefined;
+    
+    const result = await invoke<CommandResponse<string>>('start_node', {
+      seedPhrase: seedPhrase,
+    });
     if (!result.success || !result.data) {
       throw new Error(result.error || 'Failed to start node');
     }
@@ -170,15 +175,16 @@ async function stopNode(): Promise<void> {
 interface GridPeer {
   peer_id: string;
   addresses: string[];
-  protocols: string[];
-  is_relay: boolean;
+  connected: boolean;
+  last_seen: number;
+  chat_id: string | null;
 }
 
-async function getPeers(): Promise<string[]> {
+async function getPeers(): Promise<GridPeer[]> {
   try {
     const result = await invoke<CommandResponse<GridPeer[]>>('get_peers');
     if (result.success && result.data) {
-      state.peers = result.data.map(p => p.peer_id);
+      state.peers = result.data;
       updateUI();
       return state.peers;
     }
@@ -327,6 +333,16 @@ function backToConversationList(): void {
 
 // Wallet integration
 async function initializeNewWallet(): Promise<{ mnemonic: string; paymentCode: string; quaiAddress: string }> {
+  // Reset identity (get new Chat ID and Mesh ID for new wallet)
+  try {
+    const resetResult = await invoke<CommandResponse<void>>('reset_identity');
+    if (resetResult.success) {
+      console.log('Identity reset - new Chat ID and Mesh ID will be generated');
+    }
+  } catch (e) {
+    console.warn('Could not reset identity (node may need to be stopped first):', e);
+  }
+  
   const result = await wallet.createWallet({ network: state.network });
   
   state.walletInitialized = true;
@@ -409,7 +425,17 @@ async function switchNetwork(network: 'orchard' | 'mainnet'): Promise<void> {
   updateUI();
 }
 
-function clearSavedWallet(): void {
+async function clearSavedWallet(): Promise<void> {
+  // Reset identity when clearing wallet
+  try {
+    const resetResult = await invoke<CommandResponse<void>>('reset_identity');
+    if (resetResult.success) {
+      console.log('Identity reset with wallet clear');
+    }
+  } catch (e) {
+    console.warn('Could not reset identity:', e);
+  }
+  
   localStorage.removeItem('cinq_wallet');
   localStorage.removeItem('cinq_mnemonic');
   state.walletInitialized = false;

@@ -51,6 +51,8 @@ pub struct GridPeer {
     pub addresses: Vec<String>,
     pub connected: bool,
     pub last_seen: u64,
+    /// Chat ID if known (from contact list or identify)
+    pub chat_id: Option<String>,
 }
 
 /// Events emitted by the Cinq node
@@ -166,20 +168,20 @@ impl CinqNode {
         // Ensure data directory exists
         std::fs::create_dir_all(&config.data_dir)?;
         
-        // Load or generate keypair (persisted so peer ID stays consistent)
+        // Derive or load keypair based on seed phrase
+        // Mesh ID (PeerId) is just network plumbing - can be random per device
+        // Chat ID is the stable human identity (derived from seed phrase)
         let keypair_path = config.data_dir.join("keypair.bin");
         let keypair = if keypair_path.exists() {
-            // Load existing keypair
             let keypair_bytes = std::fs::read(&keypair_path)?;
             identity::Keypair::from_protobuf_encoding(&keypair_bytes)
                 .map_err(|e| format!("Failed to decode keypair: {}", e))?
         } else {
-            // Generate new keypair and save it
             let new_keypair = identity::Keypair::generate_ed25519();
             let keypair_bytes = new_keypair.to_protobuf_encoding()
                 .map_err(|e| format!("Failed to encode keypair: {}", e))?;
             std::fs::write(&keypair_path, &keypair_bytes)?;
-            log::info!("Generated and saved new keypair to {:?}", keypair_path);
+            log::info!("Generated new Mesh ID keypair at {:?}", keypair_path);
             new_keypair
         };
         
@@ -319,6 +321,7 @@ impl CinqNode {
                                             .duration_since(std::time::UNIX_EPOCH)
                                             .unwrap()
                                             .as_secs(),
+                                        chat_id: None,
                                     });
                                     peer.addresses.push(addr.to_string());
                                     
@@ -356,6 +359,7 @@ impl CinqNode {
                                                 .duration_since(std::time::UNIX_EPOCH)
                                                 .unwrap()
                                                 .as_secs(),
+                                            chat_id: None,
                                         });
                                         let _ = event_tx.send(GridEvent::PeerDiscovered {
                                             peer_id: peer.to_string(),
@@ -588,6 +592,7 @@ impl CinqNode {
                                         .duration_since(std::time::UNIX_EPOCH)
                                         .unwrap()
                                         .as_secs(),
+                                    chat_id: None,
                                 });
                                 peer.connected = true;
                                 peer.last_seen = std::time::SystemTime::now()
@@ -802,6 +807,64 @@ impl CinqNode {
         } else {
             Err("Node not running".into())
         }
+    }
+
+    // =========================================================================
+    // Chat Methods
+    // =========================================================================
+
+    /// Send a chat message to a peer
+    /// Returns the message ID on success
+    pub async fn send_chat_message(
+        &self,
+        peer_id: PeerId,
+        content: &str,
+        sender_name: Option<String>,
+    ) -> Result<String, Box<dyn Error + Send + Sync>> {
+        let message_id = uuid::Uuid::new_v4().to_string();
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+
+        // For now, just send as plaintext bytes (E2EE comes later)
+        let encrypted_content = content.as_bytes().to_vec();
+
+        let request = CinqRequest::ChatMessage {
+            message_id: message_id.clone(),
+            sender_name,
+            encrypted_content,
+            timestamp,
+        };
+
+        // Store outgoing message in chat manager
+        if let Some(ref cm) = self.chat_manager {
+            let chat = cm.read().await;
+            if let Err(e) = chat.store_outgoing_message(
+                &peer_id.to_string(),
+                &message_id,
+                content,
+                timestamp,
+            ) {
+                log::warn!("Failed to store outgoing message: {}", e);
+            }
+        }
+
+        self.send_request(peer_id, request).await?;
+        log::info!("Sent chat message {} to {}", message_id, peer_id);
+        
+        Ok(message_id)
+    }
+
+    /// Send a chat message by peer ID string
+    pub async fn send_chat_message_to(
+        &self,
+        peer_id_str: &str,
+        content: &str,
+    ) -> Result<String, Box<dyn Error + Send + Sync>> {
+        let peer_id: PeerId = peer_id_str.parse()
+            .map_err(|_| format!("Invalid peer ID: {}", peer_id_str))?;
+        self.send_chat_message(peer_id, content, None).await
     }
 
     // =========================================================================

@@ -94,6 +94,33 @@ impl UserId {
         }
     }
     
+    /// Derive a deterministic user ID from seed phrase
+    /// Same seed = same Chat ID (tied to wallet identity)
+    pub fn from_seed(seed_phrase: &str) -> Self {
+        use sha2::{Sha256, Digest};
+        
+        // Domain separator for Chat ID derivation
+        let domain = b"cinq-chat-id-v1";
+        
+        // Hash: SHA256(domain || seed)
+        let mut hasher = Sha256::new();
+        hasher.update(domain);
+        hasher.update(seed_phrase.as_bytes());
+        let hash = hasher.finalize();
+        
+        // Take first 8 bytes and convert to u64, then mod to get 10-digit number
+        let bytes: [u8; 8] = hash[0..8].try_into().unwrap();
+        let num = u64::from_be_bytes(bytes);
+        
+        // Generate 10-digit number (1000000000 to 9999999999)
+        let local_id = 1_000_000_000 + (num % 9_000_000_000);
+        
+        Self {
+            zone: None,
+            local_id: local_id.to_string(),
+        }
+    }
+    
     /// Create from SBT (future use)
     /// zone: The Quai zone where the SBT was minted
     /// local_id: The unique ID assigned by the SBT contract
@@ -322,6 +349,8 @@ pub struct UserIdRegistry {
     db: Arc<StdMutex<Connection>>,
     local_user_id: StdMutex<Option<UserId>>,
     local_peer_id: String,
+    /// Seed phrase for deterministic ID generation (if provided)
+    seed_phrase: Option<String>,
 }
 
 // Manually implement Send + Sync for thread safety
@@ -331,6 +360,11 @@ unsafe impl Sync for UserIdRegistry {}
 impl UserIdRegistry {
     /// Create a new user ID registry
     pub fn new(data_dir: &PathBuf, local_peer_id: &str) -> Result<Self, String> {
+        Self::with_seed(data_dir, local_peer_id, None)
+    }
+    
+    /// Create a new user ID registry with seed phrase for deterministic IDs
+    pub fn with_seed(data_dir: &PathBuf, local_peer_id: &str, seed_phrase: Option<String>) -> Result<Self, String> {
         std::fs::create_dir_all(data_dir)
             .map_err(|e| format!("Failed to create data dir: {}", e))?;
         
@@ -342,6 +376,7 @@ impl UserIdRegistry {
             db: Arc::new(StdMutex::new(db)),
             local_user_id: StdMutex::new(None),
             local_peer_id: local_peer_id.to_string(),
+            seed_phrase,
         };
         
         registry.init_schema()?;
@@ -420,8 +455,15 @@ impl UserIdRegistry {
             }
         }
         
-        // Generate new user ID
-        let user_id = UserId::generate();
+        // Generate or derive user ID
+        let user_id = if let Some(ref seed) = self.seed_phrase {
+            // Derive deterministically from seed phrase
+            UserId::from_seed(seed)
+        } else {
+            // Random generation (legacy behavior)
+            UserId::generate()
+        };
+        
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
@@ -439,7 +481,11 @@ impl UserIdRegistry {
         let mut local = self.local_user_id.lock().unwrap();
         *local = Some(user_id.clone());
         
-        log::info!("Generated new user ID: {}", user_id.display());
+        if self.seed_phrase.is_some() {
+            log::info!("Derived user ID from seed: {}", user_id.display());
+        } else {
+            log::info!("Generated random user ID: {}", user_id.display());
+        }
         Ok(user_id)
     }
     
@@ -448,7 +494,23 @@ impl UserIdRegistry {
         let local = self.local_user_id.lock().unwrap();
         local.clone()
     }
-    
+
+    /// Reset local identity (clears Chat ID)
+    /// Call this when creating a new wallet
+    pub fn reset_local_identity(&self) -> Result<(), String> {
+        // Clear from database
+        let db = self.db.lock().map_err(|e| format!("Lock error: {}", e))?;
+        db.execute("DELETE FROM local_identity WHERE id = 1", [])
+            .map_err(|e| format!("Failed to clear identity: {}", e))?;
+        
+        // Clear in-memory
+        let mut local = self.local_user_id.lock().unwrap();
+        *local = None;
+        
+        log::info!("Reset local identity - Chat ID cleared");
+        Ok(())
+    }
+
     /// Upgrade from legacy (test) ID to SBT-verified ID
     /// This replaces the auto-generated test ID with the on-chain verified ID
     /// Called when user mints their SBT on a Quai zone
