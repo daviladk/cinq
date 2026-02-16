@@ -35,6 +35,33 @@ interface UserIdInfo {
   peer_id: string;
 }
 
+// ============================================================================
+// Qora Types
+// ============================================================================
+
+interface QoraStatus {
+  initialized: boolean;
+  ollama_available: boolean;
+  model: string;
+  pending_tasks: number;
+  pending_questions: string[];
+}
+
+interface QoraTask {
+  id: string;
+  title: string;
+  description: string;
+  status: 'Pending' | 'InProgress' | 'Completed' | 'Failed' | 'Blocked';
+  result: string | null;
+  created_at: number;
+  completed_at: number | null;
+}
+
+interface QoraMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
 // Application state
 interface AppState {
   // P2P Node
@@ -61,6 +88,18 @@ interface AppState {
   messages: ChatMessage[];
   chatView: 'list' | 'conversation';
   
+  // Qora AI Agent
+  qora: {
+    initialized: boolean;
+    available: boolean;
+    model: string;
+    tasks: QoraTask[];
+    questions: string[];
+    history: QoraMessage[];
+    chatInput: string;
+    isWorking: boolean;
+  };
+  
   // UI
   currentView: 'landing' | 'main' | 'wallet-setup';
 }
@@ -84,6 +123,17 @@ const state: AppState = {
   currentConversation: null,
   messages: [],
   chatView: 'list',
+  // Qora state
+  qora: {
+    initialized: false,
+    available: false,
+    model: '',
+    tasks: [],
+    questions: [],
+    history: [],
+    chatInput: '',
+    isWorking: false,
+  },
 };
 
 // Response type from Rust backend
@@ -331,6 +381,209 @@ function backToConversationList(): void {
   updateUI();
 }
 
+// ============================================================================
+// Qora AI Agent Functions
+// ============================================================================
+
+async function qoraInit(ollamaUrl?: string, model?: string): Promise<QoraStatus | null> {
+  try {
+    const result = await invoke<CommandResponse<QoraStatus>>('qora_init', {
+      ollamaUrl: ollamaUrl || null,
+      model: model || null,
+    });
+    if (result.success && result.data) {
+      state.qora.initialized = result.data.initialized;
+      state.qora.available = result.data.ollama_available;
+      state.qora.model = result.data.model;
+      state.qora.questions = result.data.pending_questions;
+      console.log('Qora initialized:', result.data);
+      updateUI();
+      return result.data;
+    }
+    console.error('Qora init failed:', result.error);
+    return null;
+  } catch (error) {
+    console.error('Failed to initialize Qora:', error);
+    return null;
+  }
+}
+
+async function qoraStatus(): Promise<QoraStatus | null> {
+  try {
+    const result = await invoke<CommandResponse<QoraStatus>>('qora_status');
+    if (result.success && result.data) {
+      state.qora.initialized = result.data.initialized;
+      state.qora.available = result.data.ollama_available;
+      state.qora.model = result.data.model;
+      state.qora.questions = result.data.pending_questions;
+      return result.data;
+    }
+    return null;
+  } catch (error) {
+    console.error('Failed to get Qora status:', error);
+    return null;
+  }
+}
+
+async function qoraChat(message: string): Promise<string | null> {
+  try {
+    // Add user message to history immediately for responsive UI
+    state.qora.history.push({ role: 'user', content: message });
+    updateUI();
+    
+    const result = await invoke<CommandResponse<string>>('qora_chat', { message });
+    if (result.success && result.data) {
+      // Add assistant response
+      state.qora.history.push({ role: 'assistant', content: result.data });
+      updateUI();
+      return result.data;
+    }
+    console.error('Qora chat failed:', result.error);
+    // Remove the user message if failed
+    state.qora.history.pop();
+    updateUI();
+    return null;
+  } catch (error) {
+    console.error('Failed to chat with Qora:', error);
+    state.qora.history.pop();
+    updateUI();
+    return null;
+  }
+}
+
+async function qoraAddTask(title: string, description: string): Promise<QoraTask | null> {
+  try {
+    const result = await invoke<CommandResponse<QoraTask>>('qora_add_task', { title, description });
+    if (result.success && result.data) {
+      state.qora.tasks.push(result.data);
+      updateUI();
+      return result.data;
+    }
+    console.error('Add task failed:', result.error);
+    return null;
+  } catch (error) {
+    console.error('Failed to add task:', error);
+    return null;
+  }
+}
+
+async function qoraGetTasks(): Promise<QoraTask[]> {
+  try {
+    const result = await invoke<CommandResponse<QoraTask[]>>('qora_get_tasks');
+    if (result.success && result.data) {
+      state.qora.tasks = result.data;
+      return result.data;
+    }
+    return [];
+  } catch (error) {
+    console.error('Failed to get tasks:', error);
+    return [];
+  }
+}
+
+async function qoraWork(): Promise<string | null> {
+  try {
+    state.qora.isWorking = true;
+    updateUI();
+    
+    const result = await invoke<CommandResponse<string | null>>('qora_work');
+    
+    state.qora.isWorking = false;
+    
+    if (result.success) {
+      // Refresh tasks after work
+      await qoraGetTasks();
+      await qoraGetQuestions();
+      updateUI();
+      return result.data;
+    }
+    console.error('Work failed:', result.error);
+    updateUI();
+    return null;
+  } catch (error) {
+    console.error('Failed to work:', error);
+    state.qora.isWorking = false;
+    updateUI();
+    return null;
+  }
+}
+
+async function qoraWorkAll(): Promise<string | null> {
+  try {
+    state.qora.isWorking = true;
+    updateUI();
+    showNotification('Qora is grinding through tasks...');
+    
+    const result = await invoke<CommandResponse<string>>('qora_work_all');
+    
+    state.qora.isWorking = false;
+    
+    if (result.success && result.data) {
+      await qoraGetTasks();
+      await qoraGetQuestions();
+      updateUI();
+      showNotification('Qora finished working!');
+      return result.data;
+    }
+    console.error('Work all failed:', result.error);
+    updateUI();
+    return null;
+  } catch (error) {
+    console.error('Failed to work all:', error);
+    state.qora.isWorking = false;
+    updateUI();
+    return null;
+  }
+}
+
+async function qoraGetQuestions(): Promise<string[]> {
+  try {
+    const result = await invoke<CommandResponse<string[]>>('qora_get_questions');
+    if (result.success && result.data) {
+      state.qora.questions = result.data;
+      return result.data;
+    }
+    return [];
+  } catch (error) {
+    console.error('Failed to get questions:', error);
+    return [];
+  }
+}
+
+async function qoraAnswerQuestion(questionIndex: number, answer: string): Promise<string | null> {
+  try {
+    const result = await invoke<CommandResponse<string>>('qora_answer_question', {
+      questionIndex,
+      answer,
+    });
+    if (result.success && result.data) {
+      // Refresh questions
+      await qoraGetQuestions();
+      updateUI();
+      return result.data;
+    }
+    console.error('Answer failed:', result.error);
+    return null;
+  } catch (error) {
+    console.error('Failed to answer question:', error);
+    return null;
+  }
+}
+
+async function qoraGetHistory(): Promise<QoraMessage[]> {
+  try {
+    const result = await invoke<CommandResponse<QoraMessage[]>>('qora_get_history');
+    if (result.success && result.data) {
+      state.qora.history = result.data.filter(m => m.role !== 'system'); // Don't show system prompt
+      return state.qora.history;
+    }
+    return [];
+  } catch (error) {
+    console.error('Failed to get history:', error);
+    return [];
+  }
+}
+
 // Wallet integration
 async function initializeNewWallet(): Promise<{ mnemonic: string; paymentCode: string; quaiAddress: string }> {
   // Reset identity (get new Chat ID and Mesh ID for new wallet)
@@ -512,6 +765,17 @@ function updateUI(): void {
     backToConversationList,
     sendMessage,
     startConversation: startConversationByUserId, // Use the user ID aware version
+    // Qora actions
+    qoraInit,
+    qoraStatus,
+    qoraChat,
+    qoraAddTask,
+    qoraGetTasks,
+    qoraWork,
+    qoraWorkAll,
+    qoraGetQuestions,
+    qoraAnswerQuestion,
+    qoraGetHistory,
   });
 }
 

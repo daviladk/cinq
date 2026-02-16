@@ -39,6 +39,33 @@ interface GridPeer {
   chat_id: string | null;
 }
 
+// Qora types
+interface QoraTask {
+  id: string;
+  title: string;
+  description: string;
+  status: 'Pending' | 'InProgress' | 'Completed' | 'Failed' | 'Blocked';
+  result: string | null;
+  created_at: number;
+  completed_at: number | null;
+}
+
+interface QoraMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+interface QoraState {
+  initialized: boolean;
+  available: boolean;
+  model: string;
+  tasks: QoraTask[];
+  questions: string[];
+  history: QoraMessage[];
+  chatInput: string;
+  isWorking: boolean;
+}
+
 interface AppState {
   nodeRunning: boolean;
   peerId: string | null;
@@ -58,6 +85,8 @@ interface AppState {
   currentConversation: Conversation | null;
   messages: ChatMessage[];
   chatView: 'list' | 'conversation';
+  // Qora state
+  qora: QoraState;
 }
 
 interface AppActions {
@@ -77,6 +106,17 @@ interface AppActions {
   backToConversationList: () => void;
   sendMessage: (peerId: string, content: string) => Promise<ChatMessage | null>;
   startConversation: (peerId: string) => Promise<void>;
+  // Qora actions
+  qoraInit: (ollamaUrl?: string, model?: string) => Promise<any>;
+  qoraStatus: () => Promise<any>;
+  qoraChat: (message: string) => Promise<string | null>;
+  qoraAddTask: (title: string, description: string) => Promise<any>;
+  qoraGetTasks: () => Promise<QoraTask[]>;
+  qoraWork: () => Promise<string | null>;
+  qoraWorkAll: () => Promise<string | null>;
+  qoraGetQuestions: () => Promise<string[]>;
+  qoraAnswerQuestion: (questionIndex: number, answer: string) => Promise<string | null>;
+  qoraGetHistory: () => Promise<QoraMessage[]>;
 }
 
 export function renderApp(state: AppState, actions: AppActions): void {
@@ -241,25 +281,38 @@ function renderMain(state: AppState, actions: AppActions): string {
         <!-- Left Gauge Panel -->
         <div class="gauge-panel">
           ${renderWalletMini(state, isMainnet)}
+          ${renderQoraStatus(state)}
           ${renderSystemMonitor()}
           ${renderBandwidthStats()}
           ${renderDePINStats(state)}
-          ${renderEarnings()}
           ${renderNetworkInfo(state, shortPeerId)}
         </div>
         
-        <!-- Main Content - Messages -->
+        <!-- Main Content - Tabbed: Messages / Qora -->
         <div class="main-content">
-          <div class="card chat-card">
-            <div class="chat-card-header">
-              <h3>💬 Messages</h3>
-              <div class="chat-id-badge">
-                <span>Your ID: </span>
-                <code id="user-id-display">${state.userIdDisplay || 'Loading...'}</code>
-                <button id="copy-user-id" class="btn-icon" title="Copy Chat ID">📋</button>
+          <div class="content-tabs">
+            <button class="tab-btn active" data-tab="messages">💬 Messages</button>
+            <button class="tab-btn" data-tab="qora">🤖 Qora</button>
+          </div>
+          
+          <!-- Messages Tab -->
+          <div class="tab-content active" id="tab-messages">
+            <div class="card chat-card">
+              <div class="chat-card-header">
+                <h3>💬 Messages</h3>
+                <div class="chat-id-badge">
+                  <span>Your ID: </span>
+                  <code id="user-id-display">${state.userIdDisplay || 'Loading...'}</code>
+                  <button id="copy-user-id" class="btn-icon" title="Copy Chat ID">📋</button>
+                </div>
               </div>
+              ${renderChat(state)}
             </div>
-            ${renderChat(state)}
+          </div>
+          
+          <!-- Qora Tab -->
+          <div class="tab-content" id="tab-qora">
+            ${renderQoraPanel(state)}
           </div>
         </div>
       </div>
@@ -267,6 +320,185 @@ function renderMain(state: AppState, actions: AppActions): string {
       ${renderModals(state, isMainnet)}
     </div>
   `;
+}
+
+// Render Qora status card for sidebar
+function renderQoraStatus(state: AppState): string {
+  const qora = state.qora;
+  const statusClass = qora.initialized ? (qora.available ? 'online' : 'warning') : 'offline';
+  const statusText = qora.initialized ? (qora.available ? 'Ready' : 'No Ollama') : 'Not Init';
+  const pendingCount = qora.tasks.filter(t => t.status === 'Pending').length;
+  const questionCount = qora.questions.length;
+  
+  return `
+    <div class="gauge-card qora-status-card">
+      <h4>🤖 Qora Agent</h4>
+      <div class="qora-status-row">
+        <span class="qora-label">Status</span>
+        <span class="qora-value ${statusClass}">${statusText}</span>
+      </div>
+      ${qora.initialized ? `
+        <div class="qora-status-row">
+          <span class="qora-label">Model</span>
+          <span class="qora-value model">${qora.model.split(':')[0] || 'N/A'}</span>
+        </div>
+        <div class="qora-status-row">
+          <span class="qora-label">Pending</span>
+          <span class="qora-value ${pendingCount > 0 ? 'highlight' : ''}">${pendingCount} tasks</span>
+        </div>
+        ${questionCount > 0 ? `
+          <div class="qora-status-row">
+            <span class="qora-label">Questions</span>
+            <span class="qora-value urgent">${questionCount} waiting</span>
+          </div>
+        ` : ''}
+        ${qora.isWorking ? `
+          <div class="qora-working">
+            <span class="spinner">⏳</span> Working...
+          </div>
+        ` : ''}
+      ` : `
+        <button id="init-qora-btn" class="btn-mini qora-init">Initialize</button>
+      `}
+    </div>
+  `;
+}
+
+// Render the full Qora panel
+function renderQoraPanel(state: AppState): string {
+  const qora = state.qora;
+  
+  if (!qora.initialized) {
+    return `
+      <div class="card qora-card">
+        <div class="qora-init-panel">
+          <h3>🤖 Initialize Qora</h3>
+          <p>Connect Qora to your local Ollama instance to enable AI-powered development assistance.</p>
+          <div class="qora-init-form">
+            <div class="form-group">
+              <label>Ollama URL</label>
+              <input type="text" id="qora-ollama-url" placeholder="http://localhost:11434" value="http://localhost:11434">
+            </div>
+            <div class="form-group">
+              <label>Model</label>
+              <input type="text" id="qora-model" placeholder="deepseek-coder-v2:16b" value="deepseek-coder-v2:16b">
+            </div>
+            <button id="qora-init-btn" class="btn-primary">Connect to Ollama</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  
+  return `
+    <div class="card qora-card">
+      <div class="qora-header">
+        <h3>🤖 Qora</h3>
+        <div class="qora-controls">
+          ${qora.isWorking ? `
+            <span class="qora-working-badge">⏳ Working...</span>
+          ` : `
+            <button id="qora-work-btn" class="btn-mini" title="Work on next task">▶️ Work</button>
+            <button id="qora-work-all-btn" class="btn-mini" title="Grind through all tasks">⚡ Grind</button>
+          `}
+        </div>
+      </div>
+      
+      <div class="qora-layout">
+        <!-- Left: Chat -->
+        <div class="qora-chat-section">
+          <div class="qora-chat-messages" id="qora-chat-messages">
+            ${qora.history.length === 0 ? `
+              <div class="qora-empty">
+                <p>👋 Hey! I'm Qora, your AI dev assistant.</p>
+                <p>Ask me anything or add tasks for me to work on!</p>
+              </div>
+            ` : qora.history.map(msg => `
+              <div class="qora-message ${msg.role}">
+                <div class="qora-message-content">${escapeHtml(msg.content)}</div>
+              </div>
+            `).join('')}
+          </div>
+          <div class="qora-chat-input">
+            <input type="text" id="qora-input" placeholder="Ask Qora anything..." autocomplete="off">
+            <button id="qora-send-btn" class="btn-send">Send</button>
+          </div>
+        </div>
+        
+        <!-- Right: Tasks & Questions -->
+        <div class="qora-sidebar">
+          <!-- Questions (urgent!) -->
+          ${qora.questions.length > 0 ? `
+            <div class="qora-questions">
+              <h4>❓ Qora Needs Your Input</h4>
+              ${qora.questions.map((q, i) => `
+                <div class="qora-question" data-index="${i}">
+                  <div class="question-text">${escapeHtml(q)}</div>
+                  <div class="question-answer">
+                    <input type="text" class="question-input" placeholder="Your answer..." data-index="${i}">
+                    <button class="btn-answer" data-index="${i}">→</button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+          
+          <!-- Tasks -->
+          <div class="qora-tasks">
+            <div class="qora-tasks-header">
+              <h4>📋 Task Queue</h4>
+              <button id="add-task-btn" class="btn-icon" title="Add task">➕</button>
+            </div>
+            ${qora.tasks.length === 0 ? `
+              <div class="qora-empty-tasks">No tasks yet. Add one!</div>
+            ` : `
+              <div class="task-list">
+                ${qora.tasks.map(task => `
+                  <div class="task-item ${task.status.toLowerCase()}">
+                    <div class="task-status">${getTaskStatusIcon(task.status)}</div>
+                    <div class="task-info">
+                      <div class="task-title">${escapeHtml(task.title)}</div>
+                      <div class="task-desc">${escapeHtml(task.description.slice(0, 50))}${task.description.length > 50 ? '...' : ''}</div>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            `}
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Add Task Modal -->
+    <div id="add-task-modal" class="modal hidden">
+      <div class="modal-content">
+        <h3>➕ Add Task for Qora</h3>
+        <div class="form-group">
+          <label>Task Title</label>
+          <input type="text" id="task-title" placeholder="e.g., Add dark mode toggle">
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea id="task-description" placeholder="Describe what you want Qora to do..."></textarea>
+        </div>
+        <div class="modal-buttons">
+          <button id="cancel-task-btn" class="btn-secondary">Cancel</button>
+          <button id="confirm-task-btn" class="btn-primary">Add Task</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function getTaskStatusIcon(status: string): string {
+  switch (status) {
+    case 'Pending': return '⏳';
+    case 'InProgress': return '🔄';
+    case 'Completed': return '✅';
+    case 'Failed': return '❌';
+    case 'Blocked': return '🚫';
+    default: return '•';
+  }
 }
 
 // Render status bar
@@ -913,6 +1145,169 @@ function attachMainHandlers(state: AppState, actions: AppActions): void {
   const messagesContainer = document.getElementById('messages-container');
   if (messagesContainer) {
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
+  
+  // ============================================================================
+  // Tab Handlers
+  // ============================================================================
+  
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = (btn as HTMLElement).dataset.tab;
+      if (!tab) return;
+      
+      // Update button states
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      
+      // Update tab content
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      document.getElementById(`tab-${tab}`)?.classList.add('active');
+    });
+  });
+  
+  // ============================================================================
+  // Qora Handlers
+  // ============================================================================
+  
+  // Initialize Qora from sidebar
+  document.getElementById('init-qora-btn')?.addEventListener('click', async () => {
+    showToast('Initializing Qora...');
+    await actions.qoraInit();
+    await actions.qoraGetTasks();
+    await actions.qoraGetHistory();
+  });
+  
+  // Initialize Qora from main panel
+  document.getElementById('qora-init-btn')?.addEventListener('click', async () => {
+    const urlInput = document.getElementById('qora-ollama-url') as HTMLInputElement;
+    const modelInput = document.getElementById('qora-model') as HTMLInputElement;
+    const btn = document.getElementById('qora-init-btn') as HTMLButtonElement;
+    
+    btn.disabled = true;
+    btn.textContent = 'Connecting...';
+    
+    try {
+      await actions.qoraInit(urlInput.value || undefined, modelInput.value || undefined);
+      await actions.qoraGetTasks();
+      await actions.qoraGetHistory();
+      showToast('Qora connected!');
+    } catch (e) {
+      showToast('Failed to connect to Ollama');
+      btn.disabled = false;
+      btn.textContent = 'Connect to Ollama';
+    }
+  });
+  
+  // Send chat to Qora
+  const qoraChatHandler = async () => {
+    const input = document.getElementById('qora-input') as HTMLInputElement;
+    const content = input.value.trim();
+    if (!content) return;
+    
+    input.value = '';
+    input.disabled = true;
+    
+    try {
+      await actions.qoraChat(content);
+      // Scroll chat to bottom
+      const chatContainer = document.getElementById('qora-chat-messages');
+      if (chatContainer) {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+    } finally {
+      input.disabled = false;
+      input.focus();
+    }
+  };
+  
+  document.getElementById('qora-send-btn')?.addEventListener('click', qoraChatHandler);
+  document.getElementById('qora-input')?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') qoraChatHandler();
+  });
+  
+  // Work buttons
+  document.getElementById('qora-work-btn')?.addEventListener('click', async () => {
+    showToast('Qora is working...');
+    const result = await actions.qoraWork();
+    if (result) {
+      showToast('Task completed!');
+    }
+  });
+  
+  document.getElementById('qora-work-all-btn')?.addEventListener('click', async () => {
+    const confirmed = confirm('Start Qora grinding through all tasks? This may take a while.');
+    if (!confirmed) return;
+    
+    showToast('Qora is grinding...');
+    const result = await actions.qoraWorkAll();
+    if (result) {
+      showToast(result);
+    }
+  });
+  
+  // Add task
+  document.getElementById('add-task-btn')?.addEventListener('click', () => {
+    document.getElementById('add-task-modal')?.classList.remove('hidden');
+  });
+  
+  document.getElementById('cancel-task-btn')?.addEventListener('click', () => {
+    document.getElementById('add-task-modal')?.classList.add('hidden');
+  });
+  
+  document.getElementById('confirm-task-btn')?.addEventListener('click', async () => {
+    const titleInput = document.getElementById('task-title') as HTMLInputElement;
+    const descInput = document.getElementById('task-description') as HTMLTextAreaElement;
+    
+    const title = titleInput.value.trim();
+    const desc = descInput.value.trim();
+    
+    if (!title || !desc) {
+      showToast('Please fill in both title and description');
+      return;
+    }
+    
+    const btn = document.getElementById('confirm-task-btn') as HTMLButtonElement;
+    btn.disabled = true;
+    
+    try {
+      await actions.qoraAddTask(title, desc);
+      titleInput.value = '';
+      descInput.value = '';
+      document.getElementById('add-task-modal')?.classList.add('hidden');
+      showToast('Task added!');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+  
+  // Answer questions
+  document.querySelectorAll('.btn-answer').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const index = parseInt((btn as HTMLElement).dataset.index || '0');
+      const input = document.querySelector(`.question-input[data-index="${index}"]`) as HTMLInputElement;
+      const answer = input?.value.trim();
+      
+      if (!answer) {
+        showToast('Please enter an answer');
+        return;
+      }
+      
+      (btn as HTMLButtonElement).disabled = true;
+      
+      try {
+        await actions.qoraAnswerQuestion(index, answer);
+        showToast('Answer submitted!');
+      } finally {
+        (btn as HTMLButtonElement).disabled = false;
+      }
+    });
+  });
+  
+  // Scroll Qora chat to bottom
+  const qoraChatContainer = document.getElementById('qora-chat-messages');
+  if (qoraChatContainer) {
+    qoraChatContainer.scrollTop = qoraChatContainer.scrollHeight;
   }
 }
 

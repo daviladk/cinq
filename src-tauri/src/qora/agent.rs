@@ -81,7 +81,7 @@ impl Default for QoraState {
             current_task: None,
             pending_questions: Vec::new(),
             working: false,
-            model: "deepseek-coder:33b".to_string(),
+            model: "deepseek-coder-v2:16b".to_string(),
         }
     }
 }
@@ -97,7 +97,7 @@ pub struct QoraAgent {
 impl QoraAgent {
     pub fn new(project_root: PathBuf, ollama_url: Option<String>, model: Option<String>) -> Self {
         let ollama_url = ollama_url.unwrap_or_else(|| "http://localhost:11434".to_string());
-        let model_name = model.unwrap_or_else(|| "deepseek-coder:33b".to_string());
+        let model_name = model.unwrap_or_else(|| "deepseek-coder-v2:16b".to_string());
         
         let mut initial_state = QoraState::default();
         initial_state.model = model_name.clone();
