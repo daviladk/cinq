@@ -1,7 +1,7 @@
 # cinQ - Project Status
 
-> **Last Updated:** February 12, 2026  
-> **Version:** 0.6.0 (Phase 2: Gateway Shell)  
+> **Last Updated:** February 18, 2026  
+> **Version:** 0.7.0 (Phase 3: Qora Swarm Architecture)  
 > **Build Status:** ✅ Working
 
 ---
@@ -12,21 +12,25 @@
 
 ---
 
-## 🎉 Current Phase: Gateway Shell + Messaging Alpha
+## 🎉 Current Phase: Qora Swarm + Worker Agents
 
-Building the Tauri desktop app with **E2EE messaging as an early adoption hook** before full IaaS marketplace.
+Building the local agent swarm with **Qora as the orchestrator** and specialized workers for bandwidth, storage, and payment tracking.
 
-### Messaging Alpha (User Acquisition)
-- Phone-number style Chat IDs: `555-123-4567`
-- Contact cards with QR sharing
-- Serverless E2EE messaging via P2P mesh
-- SBT integration ready for $CINQ identity
+### Qora Orchestrator (Alpha - Pure Rust)
+- Intent parsing via keyword patterns (no LLM dependency)
+- Template-based responses with personality
+- Routes actions to specialized workers
+- Zero external API calls = instant response
 
-### Infrastructure Foundation
-- libp2p mesh networking (Kademlia DHT, mDNS)
-- Noise protocol encryption
-- Bandwidth metering for Qi payments
-- SOCKS5 proxy (tunnel infrastructure)
+### Worker Agents
+- **BandwidthWorker**: Message/call routing, byte tracking
+- **StorageWorker**: Local file storage, cloud backup, message search
+- **PaymentWorker**: Qi metering, session accounting, settlement prep
+
+### Trust Model
+- **Pelagus Wallet**: Handles all blockchain (balance, signing, transactions)
+- **cinQ App**: Handles compute orchestration (metering, sessions, workers)
+- **Clean Separation**: No private keys in cinQ, no RPC calls needed
 
 ---
 
@@ -57,21 +61,33 @@ cinq/
 │   └── index.html           # Entry point
 │
 ├── src-tauri/src/
-│   ├── main.rs              # Tauri commands
+│   ├── main.rs              # Tauri commands (90+ commands)
 │   ├── lib.rs               # Module exports
-│   └── grid/
-│       ├── mod.rs           # Module re-exports
-│       ├── node.rs          # libp2p swarm, peer management
-│       ├── chat.rs          # ChatManager, SQLite storage
-│       ├── userid.rs        # UserId, UserIdRegistry, ContactCard
-│       ├── sbt.rs           # SBT integration (SbtManager, SbtProof)
-│       ├── protocol.rs      # CinqRequest/CinqResponse types
-│       ├── bootstrap.rs     # Peer persistence
-│       ├── proxy.rs         # SOCKS5 proxy
-│       ├── tunnel.rs        # P2P tunnel infrastructure
-│       ├── transfer.rs      # File transfer
-│       ├── metrics.rs       # Bandwidth tracking
-│       └── stratum.rs       # Mining pool stats
+│   │
+│   ├── grid/                # P2P networking
+│   │   ├── mod.rs           # Module re-exports
+│   │   ├── node.rs          # libp2p swarm, peer management
+│   │   ├── chat.rs          # ChatManager, SQLite storage
+│   │   ├── protocol.rs      # CinqRequest/CinqResponse types
+│   │   └── ...
+│   │
+│   ├── qora/                # Qora AI Agent (Ollama-based)
+│   │   ├── mod.rs           # Module exports
+│   │   ├── agent.rs         # QoraAgent with Ollama
+│   │   ├── ollama.rs        # Ollama API client
+│   │   └── tasks.rs         # Task queue
+│   │
+│   └── swarm/               # Local Agent Swarm (NEW)
+│       ├── mod.rs           # Module exports
+│       ├── costs.rs         # Qi pricing tables
+│       ├── tracker.rs       # Real-time usage tracking
+│       ├── intent.rs        # Intent parsing (pure Rust)
+│       ├── qora.rs          # Qora orchestrator
+│       └── workers/
+│           ├── mod.rs       # Worker trait
+│           ├── bandwidth.rs # BandwidthWorker
+│           ├── storage.rs   # StorageWorker
+│           └── payment.rs   # PaymentWorker
 │
 ├── docs/DESIGN.md           # Architecture & design
 ├── CHANGELOG.md             # Version history
@@ -108,6 +124,43 @@ cinq/
 | `get_profile` | Get profile info |
 | `get_contact_card` | Generate shareable card |
 | `parse_contact_card` | Parse QR/URL data |
+
+### Swarm Usage Tracker
+| Command | Description |
+|---------|-------------|
+| `swarm_get_balance` | Get current Qi balance + active sessions |
+| `swarm_set_balance` | Update balance from Pelagus |
+| `swarm_start_session` | Start tracking an action |
+| `swarm_end_session` | End session, get Qi consumed |
+| `swarm_record_bytes` | Record bytes sent/received |
+| `swarm_check_warnings` | Get low-balance warnings |
+| `swarm_estimate_cost` | Estimate Qi cost for action |
+| `swarm_get_cost_table` | Get all pricing rates |
+
+### Qora Orchestrator (New in v0.7.0)
+| Command | Description |
+|---------|-------------|
+| `qora_process` | Process natural language input |
+| `qora_get_intents` | Get list of supported intents |
+
+### Worker Commands (New in v0.7.0)
+| Command | Description |
+|---------|-------------|
+| `worker_send_message` | Send message via bandwidth worker |
+| `worker_start_call` | Start voice call |
+| `worker_start_video_call` | Start video call |
+| `worker_end_call` | End active call |
+| `worker_get_bandwidth_stats` | Get bandwidth metrics |
+| `worker_store_message` | Store message locally |
+| `worker_search_messages` | Search message history |
+| `worker_store_file` | Store file locally |
+| `worker_upload_cloud` | Upload to cloud backup |
+| `worker_get_storage_stats` | Get storage metrics |
+| `worker_payment_start_session` | Start payment session |
+| `worker_payment_record_cost` | Record Qi cost |
+| `worker_payment_end_session` | End payment session |
+| `worker_payment_get_pending` | Get pending payments |
+| `worker_payment_prepare_settlement` | Prepare for Pelagus |
 
 ## Data Storage
 

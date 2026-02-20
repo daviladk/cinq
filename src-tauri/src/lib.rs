@@ -3,9 +3,11 @@
 
 pub mod grid;
 pub mod qora;
+pub mod swarm;
 
 pub use grid::{CinqNode, BandwidthMetrics};
 pub use qora::{QoraAgent, Task, TaskStatus, TaskQueue};
+pub use swarm::{UsageTracker, CostTable, ActionType, Warning, WarningLevel};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

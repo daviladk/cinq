@@ -5,13 +5,18 @@
 
 mod grid;
 mod qora;
+mod swarm;
 
 use grid::{CinqNode, BandwidthMetrics, GridPeer, ProxyStatus, NodeConfig};
 use grid::{ChatManager, ChatMessage, Contact, Conversation, MessageStatus};
 use grid::{StratumClient, PoolStats, Worker, StratumStatus};
 use grid::UserIdRegistry;
 use qora::{QoraAgent, Task};
+use swarm::{UsageTracker, ActionType, Warning, CostTable};
+use swarm::{Qora, QoraResponse, Intent, ResponseContext};
+use swarm::{BandwidthWorker, StorageWorker, PaymentWorker, WorkerResult};
 use std::sync::Arc;
+use std::path::PathBuf;
 use tokio::sync::RwLock;
 use tauri::State;
 use serde::{Serialize, Deserialize};
@@ -23,16 +28,33 @@ pub struct CinqState {
     stratum: Arc<RwLock<Option<StratumClient>>>,
     userid: Arc<RwLock<Option<Arc<RwLock<UserIdRegistry>>>>>,
     qora: Arc<RwLock<Option<QoraAgent>>>,
+    tracker: Arc<UsageTracker>,
+    // Swarm orchestrator and workers
+    qora_swarm: Arc<Qora>,
+    bandwidth_worker: Arc<BandwidthWorker>,
+    storage_worker: Arc<StorageWorker>,
+    payment_worker: Arc<RwLock<PaymentWorker>>,
 }
 
 impl CinqState {
     pub fn new() -> Self {
+        let tracker = Arc::new(UsageTracker::new(100.0)); // Start with 100 Qi for testing
+        let data_dir = dirs::data_dir()
+            .map(|d| d.join("cinq"))
+            .unwrap_or_else(|| PathBuf::from("."));
+        
         Self {
             node: Arc::new(RwLock::new(None)),
             chat: Arc::new(RwLock::new(None)),
             stratum: Arc::new(RwLock::new(None)),
             userid: Arc::new(RwLock::new(None)),
             qora: Arc::new(RwLock::new(None)),
+            tracker: tracker.clone(),
+            // Initialize swarm components
+            qora_swarm: Arc::new(Qora::new()),
+            bandwidth_worker: Arc::new(BandwidthWorker::new()),
+            storage_worker: Arc::new(StorageWorker::new(data_dir)),
+            payment_worker: Arc::new(RwLock::new(PaymentWorker::new(tracker))),
         }
     }
 }
@@ -1195,6 +1217,482 @@ async fn qora_get_questions(state: State<'_, CinqState>) -> Result<CommandRespon
     }
 }
 
+// ============================================================================
+// Swarm Usage Tracker Commands
+// ============================================================================
+
+/// Response for balance and usage info
+#[derive(Debug, Serialize)]
+pub struct BalanceInfo {
+    pub qi_balance: f64,
+    pub active_sessions: Vec<swarm::tracker::SessionSummary>,
+    pub total_qi_in_use: f64,
+}
+
+/// Get current Qi balance and active sessions
+#[tauri::command]
+async fn swarm_get_balance(state: State<'_, CinqState>) -> Result<CommandResponse<BalanceInfo>, String> {
+    let balance = state.tracker.get_balance().await;
+    let sessions = state.tracker.get_active_sessions().await;
+    let in_use: f64 = sessions.iter().map(|s| s.qi_consumed).sum();
+    
+    Ok(CommandResponse::ok(BalanceInfo {
+        qi_balance: balance,
+        active_sessions: sessions,
+        total_qi_in_use: in_use,
+    }))
+}
+
+/// Update Qi balance (called when wallet syncs)
+#[tauri::command]
+async fn swarm_set_balance(
+    state: State<'_, CinqState>,
+    balance: f64,
+) -> Result<CommandResponse<()>, String> {
+    state.tracker.set_balance(balance).await;
+    Ok(CommandResponse::ok(()))
+}
+
+/// Start tracking a new session (returns session ID)
+#[tauri::command]
+async fn swarm_start_session(
+    state: State<'_, CinqState>,
+    action_type: String,
+    description: String,
+    peer_id: Option<String>,
+) -> Result<CommandResponse<String>, String> {
+    let action = match action_type.as_str() {
+        "message" => ActionType::Message,
+        "file" => ActionType::FileTransfer,
+        "voice" => ActionType::VoiceCall,
+        "video" => ActionType::VideoCall,
+        "inference" => ActionType::Inference,
+        "compute" => ActionType::Compute,
+        "storage" => ActionType::Storage,
+        _ => return Ok(CommandResponse::err(format!("Unknown action type: {}", action_type))),
+    };
+    
+    let session_id = state.tracker.start_session(action, description, peer_id).await;
+    Ok(CommandResponse::ok(session_id.to_string()))
+}
+
+/// End a tracking session (returns Qi consumed)
+#[tauri::command]
+async fn swarm_end_session(
+    state: State<'_, CinqState>,
+    session_id: String,
+) -> Result<CommandResponse<f64>, String> {
+    let uuid = uuid::Uuid::parse_str(&session_id)
+        .map_err(|e| format!("Invalid session ID: {}", e))?;
+    
+    match state.tracker.end_session(uuid).await {
+        Some(qi) => Ok(CommandResponse::ok(qi)),
+        None => Ok(CommandResponse::err("Session not found")),
+    }
+}
+
+/// Record bytes sent for a session
+#[tauri::command]
+async fn swarm_record_bytes(
+    state: State<'_, CinqState>,
+    session_id: String,
+    bytes_sent: u64,
+    bytes_received: u64,
+) -> Result<CommandResponse<()>, String> {
+    let uuid = uuid::Uuid::parse_str(&session_id)
+        .map_err(|e| format!("Invalid session ID: {}", e))?;
+    
+    if bytes_sent > 0 {
+        state.tracker.record_bytes_sent(uuid, bytes_sent).await;
+    }
+    if bytes_received > 0 {
+        state.tracker.record_bytes_received(uuid, bytes_received).await;
+    }
+    
+    Ok(CommandResponse::ok(()))
+}
+
+/// Check for any warnings across active sessions
+#[tauri::command]
+async fn swarm_check_warnings(state: State<'_, CinqState>) -> Result<CommandResponse<Vec<Warning>>, String> {
+    let warnings = state.tracker.check_warnings().await;
+    Ok(CommandResponse::ok(warnings))
+}
+
+/// Estimate cost for a potential action
+#[tauri::command]
+async fn swarm_estimate_cost(
+    state: State<'_, CinqState>,
+    action_type: String,
+    units: f64,
+) -> Result<CommandResponse<swarm::tracker::CostEstimate>, String> {
+    let action = match action_type.as_str() {
+        "message" => ActionType::Message,
+        "file" => ActionType::FileTransfer,
+        "voice" => ActionType::VoiceCall,
+        "video" => ActionType::VideoCall,
+        "inference" => ActionType::Inference,
+        "compute" => ActionType::Compute,
+        "storage" => ActionType::Storage,
+        _ => return Ok(CommandResponse::err(format!("Unknown action type: {}", action_type))),
+    };
+    
+    let estimate = state.tracker.estimate_cost(action, units);
+    Ok(CommandResponse::ok(estimate))
+}
+
+/// Get the cost table (all rates)
+#[tauri::command]
+async fn swarm_get_cost_table(_state: State<'_, CinqState>) -> Result<CommandResponse<CostTable>, String> {
+    Ok(CommandResponse::ok(CostTable::default()))
+}
+
+// ============================================================================
+// Qora Swarm Orchestrator Commands
+// ============================================================================
+
+/// Process natural language input through Qora orchestrator
+#[tauri::command]
+async fn qora_process(
+    state: State<'_, CinqState>,
+    input: String,
+) -> Result<CommandResponse<QoraResponse>, String> {
+    let response = state.qora_swarm.process(&input);
+    Ok(CommandResponse::ok(response))
+}
+
+/// Get all supported intents for the UI
+#[tauri::command]
+async fn qora_get_intents(_state: State<'_, CinqState>) -> Result<CommandResponse<Vec<String>>, String> {
+    let intents = vec![
+        "SendMessage".to_string(),
+        "StartCall".to_string(),
+        "StartVideoCall".to_string(),
+        "EndCall".to_string(),
+        "UploadFile".to_string(),
+        "DownloadFile".to_string(),
+        "CheckBalance".to_string(),
+        "CheckUsage".to_string(),
+        "FindContact".to_string(),
+        "SearchMessages".to_string(),
+        "GetHistory".to_string(),
+        "Help".to_string(),
+        "Unknown".to_string(),
+    ];
+    Ok(CommandResponse::ok(intents))
+}
+
+// ============================================================================
+// Bandwidth Worker Commands
+// ============================================================================
+
+/// Response for bandwidth operations
+#[derive(Debug, Serialize)]
+pub struct BandwidthResponse {
+    pub success: bool,
+    pub message: String,
+    pub stream_id: Option<String>,
+    pub bytes_processed: u64,
+    pub qi_cost: f64,
+}
+
+/// Send a message through bandwidth worker
+#[tauri::command]
+async fn worker_send_message(
+    state: State<'_, CinqState>,
+    peer_id: String,
+    content: String,
+) -> Result<CommandResponse<BandwidthResponse>, String> {
+    let result = state.bandwidth_worker.send_message(&peer_id, &content).await;
+    
+    Ok(CommandResponse::ok(BandwidthResponse {
+        success: result.success,
+        message: result.message,
+        stream_id: None,
+        bytes_processed: result.bytes_processed,
+        qi_cost: result.qi_cost,
+    }))
+}
+
+/// Start a voice call through bandwidth worker
+#[tauri::command]
+async fn worker_start_call(
+    state: State<'_, CinqState>,
+    peer_id: String,
+) -> Result<CommandResponse<BandwidthResponse>, String> {
+    let result = state.bandwidth_worker.start_call(&peer_id).await;
+    
+    // Extract stream_id from result data if present
+    let stream_id = result.data.as_ref()
+        .and_then(|d| d.as_str())
+        .map(|s| s.to_string());
+    
+    Ok(CommandResponse::ok(BandwidthResponse {
+        success: result.success,
+        message: result.message,
+        stream_id,
+        bytes_processed: result.bytes_processed,
+        qi_cost: result.qi_cost,
+    }))
+}
+
+/// Start a video call through bandwidth worker
+#[tauri::command]
+async fn worker_start_video_call(
+    state: State<'_, CinqState>,
+    peer_id: String,
+) -> Result<CommandResponse<BandwidthResponse>, String> {
+    let result = state.bandwidth_worker.start_video_call(&peer_id).await;
+    
+    let stream_id = result.data.as_ref()
+        .and_then(|d| d.as_str())
+        .map(|s| s.to_string());
+    
+    Ok(CommandResponse::ok(BandwidthResponse {
+        success: result.success,
+        message: result.message,
+        stream_id,
+        bytes_processed: result.bytes_processed,
+        qi_cost: result.qi_cost,
+    }))
+}
+
+/// End an active call
+#[tauri::command]
+async fn worker_end_call(
+    state: State<'_, CinqState>,
+    stream_id: String,
+) -> Result<CommandResponse<BandwidthResponse>, String> {
+    let result = state.bandwidth_worker.end_call(&stream_id).await;
+    
+    Ok(CommandResponse::ok(BandwidthResponse {
+        success: result.success,
+        message: result.message,
+        stream_id: Some(stream_id),
+        bytes_processed: result.bytes_processed,
+        qi_cost: result.qi_cost,
+    }))
+}
+
+/// Get bandwidth metrics from worker
+#[tauri::command]
+async fn worker_get_bandwidth_stats(
+    state: State<'_, CinqState>,
+) -> Result<CommandResponse<serde_json::Value>, String> {
+    let stats = state.bandwidth_worker.get_session_stats().await;
+    let active = state.bandwidth_worker.active_stream_count().await;
+    Ok(CommandResponse::ok(serde_json::json!({
+        "total_bytes_sent": stats.0,
+        "total_bytes_received": stats.1,
+        "active_streams": active,
+    })))
+}
+
+// ============================================================================
+// Storage Worker Commands
+// ============================================================================
+
+/// Response for storage operations
+#[derive(Debug, Serialize)]
+pub struct StorageResponse {
+    pub success: bool,
+    pub message: String,
+    pub file_id: Option<String>,
+    pub bytes_stored: u64,
+    pub qi_cost: f64,
+}
+
+/// Store a message in local history
+#[tauri::command]
+async fn worker_store_message(
+    state: State<'_, CinqState>,
+    conversation_id: String,
+    sender_id: String,
+    content: String,
+) -> Result<CommandResponse<StorageResponse>, String> {
+    let result = state.storage_worker.store_message(
+        &conversation_id,
+        &sender_id,
+        &content,
+    ).await;
+    
+    Ok(CommandResponse::ok(StorageResponse {
+        success: result.success,
+        message: result.message,
+        file_id: None,
+        bytes_stored: result.bytes_processed,
+        qi_cost: result.qi_cost,
+    }))
+}
+
+/// Search messages
+#[tauri::command]
+async fn worker_search_messages(
+    state: State<'_, CinqState>,
+    query: String,
+) -> Result<CommandResponse<Vec<serde_json::Value>>, String> {
+    let result = state.storage_worker.search_messages(&query).await;
+    
+    // Parse the data field which contains search results
+    let messages = result.data
+        .and_then(|d| d.as_array().cloned())
+        .unwrap_or_default();
+    
+    Ok(CommandResponse::ok(messages))
+}
+
+/// Store a file locally
+#[tauri::command]
+async fn worker_store_file(
+    state: State<'_, CinqState>,
+    filename: String,
+    data: Vec<u8>,
+    mime_type: String,
+) -> Result<CommandResponse<StorageResponse>, String> {
+    let result = state.storage_worker.store_file_local(&filename, &data, &mime_type).await;
+    
+    let file_id = result.data.as_ref()
+        .and_then(|d| d.get("file_id"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    
+    Ok(CommandResponse::ok(StorageResponse {
+        success: result.success,
+        message: result.message,
+        file_id,
+        bytes_stored: result.bytes_processed,
+        qi_cost: result.qi_cost,
+    }))
+}
+
+/// Upload a file to cloud backup (costs Qi)
+#[tauri::command]
+async fn worker_upload_cloud(
+    state: State<'_, CinqState>,
+    file_id: String,
+) -> Result<CommandResponse<StorageResponse>, String> {
+    let result = state.storage_worker.upload_to_cloud(&file_id).await;
+    
+    Ok(CommandResponse::ok(StorageResponse {
+        success: result.success,
+        message: result.message,
+        file_id: Some(file_id),
+        bytes_stored: result.bytes_processed,
+        qi_cost: result.qi_cost,
+    }))
+}
+
+/// Get storage stats
+#[tauri::command]
+async fn worker_get_storage_stats(
+    state: State<'_, CinqState>,
+) -> Result<CommandResponse<serde_json::Value>, String> {
+    let stats = state.storage_worker.get_storage_stats().await;
+    Ok(CommandResponse::ok(serde_json::json!({
+        "local_bytes": stats.0,
+        "cloud_bytes": stats.1,
+    })))
+}
+
+// ============================================================================
+// Payment Worker Commands
+// ============================================================================
+
+/// Response for payment operations
+#[derive(Debug, Serialize)]
+pub struct PaymentResponse {
+    pub success: bool,
+    pub message: String,
+    pub session_id: Option<String>,
+    pub qi_amount: f64,
+}
+
+/// Start a payment session
+#[tauri::command]
+async fn worker_payment_start_session(
+    state: State<'_, CinqState>,
+) -> Result<CommandResponse<PaymentResponse>, String> {
+    let worker = state.payment_worker.write().await;
+    let result = worker.start_session().await;
+    
+    Ok(CommandResponse::ok(PaymentResponse {
+        success: result.success,
+        message: result.message,
+        session_id: None,
+        qi_amount: result.qi_cost,
+    }))
+}
+
+/// Record cost for a session
+#[tauri::command]
+async fn worker_payment_record_cost(
+    state: State<'_, CinqState>,
+    action_type: String,
+    units: f64,
+    cost: f64,
+) -> Result<CommandResponse<PaymentResponse>, String> {
+    let action = match action_type.as_str() {
+        "message" => ActionType::Message,
+        "file" => ActionType::FileTransfer,
+        "voice" => ActionType::VoiceCall,
+        "video" => ActionType::VideoCall,
+        "inference" => ActionType::Inference,
+        "compute" => ActionType::Compute,
+        "storage" => ActionType::Storage,
+        _ => return Ok(CommandResponse::err(format!("Unknown action type: {}", action_type))),
+    };
+    
+    let worker = state.payment_worker.read().await;
+    let result = worker.record_cost(action, units, cost).await;
+    
+    Ok(CommandResponse::ok(PaymentResponse {
+        success: result.success,
+        message: result.message,
+        session_id: None,
+        qi_amount: result.qi_cost,
+    }))
+}
+
+/// End a payment session
+#[tauri::command]
+async fn worker_payment_end_session(
+    state: State<'_, CinqState>,
+) -> Result<CommandResponse<PaymentResponse>, String> {
+    let worker = state.payment_worker.read().await;
+    let result = worker.end_session().await;
+    
+    Ok(CommandResponse::ok(PaymentResponse {
+        success: result.success,
+        message: result.message,
+        session_id: None,
+        qi_amount: result.qi_cost,
+    }))
+}
+
+/// Get all pending payments ready for settlement
+#[tauri::command]
+async fn worker_payment_get_pending(
+    state: State<'_, CinqState>,
+) -> Result<CommandResponse<serde_json::Value>, String> {
+    let worker = state.payment_worker.read().await;
+    let payments = worker.get_pending_payments().await;
+    
+    Ok(CommandResponse::ok(serde_json::json!(payments)))
+}
+
+/// Prepare settlement batch for Pelagus
+#[tauri::command]
+async fn worker_payment_prepare_settlement(
+    state: State<'_, CinqState>,
+    payment_id: String,
+) -> Result<CommandResponse<serde_json::Value>, String> {
+    let worker = state.payment_worker.read().await;
+    let result = worker.prepare_settlement(&payment_id).await;
+    
+    let settlement = result.data.unwrap_or(serde_json::json!({}));
+    Ok(CommandResponse::ok(settlement))
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_log::Builder::default().build())
@@ -1250,6 +1748,36 @@ fn main() {
             qora_answer_question,
             qora_get_questions,
             qora_get_history,
+            // Swarm usage tracker commands
+            swarm_get_balance,
+            swarm_set_balance,
+            swarm_start_session,
+            swarm_end_session,
+            swarm_record_bytes,
+            swarm_check_warnings,
+            swarm_estimate_cost,
+            swarm_get_cost_table,
+            // Qora swarm orchestrator commands
+            qora_process,
+            qora_get_intents,
+            // Bandwidth worker commands
+            worker_send_message,
+            worker_start_call,
+            worker_start_video_call,
+            worker_end_call,
+            worker_get_bandwidth_stats,
+            // Storage worker commands
+            worker_store_message,
+            worker_search_messages,
+            worker_store_file,
+            worker_upload_cloud,
+            worker_get_storage_stats,
+            // Payment worker commands
+            worker_payment_start_session,
+            worker_payment_record_cost,
+            worker_payment_end_session,
+            worker_payment_get_pending,
+            worker_payment_prepare_settlement,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Cinq Connect");

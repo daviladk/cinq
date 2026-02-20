@@ -36,7 +36,19 @@ interface UserIdInfo {
 }
 
 // ============================================================================
-// Qora Types
+// Qora Swarm Types (new orchestrator)
+// ============================================================================
+
+interface QoraSwarmResponse {
+  message: string;
+  intent: string;
+  suggested_action: string | null;
+  confidence: number;
+  context: Record<string, string>;
+}
+
+// ============================================================================
+// Qora Types (legacy Ollama-based)
 // ============================================================================
 
 interface QoraStatus {
@@ -131,7 +143,7 @@ const state: AppState = {
     model: '',
     tasks: [],
     questions: [],
-    history: [],
+    history: JSON.parse(localStorage.getItem('cinq_qora_history') || '[]') as QoraMessage[],
     chatInput: '',
     isWorking: false,
   },
@@ -285,6 +297,17 @@ async function getMessages(conversationId: string): Promise<ChatMessage[]> {
 
 async function sendMessage(peerId: string, content: string): Promise<ChatMessage | null> {
   try {
+    // Track bandwidth through worker (metering)
+    const workerResult = await invoke<CommandResponse<{ success: boolean; bytes_processed: number; qi_cost: number }>>('worker_send_message', {
+      peerId,
+      content,
+    });
+    
+    if (workerResult.success && workerResult.data) {
+      console.log(`Message metered: ${workerResult.data.bytes_processed} bytes, ${workerResult.data.qi_cost} Qi`);
+    }
+    
+    // Send the actual message through P2P
     const result = await invoke<CommandResponse<ChatMessage>>('send_message', {
       peerId,
       content,
@@ -428,27 +451,39 @@ async function qoraStatus(): Promise<QoraStatus | null> {
   }
 }
 
+// Helper to save Qora chat history to localStorage
+function saveQoraHistory(): void {
+  // Keep last 100 messages to avoid localStorage bloat
+  const historyToSave = state.qora.history.slice(-100);
+  localStorage.setItem('cinq_qora_history', JSON.stringify(historyToSave));
+}
+
 async function qoraChat(message: string): Promise<string | null> {
   try {
-    // Add user message to history immediately for responsive UI
+    // Clear input state and add user message to history immediately for responsive UI
+    state.qora.chatInput = '';
     state.qora.history.push({ role: 'user', content: message });
+    saveQoraHistory();
     updateUI();
     
     const result = await invoke<CommandResponse<string>>('qora_chat', { message });
     if (result.success && result.data) {
       // Add assistant response
       state.qora.history.push({ role: 'assistant', content: result.data });
+      saveQoraHistory();
       updateUI();
       return result.data;
     }
     console.error('Qora chat failed:', result.error);
     // Remove the user message if failed
     state.qora.history.pop();
+    saveQoraHistory();
     updateUI();
     return null;
   } catch (error) {
     console.error('Failed to chat with Qora:', error);
     state.qora.history.pop();
+    saveQoraHistory();
     updateUI();
     return null;
   }
@@ -585,6 +620,68 @@ async function qoraGetHistory(): Promise<QoraMessage[]> {
     console.error('Failed to get history:', error);
     return [];
   }
+}
+
+// ============================================================================
+// Qora Swarm Orchestrator (Pure Rust Intent-Based)
+// ============================================================================
+
+/**
+ * Process natural language input through Qora swarm orchestrator.
+ * This is the new pure-Rust intent parser that works without Ollama.
+ */
+async function qoraProcess(input: string): Promise<QoraSwarmResponse | null> {
+  try {
+    const result = await invoke<CommandResponse<QoraSwarmResponse>>('qora_process', { input });
+    if (result.success && result.data) {
+      console.log('Qora processed:', result.data.intent, '->', result.data.message);
+      return result.data;
+    }
+    console.error('Qora process failed:', result.error);
+    return null;
+  } catch (error) {
+    console.error('Failed to process with Qora:', error);
+    return null;
+  }
+}
+
+/**
+ * Process chat input through Qora and execute suggested action if applicable.
+ * Returns the Qora response message to display to the user.
+ */
+async function processWithQora(input: string, peerId?: string): Promise<string | null> {
+  const response = await qoraProcess(input);
+  if (!response) return null;
+  
+  // If Qora detected a clear intent with a suggested action, execute it
+  if (response.suggested_action && response.confidence > 0.7) {
+    switch (response.intent) {
+      case 'SendMessage':
+        // For messages, we handle the actual send separately
+        // Just return Qora's response
+        break;
+        
+      case 'CheckBalance':
+        // Refresh balance display
+        await refreshBalance();
+        break;
+        
+      case 'CheckUsage':
+        // Could display usage stats
+        console.log('Usage check requested');
+        break;
+        
+      case 'Help':
+        // Show help message
+        break;
+        
+      default:
+        // For other intents, just acknowledge
+        break;
+    }
+  }
+  
+  return response.message;
 }
 
 // Tab state management
@@ -754,6 +851,14 @@ async function transferAndPay(
 
 // UI helpers
 function updateUI(): void {
+  // Preserve input values before re-render
+  const qoraInput = document.getElementById('qora-input') as HTMLInputElement;
+  if (qoraInput) {
+    state.qora.chatInput = qoraInput.value;
+  }
+  const chatInput = document.getElementById('chat-input') as HTMLInputElement;
+  const chatInputValue = chatInput?.value || '';
+  
   renderApp(state, {
     startNode,
     stopNode,
@@ -785,9 +890,22 @@ function updateUI(): void {
     qoraGetQuestions,
     qoraAnswerQuestion,
     qoraGetHistory,
+    // Qora swarm orchestrator
+    qoraProcess,
+    processWithQora,
     // Tab state
     setActiveTab,
   });
+  
+  // Restore input values after render
+  const newQoraInput = document.getElementById('qora-input') as HTMLInputElement;
+  if (newQoraInput && state.qora.chatInput) {
+    newQoraInput.value = state.qora.chatInput;
+  }
+  const newChatInput = document.getElementById('chat-input') as HTMLInputElement;
+  if (newChatInput && chatInputValue) {
+    newChatInput.value = chatInputValue;
+  }
 }
 
 function showNotification(message: string): void {

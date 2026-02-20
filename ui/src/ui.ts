@@ -108,7 +108,7 @@ interface AppActions {
   backToConversationList: () => void;
   sendMessage: (peerId: string, content: string) => Promise<ChatMessage | null>;
   startConversation: (peerId: string) => Promise<void>;
-  // Qora actions
+  // Qora actions (legacy Ollama)
   qoraInit: (ollamaUrl?: string, model?: string) => Promise<any>;
   qoraStatus: () => Promise<any>;
   qoraChat: (message: string) => Promise<string | null>;
@@ -119,6 +119,9 @@ interface AppActions {
   qoraGetQuestions: () => Promise<string[]>;
   qoraAnswerQuestion: (questionIndex: number, answer: string) => Promise<string | null>;
   qoraGetHistory: () => Promise<QoraMessage[]>;
+  // Qora swarm (pure Rust)
+  qoraProcess: (input: string) => Promise<{ message: string; intent: string; suggested_action: string | null; confidence: number } | null>;
+  processWithQora: (input: string, peerId?: string) => Promise<string | null>;
   setActiveTab: (tab: 'messages' | 'qora') => void;
 }
 
@@ -371,7 +374,8 @@ function renderQoraStatus(state: AppState): string {
 function renderQoraPanel(state: AppState): string {
   const qora = state.qora;
   
-  if (!qora.initialized) {
+  // Show chat interface if initialized OR if we have chat history
+  if (!qora.initialized && qora.history.length === 0) {
     return `
       <div class="card qora-card">
         <div class="qora-init-panel">
