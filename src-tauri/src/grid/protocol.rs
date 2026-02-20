@@ -1,16 +1,15 @@
 // Cinq Protocol - Custom request/response protocol for file transfer
 
+use futures::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use libp2p::{
-    autonat, dcutr, identify, kad,
-    relay,
+    autonat, dcutr, identify, kad, relay,
     request_response::{self, Codec, ProtocolSupport},
     swarm::NetworkBehaviour,
-    StreamProtocol, PeerId,
+    PeerId, StreamProtocol,
 };
 use serde::{Deserialize, Serialize};
 use std::io;
 use std::time::Duration;
-use futures::{AsyncRead, AsyncWrite, AsyncReadExt, AsyncWriteExt};
 
 /// Protocol name for Cinq file transfer
 pub const CINQ_PROTOCOL: StreamProtocol = StreamProtocol::new("/cinq/transfer/1.0.0");
@@ -34,13 +33,13 @@ pub enum CinqRequest {
     /// Request file metadata
     FileInfo { filename: String },
     /// Request file data (chunked transfer)
-    FileChunk { 
-        filename: String, 
-        offset: u64, 
-        length: u64 
+    FileChunk {
+        filename: String,
+        offset: u64,
+        length: u64,
     },
     /// Full file transfer request
-    FileTransfer { 
+    FileTransfer {
         filename: String,
         data: Vec<u8>,
         total_size: u64,
@@ -57,17 +56,11 @@ pub enum CinqRequest {
         target_port: u16,
     },
     /// Proxy data - send data through an established tunnel
-    ProxyData {
-        tunnel_id: u64,
-        data: Vec<u8>,
-    },
+    ProxyData { tunnel_id: u64, data: Vec<u8> },
     /// Close a proxy tunnel
-    ProxyClose {
-        tunnel_id: u64,
-    },
-    
+    ProxyClose { tunnel_id: u64 },
+
     // ========== CHAT MESSAGES ==========
-    
     /// Send a direct chat message to a peer
     ChatMessage {
         /// Unique message ID (UUID)
@@ -79,7 +72,7 @@ pub enum CinqRequest {
         /// Unix timestamp (millis)
         timestamp: u64,
     },
-    
+
     /// Store a message in peer's mailbox (for offline delivery)
     MailboxStore {
         /// Hint for recipient (hashed peer ID or similar)
@@ -89,7 +82,7 @@ pub enum CinqRequest {
         /// Expiration timestamp (Unix millis) - default 7 days
         expires_at: u64,
     },
-    
+
     /// Retrieve messages from a mailbox
     MailboxRetrieve {
         /// Proof that requester owns this mailbox
@@ -97,7 +90,7 @@ pub enum CinqRequest {
         /// Only messages after this timestamp
         since_timestamp: Option<u64>,
     },
-    
+
     /// Store an encrypted shard for backup
     ShardStore {
         /// Unique shard ID
@@ -109,7 +102,7 @@ pub enum CinqRequest {
         /// TTL in seconds (how long to keep)
         ttl_secs: u64,
     },
-    
+
     /// Retrieve a stored shard
     ShardRetrieve {
         /// Shard ID to retrieve
@@ -157,17 +150,11 @@ pub enum CinqResponse {
         error: Option<String>,
     },
     /// Proxy data from target
-    ProxyData {
-        tunnel_id: u64,
-        data: Vec<u8>,
-    },
+    ProxyData { tunnel_id: u64, data: Vec<u8> },
     /// Proxy tunnel closed
-    ProxyClosed {
-        tunnel_id: u64,
-    },
-    
+    ProxyClosed { tunnel_id: u64 },
+
     // ========== CHAT RESPONSES ==========
-    
     /// Chat message received acknowledgment
     ChatReceived {
         /// The message ID that was received
@@ -175,7 +162,7 @@ pub enum CinqResponse {
         /// Whether it was delivered (true) or stored in mailbox (false)
         delivered: bool,
     },
-    
+
     /// Mailbox store result
     MailboxStored {
         /// Success or failure
@@ -185,13 +172,13 @@ pub enum CinqResponse {
         /// Expiration timestamp
         expires_at: u64,
     },
-    
+
     /// Mailbox retrieval result
     MailboxMessages {
         /// Retrieved messages (each is an encrypted blob)
         messages: Vec<MailboxMessage>,
     },
-    
+
     /// Shard stored result
     ShardStored {
         /// Shard ID
@@ -201,7 +188,7 @@ pub enum CinqResponse {
         /// Storage cost in nano-Qi
         cost_nano_qi: u64,
     },
-    
+
     /// Shard retrieval result
     ShardData {
         /// Shard ID
@@ -211,7 +198,7 @@ pub enum CinqResponse {
         /// Found or not
         found: bool,
     },
-    
+
     /// Error response
     Error { message: String },
 }
@@ -237,71 +224,93 @@ impl Codec for CinqCodec {
     type Request = CinqRequest;
     type Response = CinqResponse;
 
-    async fn read_request<T>(&mut self, _protocol: &Self::Protocol, io: &mut T) -> io::Result<Self::Request>
+    async fn read_request<T>(
+        &mut self,
+        _protocol: &Self::Protocol,
+        io: &mut T,
+    ) -> io::Result<Self::Request>
     where
         T: AsyncRead + Unpin + Send,
     {
         let mut length_buf = [0u8; 4];
         io.read_exact(&mut length_buf).await?;
         let length = u32::from_be_bytes(length_buf) as usize;
-        
+
         if length > self.max_file_size as usize {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "Message too large"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Message too large",
+            ));
         }
-        
+
         let mut buf = vec![0u8; length];
         io.read_exact(&mut buf).await?;
-        
-        serde_json::from_slice(&buf)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+
+        serde_json::from_slice(&buf).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
     }
 
-    async fn read_response<T>(&mut self, _protocol: &Self::Protocol, io: &mut T) -> io::Result<Self::Response>
+    async fn read_response<T>(
+        &mut self,
+        _protocol: &Self::Protocol,
+        io: &mut T,
+    ) -> io::Result<Self::Response>
     where
         T: AsyncRead + Unpin + Send,
     {
         let mut length_buf = [0u8; 4];
         io.read_exact(&mut length_buf).await?;
         let length = u32::from_be_bytes(length_buf) as usize;
-        
+
         if length > self.max_file_size as usize {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "Message too large"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Message too large",
+            ));
         }
-        
+
         let mut buf = vec![0u8; length];
         io.read_exact(&mut buf).await?;
-        
-        serde_json::from_slice(&buf)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+
+        serde_json::from_slice(&buf).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
     }
 
-    async fn write_request<T>(&mut self, _protocol: &Self::Protocol, io: &mut T, request: Self::Request) -> io::Result<()>
+    async fn write_request<T>(
+        &mut self,
+        _protocol: &Self::Protocol,
+        io: &mut T,
+        request: Self::Request,
+    ) -> io::Result<()>
     where
         T: AsyncWrite + Unpin + Send,
     {
         let data = serde_json::to_vec(&request)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-        
+
         let length = (data.len() as u32).to_be_bytes();
         io.write_all(&length).await?;
         io.write_all(&data).await?;
         io.flush().await?;
-        
+
         Ok(())
     }
 
-    async fn write_response<T>(&mut self, _protocol: &Self::Protocol, io: &mut T, response: Self::Response) -> io::Result<()>
+    async fn write_response<T>(
+        &mut self,
+        _protocol: &Self::Protocol,
+        io: &mut T,
+        response: Self::Response,
+    ) -> io::Result<()>
     where
         T: AsyncWrite + Unpin + Send,
     {
         let data = serde_json::to_vec(&response)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-        
+
         let length = (data.len() as u32).to_be_bytes();
         io.write_all(&length).await?;
         io.write_all(&data).await?;
         io.flush().await?;
-        
+
         Ok(())
     }
 }
@@ -328,24 +337,24 @@ pub const BOOTSTRAP_NODES: &[&str] = &[
 /// Create Kademlia DHT config for the Cinq network
 pub fn new_kademlia(local_peer_id: PeerId) -> kad::Behaviour<kad::store::MemoryStore> {
     let mut kad_config = kad::Config::new(StreamProtocol::new("/cinq/kad/1.0.0"));
-    
+
     // Configure for better connectivity
     kad_config
         .set_query_timeout(Duration::from_secs(60))
         .set_record_ttl(Some(Duration::from_secs(24 * 60 * 60))) // 24 hour TTL
         .set_replication_interval(Some(Duration::from_secs(60 * 60))) // 1 hour
         .set_provider_record_ttl(Some(Duration::from_secs(24 * 60 * 60)));
-    
+
     let store = kad::store::MemoryStore::new(local_peer_id);
     kad::Behaviour::with_config(local_peer_id, store, kad_config)
 }
 
 /// Create identify config
 pub fn new_identify(local_public_key: libp2p::identity::PublicKey) -> identify::Behaviour {
-    identify::Behaviour::new(identify::Config::new(
-        "/cinq/identify/1.0.0".to_string(),
-        local_public_key,
-    ).with_push_listen_addr_updates(true))
+    identify::Behaviour::new(
+        identify::Config::new("/cinq/identify/1.0.0".to_string(), local_public_key)
+            .with_push_listen_addr_updates(true),
+    )
 }
 
 /// Create AutoNAT client for NAT detection

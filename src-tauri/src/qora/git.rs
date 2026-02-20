@@ -53,7 +53,7 @@ impl GitOps {
     pub async fn commit(&self, message: &str) -> Result<String, String> {
         // First stage all changes
         self.add_all().await?;
-        
+
         // Check if there's anything to commit
         let status = self.status().await?;
         if status.trim().is_empty() {

@@ -3,14 +3,14 @@
 //! The heart of Qora - manages conversation context, task execution,
 //! and decision making.
 
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use serde::{Deserialize, Serialize};
 
+use super::git::GitOps;
 use super::ollama::OllamaClient;
 use super::tasks::{Task, TaskQueue};
-use super::git::GitOps;
 
 /// Qora's personality and system prompt
 const QORA_SYSTEM_PROMPT: &str = r#"You are Qora, the AI agent embedded in cinQ - a decentralized compute and communication platform built on the Quai Network.
@@ -98,10 +98,10 @@ impl QoraAgent {
     pub fn new(project_root: PathBuf, ollama_url: Option<String>, model: Option<String>) -> Self {
         let ollama_url = ollama_url.unwrap_or_else(|| "http://localhost:11434".to_string());
         let model_name = model.unwrap_or_else(|| "deepseek-coder-v2:16b".to_string());
-        
+
         let mut initial_state = QoraState::default();
         initial_state.model = model_name.clone();
-        
+
         Self {
             state: Arc::new(RwLock::new(initial_state)),
             ollama: OllamaClient::new(&ollama_url, &model_name),
@@ -184,7 +184,7 @@ impl QoraAgent {
                 state.pending_questions.remove(index);
             }
         }
-        
+
         // Continue with the answer
         self.chat(answer).await
     }
@@ -214,7 +214,7 @@ impl QoraAgent {
                 "I'm starting work on this task:\n\nTitle: {}\nDescription: {}\n\nI'll analyze the codebase and begin implementation. If I need to make architectural decisions, I'll ask you first.",
                 task.title, task.description
             );
-            
+
             let response = self.chat(&prompt).await?;
             Some(response)
         } else {
@@ -223,7 +223,7 @@ impl QoraAgent {
 
         let mut state = self.state.write().await;
         state.working = false;
-        
+
         Ok(result)
     }
 
@@ -325,7 +325,9 @@ impl QoraAgent {
              ❌ Failed: {}\n\
              ⏸️ Waiting for input: {}\n\n\
              Details:\n{}",
-            completed, failed, waiting,
+            completed,
+            failed,
+            waiting,
             summaries.join("\n")
         );
 

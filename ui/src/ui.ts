@@ -3,6 +3,7 @@
  */
 
 import { formatQi } from './wallet';
+import * as canvas from './canvas';
 
 // Format Quai balance (18 decimals)
 function formatQuai(amount: bigint): string {
@@ -89,6 +90,32 @@ interface AppState {
   qora: QoraState;
   // UI state
   activeTab: 'messages' | 'qora';
+  layoutMode: 'classic' | 'canvas';  // Classic fixed layout or canvas drag/drop
+  // Apps state
+  apps: AppsState;
+  // Canvas state
+  canvas: canvas.CanvasState;
+}
+
+// Apps state
+interface AppsState {
+  apps: AppInfo[];
+  pinnedApps: AppInfo[];
+  activeApp: AppInfo | null;
+  showLauncher: boolean;
+}
+
+interface AppInfo {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+  icon: string;
+  kind: 'builtin' | 'userinstalled' | 'marketplace';
+  status: 'idle' | 'running' | 'background' | { error: string };
+  pinned: boolean;
+  pinned_position: number | null;
+  entry_component: string;
 }
 
 interface AppActions {
@@ -123,6 +150,11 @@ interface AppActions {
   qoraProcess: (input: string) => Promise<{ message: string; intent: string; suggested_action: string | null; confidence: number } | null>;
   processWithQora: (input: string, peerId?: string) => Promise<string | null>;
   setActiveTab: (tab: 'messages' | 'qora') => void;
+  // Apps
+  launchApp: (appId: string) => Promise<void>;
+  toggleAppLauncher: () => void;
+  toggleLayoutMode: () => void;
+  updateCanvas: (state: Partial<canvas.CanvasState>) => void;
 }
 
 export function renderApp(state: AppState, actions: AppActions): void {
@@ -131,8 +163,15 @@ export function renderApp(state: AppState, actions: AppActions): void {
 
   // If wallet is initialized and node is running, show main dashboard
   if (state.walletInitialized && state.nodeRunning) {
-    app.innerHTML = renderMain(state, actions);
-    attachMainHandlers(state, actions);
+    // Canvas mode: tactical dashboard with drag/drop widgets
+    if (state.layoutMode === 'canvas') {
+      app.innerHTML = renderCanvasMode(state, actions);
+      attachCanvasModeHandlers(state, actions);
+    } else {
+      // Classic mode: fixed layout
+      app.innerHTML = renderMain(state, actions);
+      attachMainHandlers(state, actions);
+    }
   } 
   // If wallet is initialized but node not running, connect automatically
   else if (state.walletInitialized && !state.nodeRunning) {
@@ -264,6 +303,255 @@ function renderLanding(state: AppState, actions: AppActions): string {
   }
 }
 
+// ============================================================================
+// CANVAS MODE - Tactical Dashboard
+// ============================================================================
+
+function renderCanvasMode(state: AppState, actions: AppActions): string {
+  return canvas.renderCanvas(state.canvas, (appId, widget) => {
+    return renderWidgetContent(appId, widget, state, actions);
+  });
+}
+
+// Render content for a specific widget
+function renderWidgetContent(appId: string, widget: canvas.WidgetLayout, state: AppState, actions: AppActions): string {
+  const shortPeerId = state.peerId ? `${state.peerId.slice(0, 8)}...` : 'N/A';
+  const isMainnet = state.network === 'mainnet';
+  
+  switch (appId) {
+    case 'cinq.chat':
+      return `
+        <div class="widget-chat">
+          <div class="chat-id-mini">
+            <span>ID: </span>
+            <code>${state.userIdDisplay || '...'}</code>
+          </div>
+          ${renderChatCompact(state)}
+        </div>
+      `;
+      
+    case 'cinq.wallet':
+      return `
+        <div class="widget-wallet">
+          <div class="wallet-balance-row">
+            <span class="label">Qi</span>
+            <span class="value">${formatQi(state.balance)}</span>
+          </div>
+          <div class="wallet-balance-row">
+            <span class="label">Quai</span>
+            <span class="value">${formatQuai(state.quaiBalance)}</span>
+          </div>
+          <div class="wallet-address">
+            <small>${state.quaiAddress?.slice(0, 12)}...${state.quaiAddress?.slice(-8) || ''}</small>
+          </div>
+        </div>
+      `;
+      
+    case 'cinq.compute':
+      return `
+        <div class="widget-compute">
+          <div class="compute-stat">
+            <span class="label">Status</span>
+            <span class="value online">● Providing</span>
+          </div>
+          <div class="compute-stat">
+            <span class="label">FLOPs/hr</span>
+            <span class="value">2.4M</span>
+          </div>
+          <div class="compute-stat">
+            <span class="label">Earned</span>
+            <span class="value">0.0024 Qi</span>
+          </div>
+        </div>
+      `;
+      
+    case 'cinq.voice':
+      return `
+        <div class="widget-voice">
+          <div class="voice-status">No active call</div>
+          <button class="btn-call" disabled>📞 Start Call</button>
+        </div>
+      `;
+      
+    case 'cinq.grid':
+      return `
+        <div class="widget-grid">
+          <div class="grid-placeholder">
+            <span>🌐</span>
+            <p>Join or create a Grid</p>
+          </div>
+        </div>
+      `;
+      
+    case 'cinq.files':
+      return `
+        <div class="widget-files">
+          <div class="files-placeholder">
+            <span>📁</span>
+            <p>No files yet</p>
+          </div>
+        </div>
+      `;
+      
+    case 'system.monitor':
+      return renderSystemMonitorCompact();
+      
+    case 'system.bandwidth':
+      return renderBandwidthStatsCompact();
+      
+    case 'system.network':
+      return `
+        <div class="widget-network">
+          <div class="net-stat">
+            <span class="label">Peer ID</span>
+            <code class="value">${shortPeerId}</code>
+          </div>
+          <div class="net-stat">
+            <span class="label">Peers</span>
+            <span class="value">${state.peers.length}</span>
+          </div>
+          <div class="net-stat">
+            <span class="label">Network</span>
+            <span class="value ${isMainnet ? 'mainnet' : ''}">${isMainnet ? 'Mainnet' : 'Orchard'}</span>
+          </div>
+        </div>
+      `;
+      
+    case 'system.depin':
+      return `
+        <div class="widget-depin">
+          <div class="depin-stat">
+            <span class="label">$CINQ Rep</span>
+            <span class="value">Tier 1</span>
+          </div>
+          <div class="depin-stat">
+            <span class="label">Uptime</span>
+            <span class="value">99.2%</span>
+          </div>
+          <div class="depin-stat">
+            <span class="label">Jobs</span>
+            <span class="value">0</span>
+          </div>
+        </div>
+      `;
+      
+    default:
+      return `<div class="widget-empty">Widget: ${appId}</div>`;
+  }
+}
+
+// Compact chat for widget
+function renderChatCompact(state: AppState): string {
+  if (state.chatView === 'conversation' && state.currentConversation) {
+    return `
+      <div class="chat-compact">
+        <div class="chat-messages-mini">
+          ${state.messages.slice(-5).map(msg => `
+            <div class="msg-mini ${msg.is_outgoing ? 'out' : 'in'}">
+              <span class="msg-text">${escapeHtml(msg.content).slice(0, 50)}${msg.content.length > 50 ? '...' : ''}</span>
+            </div>
+          `).join('')}
+        </div>
+        <div class="chat-input-mini">
+          <input type="text" class="compact-input" placeholder="Message..." id="widget-chat-input">
+          <button class="btn-send-mini">→</button>
+        </div>
+      </div>
+    `;
+  }
+  
+  return `
+    <div class="chat-compact">
+      <div class="conv-list-mini">
+        ${state.conversations.slice(0, 4).map(conv => `
+          <div class="conv-mini" data-conv-id="${conv.id}">
+            <span class="conv-name">${conv.display_name.slice(0, 15)}</span>
+            <span class="conv-preview">${conv.last_message?.slice(0, 20) || 'No messages'}...</span>
+          </div>
+        `).join('')}
+        ${state.conversations.length === 0 ? '<p class="empty">No conversations</p>' : ''}
+      </div>
+    </div>
+  `;
+}
+
+// Compact system monitor
+function renderSystemMonitorCompact(): string {
+  return `
+    <div class="widget-monitor">
+      <div class="gauge-row">
+        <div class="mini-gauge">
+          <svg viewBox="0 0 36 36" class="circular-chart">
+            <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+            <path class="circle cpu" stroke-dasharray="45, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+          </svg>
+          <span class="gauge-label">CPU</span>
+        </div>
+        <div class="mini-gauge">
+          <svg viewBox="0 0 36 36" class="circular-chart">
+            <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+            <path class="circle ram" stroke-dasharray="62, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+          </svg>
+          <span class="gauge-label">RAM</span>
+        </div>
+        <div class="mini-gauge">
+          <svg viewBox="0 0 36 36" class="circular-chart">
+            <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+            <path class="circle gpu" stroke-dasharray="28, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+          </svg>
+          <span class="gauge-label">GPU</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Compact bandwidth stats
+function renderBandwidthStatsCompact(): string {
+  return `
+    <div class="widget-bandwidth">
+      <div class="bw-stat">
+        <span class="arrow up">↑</span>
+        <span class="value">1.2 MB/s</span>
+      </div>
+      <div class="bw-stat">
+        <span class="arrow down">↓</span>
+        <span class="value">3.4 MB/s</span>
+      </div>
+      <div class="bw-total">
+        <span class="label">Session</span>
+        <span class="value">248 MB</span>
+      </div>
+    </div>
+  `;
+}
+
+// Attach canvas mode handlers
+function attachCanvasModeHandlers(state: AppState, actions: AppActions): void {
+  canvas.attachCanvasHandlers(state.canvas, (newCanvasState) => {
+    state.canvas = newCanvasState;
+    actions.updateCanvas(newCanvasState);
+  });
+  
+  // Classic mode toggle
+  document.querySelectorAll('[data-action="classic-mode"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      actions.toggleLayoutMode();
+    });
+  });
+  
+  // Widget-specific handlers
+  document.querySelectorAll('.conv-mini[data-conv-id]').forEach(el => {
+    el.addEventListener('click', () => {
+      // TODO: Open conversation
+    });
+  });
+}
+
+// ============================================================================
+// CLASSIC MODE - Fixed Layout
+// ============================================================================
+
 function renderMain(state: AppState, actions: AppActions): string {
   const shortPeerId = state.peerId ? `${state.peerId.slice(0, 8)}...` : 'Not connected';
   const isMainnet = state.network === 'mainnet';
@@ -273,6 +561,9 @@ function renderMain(state: AppState, actions: AppActions): string {
       <header class="header">
         <div class="logo-small">CIN<span>Q</span></div>
         <div class="header-right">
+          <button class="layout-toggle-btn" id="toggle-layout" title="Switch to Canvas Mode">
+            📐 Canvas
+          </button>
           <div class="network-badge ${isMainnet ? 'mainnet' : 'testnet'}">
             ${isMainnet ? '🔴 MAINNET' : '🧪 TESTNET'}
           </div>
@@ -283,49 +574,163 @@ function renderMain(state: AppState, actions: AppActions): string {
         </div>
       </header>
       
-      <div class="dashboard-layout">
-        <!-- Left Gauge Panel -->
-        <div class="gauge-panel">
-          ${renderWalletMini(state, isMainnet)}
-          ${renderQoraStatus(state)}
-          ${renderSystemMonitor()}
-          ${renderBandwidthStats()}
-          ${renderDePINStats(state)}
-          ${renderNetworkInfo(state, shortPeerId)}
-        </div>
+      <div class="app-container">
+        <!-- App Dock - Left Edge -->
+        ${renderAppDock(state)}
         
-        <!-- Main Content - Tabbed: Messages / Qora -->
-        <div class="main-content">
-          <div class="content-tabs">
-            <button class="tab-btn ${state.activeTab === 'messages' ? 'active' : ''}" data-tab="messages">💬 Messages</button>
-            <button class="tab-btn ${state.activeTab === 'qora' ? 'active' : ''}" data-tab="qora">🤖 Qora</button>
+        <div class="dashboard-layout">
+          <!-- Left Gauge Panel -->
+          <div class="gauge-panel">
+            ${renderWalletMini(state, isMainnet)}
+            ${renderQoraStatus(state)}
+            ${renderSystemMonitor()}
+            ${renderBandwidthStats()}
+            ${renderDePINStats(state)}
+            ${renderNetworkInfo(state, shortPeerId)}
           </div>
           
-          <!-- Messages Tab -->
-          <div class="tab-content ${state.activeTab === 'messages' ? 'active' : ''}" id="tab-messages">
-            <div class="card chat-card">
-              <div class="chat-card-header">
-                <h3>💬 Messages</h3>
-                <div class="chat-id-badge">
-                  <span>Your ID: </span>
-                  <code id="user-id-display">${state.userIdDisplay || 'Loading...'}</code>
-                  <button id="copy-user-id" class="btn-icon" title="Copy Chat ID">📋</button>
-                </div>
-              </div>
-              ${renderChat(state)}
+          <!-- Main Content - Tabbed: Messages / Qora -->
+          <div class="main-content">
+            <div class="content-tabs">
+              <button class="tab-btn ${state.activeTab === 'messages' ? 'active' : ''}" data-tab="messages">💬 Messages</button>
+              <button class="tab-btn ${state.activeTab === 'qora' ? 'active' : ''}" data-tab="qora">🤖 Qora</button>
             </div>
-          </div>
-          
-          <!-- Qora Tab -->
-          <div class="tab-content ${state.activeTab === 'qora' ? 'active' : ''}" id="tab-qora">
-            ${renderQoraPanel(state)}
+            
+            <!-- Messages Tab -->
+            <div class="tab-content ${state.activeTab === 'messages' ? 'active' : ''}" id="tab-messages">
+              <div class="card chat-card">
+                <div class="chat-card-header">
+                  <h3>💬 Messages</h3>
+                  <div class="chat-id-badge">
+                    <span>Your ID: </span>
+                    <code id="user-id-display">${state.userIdDisplay || 'Loading...'}</code>
+                    <button id="copy-user-id" class="btn-icon" title="Copy Chat ID">📋</button>
+                  </div>
+                </div>
+                ${renderChat(state)}
+              </div>
+            </div>
+            
+            <!-- Qora Tab -->
+            <div class="tab-content ${state.activeTab === 'qora' ? 'active' : ''}" id="tab-qora">
+              ${renderQoraPanel(state)}
+            </div>
           </div>
         </div>
       </div>
       
       ${renderModals(state, isMainnet)}
+      ${state.apps.showLauncher ? renderAppLauncher(state) : ''}
     </div>
   `;
+}
+
+// Render App Dock (left sidebar)
+function renderAppDock(state: AppState): string {
+  const pinnedApps = state.apps.pinnedApps.length > 0 
+    ? state.apps.pinnedApps 
+    : state.apps.apps.filter(a => a.pinned);
+  
+  return `
+    <div class="app-dock">
+      ${pinnedApps.map(app => `
+        <button 
+          class="dock-item ${state.apps.activeApp?.id === app.id ? 'active' : ''} ${getAppStatusClass(app.status)}"
+          data-app-id="${app.id}"
+          title="${app.name}"
+        >
+          <span class="dock-icon">${app.icon}</span>
+          ${app.status === 'running' ? '<span class="dock-indicator"></span>' : ''}
+        </button>
+      `).join('')}
+      
+      <div class="dock-divider"></div>
+      
+      <button class="dock-item launcher-btn" data-action="open-launcher" title="All Apps">
+        <span class="dock-icon">⊞</span>
+      </button>
+    </div>
+  `;
+}
+
+// Render App Launcher modal
+function renderAppLauncher(state: AppState): string {
+  const builtInApps = state.apps.apps.filter(a => a.kind === 'builtin');
+  const installedApps = state.apps.apps.filter(a => a.kind !== 'builtin');
+  
+  return `
+    <div class="app-launcher-overlay" data-action="close-launcher">
+      <div class="app-launcher" onclick="event.stopPropagation()">
+        <div class="launcher-header">
+          <h2>Apps</h2>
+          <button class="launcher-close" data-action="close-launcher">✕</button>
+        </div>
+        
+        <div class="launcher-search">
+          <input type="text" id="app-search" placeholder="Search apps..." autocomplete="off">
+        </div>
+        
+        <div class="launcher-grid">
+          <div class="app-section">
+            <h3>Built-in Apps</h3>
+            <div class="app-grid">
+              ${builtInApps.map(app => renderAppTile(app, state.apps.activeApp?.id === app.id)).join('')}
+            </div>
+          </div>
+          
+          ${installedApps.length > 0 ? `
+            <div class="app-section">
+              <h3>Installed Apps</h3>
+              <div class="app-grid">
+                ${installedApps.map(app => renderAppTile(app, state.apps.activeApp?.id === app.id)).join('')}
+              </div>
+            </div>
+          ` : ''}
+          
+          <div class="app-section marketplace">
+            <h3>Get More Apps</h3>
+            <div class="marketplace-cta">
+              <span class="marketplace-icon">🏪</span>
+              <p>Discover more apps in the cinQ Marketplace</p>
+              <button class="btn-secondary" disabled>Coming Soon</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Render a single app tile
+function renderAppTile(app: AppInfo, isActive: boolean): string {
+  const statusText = getAppStatusText(app.status);
+  
+  return `
+    <div 
+      class="app-tile ${isActive ? 'active' : ''} ${getAppStatusClass(app.status)}"
+      data-app-id="${app.id}"
+    >
+      <div class="app-icon">${app.icon}</div>
+      <div class="app-name">${app.name}</div>
+      ${statusText ? `<div class="app-status">${statusText}</div>` : ''}
+    </div>
+  `;
+}
+
+// Helper to get app status class
+function getAppStatusClass(status: AppInfo['status']): string {
+  if (status === 'running') return 'running';
+  if (status === 'background') return 'background';
+  if (typeof status === 'object' && 'error' in status) return 'error';
+  return '';
+}
+
+// Helper to get app status text
+function getAppStatusText(status: AppInfo['status']): string {
+  if (status === 'running') return '● Running';
+  if (status === 'background') return '○ Background';
+  if (typeof status === 'object' && 'error' in status) return '⚠ Error';
+  return '';
 }
 
 // Render Qora status card for sidebar
@@ -949,6 +1354,11 @@ function attachMainHandlers(state: AppState, actions: AppActions): void {
   // Update body data attribute with current network
   document.body.dataset.network = state.network;
   
+  // Layout toggle button
+  document.getElementById('toggle-layout')?.addEventListener('click', () => {
+    actions.toggleLayoutMode();
+  });
+  
   // Direct handler for network toggle button - add each time since DOM is re-rendered
   const networkToggleBtn = document.getElementById('network-toggle-btn');
   const networkDropdown = document.getElementById('network-dropdown');
@@ -1167,6 +1577,53 @@ function attachMainHandlers(state: AppState, actions: AppActions): void {
       actions.setActiveTab(tab);
     });
   });
+  
+  // ============================================================================
+  // App Handlers
+  // ============================================================================
+  
+  // Dock item clicks - launch app
+  document.querySelectorAll('.dock-item[data-app-id]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const appId = (btn as HTMLElement).getAttribute('data-app-id');
+      if (appId) actions.launchApp(appId);
+    });
+  });
+  
+  // App launcher toggle
+  document.querySelectorAll('[data-action="open-launcher"]').forEach(btn => {
+    btn.addEventListener('click', () => actions.toggleAppLauncher());
+  });
+  
+  // Close launcher on overlay click or X button
+  document.querySelectorAll('[data-action="close-launcher"]').forEach(el => {
+    el.addEventListener('click', (e) => {
+      if (e.target === el) actions.toggleAppLauncher();
+    });
+  });
+  
+  // App tile clicks in launcher
+  document.querySelectorAll('.app-tile[data-app-id]').forEach(tile => {
+    tile.addEventListener('click', () => {
+      const appId = (tile as HTMLElement).getAttribute('data-app-id');
+      if (appId) {
+        actions.launchApp(appId);
+        actions.toggleAppLauncher();
+      }
+    });
+  });
+  
+  // App search filter
+  const appSearchInput = document.getElementById('app-search') as HTMLInputElement;
+  if (appSearchInput) {
+    appSearchInput.addEventListener('input', () => {
+      const query = appSearchInput.value.toLowerCase();
+      document.querySelectorAll('.app-tile').forEach(tile => {
+        const name = tile.querySelector('.app-name')?.textContent?.toLowerCase() || '';
+        (tile as HTMLElement).style.display = name.includes(query) ? '' : 'none';
+      });
+    });
+  }
   
   // ============================================================================
   // Qora Handlers

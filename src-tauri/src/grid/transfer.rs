@@ -1,13 +1,13 @@
 // Cinq File Transfer - Handles file sending and receiving with metrics
 
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::fs::{self, File};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::RwLock;
-use serde::{Deserialize, Serialize};
-use sha2::{Sha256, Digest};
 
 use super::metrics::BandwidthMetrics;
 
@@ -48,7 +48,13 @@ pub struct TransferInfo {
 }
 
 impl TransferInfo {
-    pub fn new(id: String, filename: String, direction: TransferDirection, peer_id: String, total_bytes: u64) -> Self {
+    pub fn new(
+        id: String,
+        filename: String,
+        direction: TransferDirection,
+        peer_id: String,
+        total_bytes: u64,
+    ) -> Self {
         Self {
             id,
             filename,
@@ -100,7 +106,10 @@ impl FileTransfer {
     }
 
     /// Read a file and return its contents along with hash
-    pub async fn read_file(&self, path: impl AsRef<Path>) -> Result<(Vec<u8>, String, u64), std::io::Error> {
+    pub async fn read_file(
+        &self,
+        path: impl AsRef<Path>,
+    ) -> Result<(Vec<u8>, String, u64), std::io::Error> {
         let path = path.as_ref();
         let mut file = File::open(path).await?;
         let metadata = file.metadata().await?;
@@ -138,11 +147,13 @@ impl FileTransfer {
                 .extension()
                 .and_then(|s| s.to_str())
                 .unwrap_or("");
-            
+
             if ext.is_empty() {
                 save_path = self.download_dir.join(format!("{}_{}", stem, counter));
             } else {
-                save_path = self.download_dir.join(format!("{}_{}.{}", stem, counter, ext));
+                save_path = self
+                    .download_dir
+                    .join(format!("{}_{}.{}", stem, counter, ext));
             }
             counter += 1;
         }
@@ -302,7 +313,10 @@ mod tests {
         let transfer = FileTransfer::new(dir.path(), metrics);
 
         let data = b"Hello, Cinq Connect!";
-        let info = transfer.save_file("test.txt", data, "peer123").await.unwrap();
+        let info = transfer
+            .save_file("test.txt", data, "peer123")
+            .await
+            .unwrap();
 
         assert_eq!(info.status, TransferStatus::Completed);
         assert_eq!(info.transferred_bytes, data.len() as u64);

@@ -1,12 +1,12 @@
 // Cinq Chat - Encrypted peer-to-peer messaging
 // Local-first: messages stored on device, optional mesh backup
 
+use rusqlite::{params, Connection};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex as StdMutex;
-use serde::{Deserialize, Serialize};
-use rusqlite::{Connection, params};
 use uuid::Uuid;
 
 /// A chat contact (peer we can message)
@@ -70,7 +70,7 @@ impl MessageStatus {
             MessageStatus::Failed => "failed",
         }
     }
-    
+
     fn from_str(s: &str) -> Self {
         match s {
             "pending" => MessageStatus::Pending,
@@ -120,25 +120,26 @@ impl ChatManager {
         // Ensure directory exists
         std::fs::create_dir_all(data_dir)
             .map_err(|e| format!("Failed to create data dir: {}", e))?;
-        
+
         let db_path = data_dir.join("chat.db");
         let db = Connection::open(&db_path)
             .map_err(|e| format!("Failed to open chat database: {}", e))?;
-        
+
         let manager = Self {
             db: Arc::new(StdMutex::new(db)),
             local_peer_id: local_peer_id.to_string(),
             online_peers: Arc::new(StdMutex::new(HashMap::new())),
         };
-        
+
         manager.init_schema()?;
         Ok(manager)
     }
-    
+
     /// Initialize database schema
     fn init_schema(&self) -> Result<(), String> {
         let db = self.db.lock().map_err(|e| format!("Lock error: {}", e))?;
-        db.execute_batch(r#"
+        db.execute_batch(
+            r#"
             -- Contacts table
             CREATE TABLE IF NOT EXISTS contacts (
                 peer_id TEXT PRIMARY KEY,
@@ -173,16 +174,18 @@ impl ChatManager {
             -- Index for fast message lookup
             CREATE INDEX IF NOT EXISTS idx_messages_conversation 
                 ON messages(conversation_id, timestamp DESC);
-        "#).map_err(|e| format!("Failed to init schema: {}", e))?;
-        
+        "#,
+        )
+        .map_err(|e| format!("Failed to init schema: {}", e))?;
+
         Ok(())
     }
-    
+
     /// Get local peer ID
     pub fn local_peer_id(&self) -> &str {
         &self.local_peer_id
     }
-    
+
     /// Add or update a contact
     pub fn upsert_contact(&self, contact: &Contact) -> Result<(), String> {
         let db = self.db.lock().map_err(|e| format!("Lock error: {}", e))?;
@@ -200,54 +203,64 @@ impl ChatManager {
                 contact.last_seen,
                 contact.public_key,
             ],
-        ).map_err(|e| format!("Failed to upsert contact: {}", e))?;
+        )
+        .map_err(|e| format!("Failed to upsert contact: {}", e))?;
         Ok(())
     }
-    
+
     /// Get all contacts
     pub fn get_contacts(&self) -> Result<Vec<Contact>, String> {
         let db = self.db.lock().map_err(|e| format!("Lock error: {}", e))?;
-        let mut stmt = db.prepare(
-            "SELECT peer_id, display_name, added_at, last_seen, public_key 
-             FROM contacts ORDER BY display_name"
-        ).map_err(|e| format!("Failed to prepare: {}", e))?;
-        
+        let mut stmt = db
+            .prepare(
+                "SELECT peer_id, display_name, added_at, last_seen, public_key 
+             FROM contacts ORDER BY display_name",
+            )
+            .map_err(|e| format!("Failed to prepare: {}", e))?;
+
         let online = self.online_peers.lock().unwrap_or_else(|e| e.into_inner());
-        
-        let contacts = stmt.query_map([], |row| {
-            let peer_id: String = row.get(0)?;
-            Ok(Contact {
-                is_online: online.get(&peer_id).copied().unwrap_or(false),
-                peer_id,
-                display_name: row.get(1)?,
-                added_at: row.get(2)?,
-                last_seen: row.get(3)?,
-                public_key: row.get(4)?,
+
+        let contacts = stmt
+            .query_map([], |row| {
+                let peer_id: String = row.get(0)?;
+                Ok(Contact {
+                    is_online: online.get(&peer_id).copied().unwrap_or(false),
+                    peer_id,
+                    display_name: row.get(1)?,
+                    added_at: row.get(2)?,
+                    last_seen: row.get(3)?,
+                    public_key: row.get(4)?,
+                })
             })
-        }).map_err(|e| format!("Failed to query: {}", e))?
-          .filter_map(|r| r.ok())
-          .collect();
-        
+            .map_err(|e| format!("Failed to query: {}", e))?
+            .filter_map(|r| r.ok())
+            .collect();
+
         Ok(contacts)
     }
-    
+
     /// Get or create a conversation with a peer
-    pub fn get_or_create_conversation(&self, peer_id: &str, display_name: &str) -> Result<Conversation, String> {
+    pub fn get_or_create_conversation(
+        &self,
+        peer_id: &str,
+        display_name: &str,
+    ) -> Result<Conversation, String> {
         // Try to get existing
         if let Ok(conv) = self.get_conversation_by_peer(peer_id) {
             return Ok(conv);
         }
-        
+
         // Create new
         let id = Uuid::new_v4().to_string();
-        
+
         let db = self.db.lock().map_err(|e| format!("Lock error: {}", e))?;
         db.execute(
             "INSERT INTO conversations (id, peer_id, display_name, unread_count)
              VALUES (?1, ?2, ?3, 0)",
             params![id, peer_id, display_name],
-        ).map_err(|e| format!("Failed to create conversation: {}", e))?;
-        
+        )
+        .map_err(|e| format!("Failed to create conversation: {}", e))?;
+
         Ok(Conversation {
             id,
             peer_id: peer_id.to_string(),
@@ -257,7 +270,7 @@ impl ChatManager {
             unread_count: 0,
         })
     }
-    
+
     /// Get conversation by peer ID
     fn get_conversation_by_peer(&self, peer_id: &str) -> Result<Conversation, String> {
         let db = self.db.lock().map_err(|e| format!("Lock error: {}", e))?;
@@ -265,41 +278,48 @@ impl ChatManager {
             "SELECT id, peer_id, display_name, last_message, last_message_at, unread_count
              FROM conversations WHERE peer_id = ?1",
             params![peer_id],
-            |row| Ok(Conversation {
-                id: row.get(0)?,
-                peer_id: row.get(1)?,
-                display_name: row.get(2)?,
-                last_message: row.get(3)?,
-                last_message_at: row.get(4)?,
-                unread_count: row.get::<_, i64>(5)? as u32,
-            }),
-        ).map_err(|e| format!("Conversation not found: {}", e))
+            |row| {
+                Ok(Conversation {
+                    id: row.get(0)?,
+                    peer_id: row.get(1)?,
+                    display_name: row.get(2)?,
+                    last_message: row.get(3)?,
+                    last_message_at: row.get(4)?,
+                    unread_count: row.get::<_, i64>(5)? as u32,
+                })
+            },
+        )
+        .map_err(|e| format!("Conversation not found: {}", e))
     }
-    
+
     /// Get all conversations
     pub fn get_conversations(&self) -> Result<Vec<Conversation>, String> {
         let db = self.db.lock().map_err(|e| format!("Lock error: {}", e))?;
-        let mut stmt = db.prepare(
-            "SELECT id, peer_id, display_name, last_message, last_message_at, unread_count
-             FROM conversations ORDER BY last_message_at DESC NULLS LAST"
-        ).map_err(|e| format!("Failed to prepare: {}", e))?;
-        
-        let convs = stmt.query_map([], |row| {
-            Ok(Conversation {
-                id: row.get(0)?,
-                peer_id: row.get(1)?,
-                display_name: row.get(2)?,
-                last_message: row.get(3)?,
-                last_message_at: row.get(4)?,
-                unread_count: row.get::<_, i64>(5)? as u32,
+        let mut stmt = db
+            .prepare(
+                "SELECT id, peer_id, display_name, last_message, last_message_at, unread_count
+             FROM conversations ORDER BY last_message_at DESC NULLS LAST",
+            )
+            .map_err(|e| format!("Failed to prepare: {}", e))?;
+
+        let convs = stmt
+            .query_map([], |row| {
+                Ok(Conversation {
+                    id: row.get(0)?,
+                    peer_id: row.get(1)?,
+                    display_name: row.get(2)?,
+                    last_message: row.get(3)?,
+                    last_message_at: row.get(4)?,
+                    unread_count: row.get::<_, i64>(5)? as u32,
+                })
             })
-        }).map_err(|e| format!("Failed to query: {}", e))?
-          .filter_map(|r| r.ok())
-          .collect();
-        
+            .map_err(|e| format!("Failed to query: {}", e))?
+            .filter_map(|r| r.ok())
+            .collect();
+
         Ok(convs)
     }
-    
+
     /// Store a new message
     pub fn store_message(&self, msg: &ChatMessage) -> Result<(), String> {
         let db = self.db.lock().map_err(|e| format!("Lock error: {}", e))?;
@@ -316,54 +336,68 @@ impl ChatManager {
                 msg.status.to_str(),
             ],
         ).map_err(|e| format!("Failed to store message: {}", e))?;
-        
+
         // Update conversation preview
         let preview = if msg.content.len() > 50 {
             format!("{}...", &msg.content[..47])
         } else {
             msg.content.clone()
         };
-        
+
         db.execute(
             "UPDATE conversations SET last_message = ?1, last_message_at = ?2,
              unread_count = unread_count + CASE WHEN ?3 = 0 THEN 1 ELSE 0 END
              WHERE id = ?4",
-            params![preview, msg.timestamp, msg.is_outgoing as i32, msg.conversation_id],
-        ).map_err(|e| format!("Failed to update conversation: {}", e))?;
-        
+            params![
+                preview,
+                msg.timestamp,
+                msg.is_outgoing as i32,
+                msg.conversation_id
+            ],
+        )
+        .map_err(|e| format!("Failed to update conversation: {}", e))?;
+
         Ok(())
     }
-    
+
     /// Get messages for a conversation
-    pub fn get_messages(&self, conversation_id: &str, limit: u32, before_timestamp: Option<u64>) -> Result<Vec<ChatMessage>, String> {
+    pub fn get_messages(
+        &self,
+        conversation_id: &str,
+        limit: u32,
+        before_timestamp: Option<u64>,
+    ) -> Result<Vec<ChatMessage>, String> {
         let db = self.db.lock().map_err(|e| format!("Lock error: {}", e))?;
-        
-        let messages: Vec<ChatMessage> = if let Some(ts) = before_timestamp {
-            let mut stmt = db.prepare(
+
+        let messages: Vec<ChatMessage> =
+            if let Some(ts) = before_timestamp {
+                let mut stmt = db.prepare(
                 "SELECT id, conversation_id, sender_id, content, timestamp, is_outgoing, status
                  FROM messages WHERE conversation_id = ?1 AND timestamp < ?2
                  ORDER BY timestamp DESC LIMIT ?3"
             ).map_err(|e| format!("Failed to prepare: {}", e))?;
-            
-            let rows = stmt.query_map(params![conversation_id, ts, limit], Self::row_to_message)
-                .map_err(|e| format!("Failed to query: {}", e))?;
-            rows.filter_map(|r| r.ok()).collect()
-        } else {
-            let mut stmt = db.prepare(
+
+                let rows = stmt
+                    .query_map(params![conversation_id, ts, limit], Self::row_to_message)
+                    .map_err(|e| format!("Failed to query: {}", e))?;
+                rows.filter_map(|r| r.ok()).collect()
+            } else {
+                let mut stmt = db.prepare(
                 "SELECT id, conversation_id, sender_id, content, timestamp, is_outgoing, status
                  FROM messages WHERE conversation_id = ?1
                  ORDER BY timestamp DESC LIMIT ?2"
             ).map_err(|e| format!("Failed to prepare: {}", e))?;
-            
-            let rows = stmt.query_map(params![conversation_id, limit], Self::row_to_message)
-                .map_err(|e| format!("Failed to query: {}", e))?;
-            rows.filter_map(|r| r.ok()).collect()
-        };
-        
+
+                let rows = stmt
+                    .query_map(params![conversation_id, limit], Self::row_to_message)
+                    .map_err(|e| format!("Failed to query: {}", e))?;
+                rows.filter_map(|r| r.ok()).collect()
+            };
+
         // Reverse to get chronological order
         Ok(messages.into_iter().rev().collect())
     }
-    
+
     fn row_to_message(row: &rusqlite::Row) -> rusqlite::Result<ChatMessage> {
         Ok(ChatMessage {
             id: row.get(0)?,
@@ -375,27 +409,33 @@ impl ChatManager {
             status: MessageStatus::from_str(&row.get::<_, String>(6)?),
         })
     }
-    
+
     /// Update message status
-    pub fn update_message_status(&self, message_id: &str, status: MessageStatus) -> Result<(), String> {
+    pub fn update_message_status(
+        &self,
+        message_id: &str,
+        status: MessageStatus,
+    ) -> Result<(), String> {
         let db = self.db.lock().map_err(|e| format!("Lock error: {}", e))?;
         db.execute(
             "UPDATE messages SET status = ?1 WHERE id = ?2",
             params![status.to_str(), message_id],
-        ).map_err(|e| format!("Failed to update status: {}", e))?;
+        )
+        .map_err(|e| format!("Failed to update status: {}", e))?;
         Ok(())
     }
-    
+
     /// Mark all messages in conversation as read
     pub fn mark_conversation_read(&self, conversation_id: &str) -> Result<(), String> {
         let db = self.db.lock().map_err(|e| format!("Lock error: {}", e))?;
         db.execute(
             "UPDATE conversations SET unread_count = 0 WHERE id = ?1",
             params![conversation_id],
-        ).map_err(|e| format!("Failed to mark read: {}", e))?;
+        )
+        .map_err(|e| format!("Failed to mark read: {}", e))?;
         Ok(())
     }
-    
+
     /// Set peer online status
     pub fn set_peer_online(&self, peer_id: &str, online: bool) {
         if let Ok(mut peers) = self.online_peers.lock() {
@@ -414,25 +454,34 @@ impl ChatManager {
             }
         }
     }
-    
+
     /// Check if peer is online
     pub fn is_peer_online(&self, peer_id: &str) -> bool {
-        self.online_peers.lock()
+        self.online_peers
+            .lock()
             .map(|p| p.get(peer_id).copied().unwrap_or(false))
             .unwrap_or(false)
     }
-    
+
     /// Create a new outgoing message (ready to send)
-    pub fn create_outgoing_message(&self, peer_id: &str, content: &str) -> Result<ChatMessage, String> {
+    pub fn create_outgoing_message(
+        &self,
+        peer_id: &str,
+        content: &str,
+    ) -> Result<ChatMessage, String> {
         // Get or create conversation
-        let short_id = if peer_id.len() > 8 { &peer_id[..8] } else { peer_id };
+        let short_id = if peer_id.len() > 8 {
+            &peer_id[..8]
+        } else {
+            peer_id
+        };
         let conv = self.get_or_create_conversation(peer_id, short_id)?;
-        
+
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_millis() as u64;
-        
+
         let msg = ChatMessage {
             id: Uuid::new_v4().to_string(),
             conversation_id: conv.id,
@@ -442,17 +491,27 @@ impl ChatManager {
             is_outgoing: true,
             status: MessageStatus::Pending,
         };
-        
+
         self.store_message(&msg)?;
         Ok(msg)
     }
 
     /// Store an outgoing message with pre-generated ID (called from node.rs)
-    pub fn store_outgoing_message(&self, peer_id: &str, message_id: &str, content: &str, timestamp: u64) -> Result<ChatMessage, String> {
+    pub fn store_outgoing_message(
+        &self,
+        peer_id: &str,
+        message_id: &str,
+        content: &str,
+        timestamp: u64,
+    ) -> Result<ChatMessage, String> {
         // Get or create conversation
-        let short_id = if peer_id.len() > 8 { &peer_id[..8] } else { peer_id };
+        let short_id = if peer_id.len() > 8 {
+            &peer_id[..8]
+        } else {
+            peer_id
+        };
         let conv = self.get_or_create_conversation(peer_id, short_id)?;
-        
+
         let msg = ChatMessage {
             id: message_id.to_string(),
             conversation_id: conv.id,
@@ -462,17 +521,27 @@ impl ChatManager {
             is_outgoing: true,
             status: MessageStatus::Pending,
         };
-        
+
         self.store_message(&msg)?;
         Ok(msg)
     }
-    
+
     /// Store an incoming message from a peer
-    pub fn store_incoming_message(&self, peer_id: &str, message_id: &str, content: &str, timestamp: u64) -> Result<ChatMessage, String> {
+    pub fn store_incoming_message(
+        &self,
+        peer_id: &str,
+        message_id: &str,
+        content: &str,
+        timestamp: u64,
+    ) -> Result<ChatMessage, String> {
         // Get or create conversation
-        let short_id = if peer_id.len() > 8 { &peer_id[..8] } else { peer_id };
+        let short_id = if peer_id.len() > 8 {
+            &peer_id[..8]
+        } else {
+            peer_id
+        };
         let conv = self.get_or_create_conversation(peer_id, short_id)?;
-        
+
         let msg = ChatMessage {
             id: message_id.to_string(),
             conversation_id: conv.id,
@@ -482,7 +551,7 @@ impl ChatManager {
             is_outgoing: false,
             status: MessageStatus::Delivered,
         };
-        
+
         self.store_message(&msg)?;
         Ok(msg)
     }

@@ -1,5 +1,5 @@
 //! Swarm Coordination Module
-//! 
+//!
 //! Manages the local agent swarm, tracking resource usage, Qi costs,
 //! and providing real-time warnings to users before actions complete.
 //!
@@ -8,15 +8,25 @@
 //! - Workers: Specialized agents (bandwidth, storage, payment)
 //! - Tracker: Real-time usage monitoring
 //! - Costs: Qi pricing tables
+//!
+//! Note: Many components are scaffolded for future implementation.
 
-pub mod tracker;
+#![allow(dead_code)]
+
 pub mod costs;
 pub mod intent;
 pub mod qora;
+pub mod tracker;
 pub mod workers;
 
-pub use tracker::{UsageTracker, ActiveSession, Warning, WarningLevel};
-pub use costs::{CostTable, ActionType};
+// Re-exports for public API
+#[allow(unused_imports)]
+pub use costs::{ActionType, CostTable};
+#[allow(unused_imports)]
 pub use intent::{Intent, IntentParser};
+#[allow(unused_imports)]
 pub use qora::{Qora, QoraResponse, ResponseContext};
-pub use workers::{BandwidthWorker, StorageWorker, PaymentWorker, WorkerResult};
+#[allow(unused_imports)]
+pub use tracker::{ActiveSession, UsageTracker, Warning, WarningLevel};
+#[allow(unused_imports)]
+pub use workers::{BandwidthWorker, PaymentWorker, StorageWorker, WorkerResult};

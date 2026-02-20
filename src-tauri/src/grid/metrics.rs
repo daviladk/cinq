@@ -16,13 +16,13 @@ use std::collections::HashMap;
 pub const QI: u64 = 1_000_000_000_000_000_000; // 10^18
 
 /// Common denominations
-pub const MILLI_QI: u64 = QI / 1_000;           // 0.001 Qi
-pub const MICRO_QI: u64 = QI / 1_000_000;       // 0.000001 Qi  
-pub const NANO_QI: u64 = QI / 1_000_000_000;    // 0.000000001 Qi
+pub const MILLI_QI: u64 = QI / 1_000; // 0.001 Qi
+pub const MICRO_QI: u64 = QI / 1_000_000; // 0.000001 Qi
+pub const NANO_QI: u64 = QI / 1_000_000_000; // 0.000000001 Qi
 
 /// Minimum billable amount - smallest practical denomination
 /// This is the handshake fee and minimum charge for any data transfer
-pub const MIN_BILLABLE_QI: u64 = MICRO_QI;      // 0.000001 Qi
+pub const MIN_BILLABLE_QI: u64 = MICRO_QI; // 0.000001 Qi
 
 /// Rate: 1 Qi per GB (expressed in smallest units per byte)
 /// 1 Qi / 1 GB = 10^18 / 10^9 = 10^9 units per byte
@@ -61,7 +61,7 @@ impl PeerBandwidth {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        
+
         Self {
             peer_id: peer_id.to_string(),
             bytes_sent: 0,
@@ -143,7 +143,8 @@ impl BandwidthMetrics {
             .unwrap()
             .as_secs();
 
-        let peer = self.peers
+        let peer = self
+            .peers
             .entry(peer_id.to_string())
             .or_insert_with(|| PeerBandwidth::new(peer_id));
 
@@ -164,7 +165,8 @@ impl BandwidthMetrics {
             .unwrap()
             .as_secs();
 
-        let peer = self.peers
+        let peer = self
+            .peers
             .entry(peer_id.to_string())
             .or_insert_with(|| PeerBandwidth::new(peer_id));
 
@@ -209,8 +211,11 @@ impl BandwidthMetrics {
     /// Record a tunnel handshake (charges MIN_BILLABLE_QI)
     pub fn record_handshake(&mut self) {
         self.session.handshake_count += 1;
-        log::debug!("Recorded handshake #{}, fee: {} units (MIN_BILLABLE_QI)", 
-            self.session.handshake_count, MIN_BILLABLE_QI);
+        log::debug!(
+            "Recorded handshake #{}, fee: {} units (MIN_BILLABLE_QI)",
+            self.session.handshake_count,
+            MIN_BILLABLE_QI
+        );
     }
 
     /// Reset session metrics (for new billing period)
@@ -282,7 +287,7 @@ impl BillingSummary {
     pub fn calculate_cost_units(&self, hops: u32) -> u64 {
         // Handshake fees (1 minimum denomination per handshake)
         let handshake_cost = self.handshake_count as u64 * MIN_BILLABLE_QI;
-        
+
         // Bandwidth cost (minimum is MIN_BILLABLE_QI if any data transferred)
         let bandwidth_cost = if self.total_bandwidth > 0 {
             let raw_cost = self.total_bandwidth * RATE_PER_BYTE * hops as u64;
@@ -292,7 +297,7 @@ impl BillingSummary {
         } else {
             0
         };
-        
+
         handshake_cost + bandwidth_cost
     }
 
@@ -305,13 +310,13 @@ impl BillingSummary {
     /// Format cost as human-readable Qi string with appropriate precision
     pub fn format_cost(units: u64) -> String {
         let qi = units as f64 / QI as f64;
-        
+
         if qi >= 1.0 {
             format!("{:.4} Qi", qi)
         } else if qi >= 0.001 {
-            format!("{:.6} Qi", qi)  // milli-Qi range
+            format!("{:.6} Qi", qi) // milli-Qi range
         } else {
-            format!("{:.9} Qi", qi)  // micro/nano-Qi range
+            format!("{:.9} Qi", qi) // micro/nano-Qi range
         }
     }
 }
@@ -323,7 +328,7 @@ mod tests {
     #[test]
     fn test_bandwidth_tracking() {
         let mut metrics = BandwidthMetrics::new();
-        
+
         metrics.record_sent("peer1", 1000);
         metrics.record_received("peer1", 2000);
         metrics.record_sent("peer2", 500);
@@ -331,7 +336,7 @@ mod tests {
         assert_eq!(metrics.total_bytes_sent, 1500);
         assert_eq!(metrics.total_bytes_received, 2000);
         assert_eq!(metrics.get_total_bandwidth(), 3500);
-        
+
         let peer1 = metrics.get_peer_bandwidth("peer1").unwrap();
         assert_eq!(peer1.bytes_sent, 1000);
         assert_eq!(peer1.bytes_received, 2000);
@@ -340,7 +345,7 @@ mod tests {
     #[test]
     fn test_billing_summary_format() {
         let summary = BillingSummary {
-            total_bytes_sent: 1024 * 1024 * 100, // 100MB
+            total_bytes_sent: 1024 * 1024 * 100,     // 100MB
             total_bytes_received: 1024 * 1024 * 200, // 200MB
             total_bandwidth: 1024 * 1024 * 300,
             session_bandwidth: 1024 * 1024 * 50,
@@ -349,17 +354,20 @@ mod tests {
             handshake_count: 10,
         };
 
-        assert_eq!(BillingSummary::format_bandwidth(summary.total_bandwidth), "300.00 MB");
+        assert_eq!(
+            BillingSummary::format_bandwidth(summary.total_bandwidth),
+            "300.00 MB"
+        );
     }
 
     #[test]
     fn test_handshake_tracking() {
         let mut metrics = BandwidthMetrics::new();
-        
+
         metrics.record_handshake();
         metrics.record_handshake();
         metrics.record_handshake();
-        
+
         let summary = metrics.get_billing_summary();
         assert_eq!(summary.handshake_count, 3);
     }
@@ -379,11 +387,19 @@ mod tests {
 
         // 1 hop: ~1 Qi for bandwidth + MIN_BILLABLE_QI for handshake
         let cost_1hop = summary.calculate_cost_qi(1);
-        assert!(cost_1hop > 0.99 && cost_1hop < 1.01, "1 hop cost should be ~1 Qi, got {}", cost_1hop);
-        
+        assert!(
+            cost_1hop > 0.99 && cost_1hop < 1.01,
+            "1 hop cost should be ~1 Qi, got {}",
+            cost_1hop
+        );
+
         // 3 hops: ~3 Qi for bandwidth + MIN_BILLABLE_QI for handshake
         let cost_3hop = summary.calculate_cost_qi(3);
-        assert!(cost_3hop > 2.99 && cost_3hop < 3.01, "3 hop cost should be ~3 Qi, got {}", cost_3hop);
+        assert!(
+            cost_3hop > 2.99 && cost_3hop < 3.01,
+            "3 hop cost should be ~3 Qi, got {}",
+            cost_3hop
+        );
     }
 
     #[test]
@@ -410,7 +426,7 @@ mod tests {
         assert_eq!(MILLI_QI, QI / 1_000);
         assert_eq!(MICRO_QI, QI / 1_000_000);
         assert_eq!(NANO_QI, QI / 1_000_000_000);
-        
+
         // 1 Qi = 1 GB worth of data
         assert_eq!(BYTES_PER_GB * RATE_PER_BYTE, QI);
     }

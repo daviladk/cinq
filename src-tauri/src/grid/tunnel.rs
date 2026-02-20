@@ -7,13 +7,13 @@
 // 3. ProxyData messages flow bidirectionally through the tunnel
 // 4. ProxyClose terminates the tunnel
 
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
-use tokio::net::TcpStream;
-use tokio::sync::{mpsc, RwLock, oneshot};
-use tokio::io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf};
 use libp2p::PeerId;
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+use tokio::io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf};
+use tokio::net::TcpStream;
+use tokio::sync::{mpsc, oneshot, RwLock};
 
 use super::metrics::BandwidthMetrics;
 
@@ -88,8 +88,14 @@ pub struct P2PMessage {
 
 #[derive(Debug, Clone)]
 pub enum P2PMessageData {
-    Connect { host: String, port: u16 },
-    Connected { success: bool, error: Option<String> },
+    Connect {
+        host: String,
+        port: u16,
+    },
+    Connected {
+        success: bool,
+        error: Option<String>,
+    },
     Data(Vec<u8>),
     Close,
 }
@@ -124,51 +130,66 @@ impl TunnelManager {
         exit_peer: PeerId,
         target_host: String,
         target_port: u16,
-    ) -> Result<(TunnelId, mpsc::Sender<Vec<u8>>, mpsc::Receiver<Vec<u8>>, oneshot::Receiver<Result<(), String>>), String> {
+    ) -> Result<
+        (
+            TunnelId,
+            mpsc::Sender<Vec<u8>>,
+            mpsc::Receiver<Vec<u8>>,
+            oneshot::Receiver<Result<(), String>>,
+        ),
+        String,
+    > {
         let tunnel_id = new_tunnel_id();
-        
+
         // Channels for data flow
         let (to_peer_tx, _to_peer_rx) = mpsc::channel::<Vec<u8>>(256);
         let (from_peer_tx, from_peer_rx) = mpsc::channel::<Vec<u8>>(256);
         let (ready_tx, ready_rx) = oneshot::channel();
-        
+
         let tunnel = ClientTunnel {
             tunnel_id,
             target_host: target_host.clone(),
             target_port,
             exit_peer,
             to_peer_tx: from_peer_tx, // This is what the P2P layer uses to send data TO us
-            from_peer_rx: None, // We don't store this, caller keeps it
+            from_peer_rx: None,       // We don't store this, caller keeps it
             ready_tx: Some(ready_tx),
             bytes_sent: 0,
             bytes_received: 0,
         };
-        
+
         {
             let mut tunnels = self.client_tunnels.write().await;
             tunnels.insert(tunnel_id, tunnel);
         }
-        
+
         // Send connect request to exit peer via P2P
         if let Some(tx) = &self.p2p_outbound_tx {
             let msg = P2PMessage {
                 peer_id: exit_peer,
                 tunnel_id,
-                data: P2PMessageData::Connect { 
-                    host: target_host, 
-                    port: target_port 
+                data: P2PMessageData::Connect {
+                    host: target_host,
+                    port: target_port,
                 },
             };
-            tx.send(msg).await.map_err(|e| format!("Failed to send connect request: {}", e))?;
+            tx.send(msg)
+                .await
+                .map_err(|e| format!("Failed to send connect request: {}", e))?;
         } else {
             return Err("P2P outbound channel not configured".to_string());
         }
-        
+
         Ok((tunnel_id, to_peer_tx, from_peer_rx, ready_rx))
     }
 
     /// Handle ProxyConnected response from exit peer
-    pub async fn handle_tunnel_connected(&self, tunnel_id: TunnelId, success: bool, error: Option<String>) {
+    pub async fn handle_tunnel_connected(
+        &self,
+        tunnel_id: TunnelId,
+        success: bool,
+        error: Option<String>,
+    ) {
         let mut tunnels = self.client_tunnels.write().await;
         if let Some(tunnel) = tunnels.get_mut(&tunnel_id) {
             if let Some(ready_tx) = tunnel.ready_tx.take() {
@@ -187,13 +208,21 @@ impl TunnelManager {
         let tunnels = self.client_tunnels.read().await;
         if let Some(tunnel) = tunnels.get(&tunnel_id) {
             if let Err(e) = tunnel.to_peer_tx.send(data).await {
-                log::error!("Failed to forward data to client tunnel {}: {}", tunnel_id, e);
+                log::error!(
+                    "Failed to forward data to client tunnel {}: {}",
+                    tunnel_id,
+                    e
+                );
             }
         }
     }
 
     /// Send data through a client tunnel (to the exit peer)
-    pub async fn send_through_client_tunnel(&self, tunnel_id: TunnelId, data: Vec<u8>) -> Result<(), String> {
+    pub async fn send_through_client_tunnel(
+        &self,
+        tunnel_id: TunnelId,
+        data: Vec<u8>,
+    ) -> Result<(), String> {
         let tunnels = self.client_tunnels.read().await;
         if let Some(tunnel) = tunnels.get(&tunnel_id) {
             if let Some(tx) = &self.p2p_outbound_tx {
@@ -202,7 +231,9 @@ impl TunnelManager {
                     tunnel_id,
                     data: P2PMessageData::Data(data),
                 };
-                tx.send(msg).await.map_err(|e| format!("Failed to send data: {}", e))?;
+                tx.send(msg)
+                    .await
+                    .map_err(|e| format!("Failed to send data: {}", e))?;
                 Ok(())
             } else {
                 Err("P2P outbound not configured".to_string())
@@ -219,7 +250,7 @@ impl TunnelManager {
             let tunnels = self.client_tunnels.read().await;
             tunnels.get(&tunnel_id).map(|t| t.exit_peer)
         };
-        
+
         if let (Some(peer), Some(tx)) = (exit_peer, &self.p2p_outbound_tx) {
             let msg = P2PMessage {
                 peer_id: peer,
@@ -228,7 +259,7 @@ impl TunnelManager {
             };
             let _ = tx.send(msg).await;
         }
-        
+
         // Remove the tunnel
         let mut tunnels = self.client_tunnels.write().await;
         tunnels.remove(&tunnel_id);
@@ -247,19 +278,25 @@ impl TunnelManager {
         target_port: u16,
     ) -> Result<(), String> {
         let target_addr = format!("{}:{}", target_host, target_port);
-        
-        log::info!("Exit tunnel {}: connecting to {} for peer {}", tunnel_id, target_addr, client_peer);
-        
+
+        log::info!(
+            "Exit tunnel {}: connecting to {} for peer {}",
+            tunnel_id,
+            target_addr,
+            client_peer
+        );
+
         // Connect to the actual target
-        let stream = TcpStream::connect(&target_addr).await
+        let stream = TcpStream::connect(&target_addr)
+            .await
             .map_err(|e| format!("Failed to connect to {}: {}", target_addr, e))?;
-        
+
         let (read_half, write_half) = tokio::io::split(stream);
-        
+
         // Channels for bidirectional data flow
         let (to_target_tx, to_target_rx) = mpsc::channel::<Vec<u8>>(256);
         let (_from_target_tx, from_target_rx) = mpsc::channel::<Vec<u8>>(256);
-        
+
         let tunnel = ExitTunnel {
             tunnel_id,
             target_host: target_host.clone(),
@@ -270,32 +307,33 @@ impl TunnelManager {
             bytes_received: 0,
             client_peer,
         };
-        
+
         {
             let mut tunnels = self.exit_tunnels.write().await;
             tunnels.insert(tunnel_id, tunnel);
         }
-        
+
         // Spawn task to read from target and forward to client peer
         let p2p_tx = self.p2p_outbound_tx.clone();
         let metrics = self.metrics.clone();
         let exit_tunnels = self.exit_tunnels.clone();
-        
+
         tokio::spawn(async move {
             Self::exit_tunnel_read_loop(
-                tunnel_id, 
-                client_peer, 
-                read_half, 
+                tunnel_id,
+                client_peer,
+                read_half,
                 p2p_tx,
                 metrics.clone(),
                 exit_tunnels.clone(),
-            ).await;
+            )
+            .await;
         });
-        
+
         // Spawn task to write to target from incoming P2P data
         let metrics = self.metrics.clone();
         let exit_tunnels = self.exit_tunnels.clone();
-        
+
         tokio::spawn(async move {
             Self::exit_tunnel_write_loop(
                 tunnel_id,
@@ -304,19 +342,23 @@ impl TunnelManager {
                 to_target_rx,
                 metrics,
                 exit_tunnels,
-            ).await;
+            )
+            .await;
         });
-        
+
         // Send success response
         if let Some(tx) = &self.p2p_outbound_tx {
             let msg = P2PMessage {
                 peer_id: client_peer,
                 tunnel_id,
-                data: P2PMessageData::Connected { success: true, error: None },
+                data: P2PMessageData::Connected {
+                    success: true,
+                    error: None,
+                },
             };
             let _ = tx.send(msg).await;
         }
-        
+
         Ok(())
     }
 
@@ -330,7 +372,7 @@ impl TunnelManager {
         tunnels: Arc<RwLock<HashMap<TunnelId, ExitTunnel>>>,
     ) {
         let mut buf = [0u8; 8192];
-        
+
         loop {
             match read_half.read(&mut buf).await {
                 Ok(0) => {
@@ -339,13 +381,13 @@ impl TunnelManager {
                 }
                 Ok(n) => {
                     let data = buf[..n].to_vec();
-                    
+
                     // Update metrics
                     {
                         let mut m = metrics.write().await;
                         m.record_sent(&client_peer.to_string(), n as u64);
                     }
-                    
+
                     // Update tunnel bytes
                     {
                         let mut t = tunnels.write().await;
@@ -353,7 +395,7 @@ impl TunnelManager {
                             tunnel.bytes_received += n as u64;
                         }
                     }
-                    
+
                     // Send to client peer via P2P
                     if let Some(tx) = &p2p_tx {
                         let msg = P2PMessage {
@@ -373,7 +415,7 @@ impl TunnelManager {
                 }
             }
         }
-        
+
         // Send close message
         if let Some(tx) = &p2p_tx {
             let msg = P2PMessage {
@@ -383,7 +425,7 @@ impl TunnelManager {
             };
             let _ = tx.send(msg).await;
         }
-        
+
         // Remove tunnel
         let mut t = tunnels.write().await;
         t.remove(&tunnel_id);
@@ -400,18 +442,18 @@ impl TunnelManager {
     ) {
         while let Some(data) = from_peer_rx.recv().await {
             let len = data.len();
-            
+
             if let Err(e) = write_half.write_all(&data).await {
                 log::error!("Exit tunnel {}: write error: {}", tunnel_id, e);
                 break;
             }
-            
+
             // Update metrics
             {
                 let mut m = metrics.write().await;
                 m.record_received(&client_peer.to_string(), len as u64);
             }
-            
+
             // Update tunnel bytes
             {
                 let mut t = tunnels.write().await;
@@ -420,7 +462,7 @@ impl TunnelManager {
                 }
             }
         }
-        
+
         log::info!("Exit tunnel {}: write loop ended", tunnel_id);
     }
 

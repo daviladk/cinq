@@ -1,30 +1,30 @@
 // Cinq Grid Node - Core P2P networking using libp2p
 
+use futures::StreamExt;
 use libp2p::{
-    autonat, dcutr, identify, kad,
+    autonat, dcutr, identify,
     identity::{self, Keypair},
-    mdns, noise, relay,
+    kad, mdns,
     multiaddr::Protocol,
+    noise, relay,
     request_response::{self},
     swarm::SwarmEvent,
     tcp, yamux, Multiaddr, PeerId, Swarm,
 };
-use futures::StreamExt;
 use std::collections::HashMap;
 use std::error::Error;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{mpsc, RwLock};
 
-use super::bootstrap::{PeerStorage, BootstrapConfig};
+use super::bootstrap::{BootstrapConfig, PeerStorage};
 use super::metrics::BandwidthMetrics;
 use super::protocol::{
-    CinqBehaviour, CinqBehaviourEvent,
-    CinqRequest, CinqResponse, 
-    new_cinq_protocol, new_kademlia, new_identify, new_autonat,
+    new_autonat, new_cinq_protocol, new_identify, new_kademlia, CinqBehaviour, CinqBehaviourEvent,
+    CinqRequest, CinqResponse,
 };
-use super::proxy::{Socks5Proxy, ProxyConfig, ProxyStatus};
-use super::tunnel::{TunnelManager, P2PMessage, P2PMessageData};
+use super::proxy::{ProxyConfig, ProxyStatus, Socks5Proxy};
+use super::tunnel::{P2PMessage, P2PMessageData, TunnelManager};
 
 /// Extract peer ID from a multiaddr if present (/p2p/<peer_id>)
 fn extract_peer_id(addr: &Multiaddr) -> Option<PeerId> {
@@ -59,15 +59,41 @@ pub struct GridPeer {
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(tag = "type")]
 pub enum GridEvent {
-    PeerDiscovered { peer_id: String, addresses: Vec<String> },
-    PeerConnected { peer_id: String },
-    PeerDisconnected { peer_id: String },
-    FileReceived { from_peer: String, filename: String, size: u64 },
-    TransferProgress { peer_id: String, bytes_transferred: u64, total_bytes: u64 },
-    NatStatusChanged { nat_status: String },
-    RelayReserved { relay_addr: String },
-    ChatMessageReceived { from_peer: String, message_id: String, content: String, timestamp: u64 },
-    Error { message: String },
+    PeerDiscovered {
+        peer_id: String,
+        addresses: Vec<String>,
+    },
+    PeerConnected {
+        peer_id: String,
+    },
+    PeerDisconnected {
+        peer_id: String,
+    },
+    FileReceived {
+        from_peer: String,
+        filename: String,
+        size: u64,
+    },
+    TransferProgress {
+        peer_id: String,
+        bytes_transferred: u64,
+        total_bytes: u64,
+    },
+    NatStatusChanged {
+        nat_status: String,
+    },
+    RelayReserved {
+        relay_addr: String,
+    },
+    ChatMessageReceived {
+        from_peer: String,
+        message_id: String,
+        content: String,
+        timestamp: u64,
+    },
+    Error {
+        message: String,
+    },
 }
 
 /// Configuration for the Cinq node
@@ -95,7 +121,7 @@ impl Default for NodeConfig {
         let data_dir = dirs::home_dir()
             .unwrap_or_else(|| std::path::PathBuf::from("."))
             .join(".cinq");
-        
+
         Self {
             listen_port: 9000,
             enable_mdns: true,
@@ -152,9 +178,15 @@ pub enum NodeCommand {
     /// Shutdown the node
     Shutdown,
     /// Send a proxy request to a peer
-    SendProxyRequest { peer_id: PeerId, request: CinqRequest },
+    SendProxyRequest {
+        peer_id: PeerId,
+        request: CinqRequest,
+    },
     /// Send a proxy response to a peer (via pending channel)
-    SendProxyResponse { channel_id: u64, response: CinqResponse },
+    SendProxyResponse {
+        channel_id: u64,
+        response: CinqResponse,
+    },
 }
 
 impl CinqNode {
@@ -167,7 +199,7 @@ impl CinqNode {
     pub fn with_config(config: NodeConfig) -> Result<Self, Box<dyn Error + Send + Sync>> {
         // Ensure data directory exists
         std::fs::create_dir_all(&config.data_dir)?;
-        
+
         // Derive or load keypair based on seed phrase
         // Mesh ID (PeerId) is just network plumbing - can be random per device
         // Chat ID is the stable human identity (derived from seed phrase)
@@ -178,26 +210,28 @@ impl CinqNode {
                 .map_err(|e| format!("Failed to decode keypair: {}", e))?
         } else {
             let new_keypair = identity::Keypair::generate_ed25519();
-            let keypair_bytes = new_keypair.to_protobuf_encoding()
+            let keypair_bytes = new_keypair
+                .to_protobuf_encoding()
                 .map_err(|e| format!("Failed to encode keypair: {}", e))?;
             std::fs::write(&keypair_path, &keypair_bytes)?;
             log::info!("Generated new Mesh ID keypair at {:?}", keypair_path);
             new_keypair
         };
-        
+
         let local_peer_id = PeerId::from(keypair.public());
 
         log::info!("Cinq Node initialized with Peer ID: {}", local_peer_id);
 
         let metrics = Arc::new(RwLock::new(BandwidthMetrics::new()));
         let tunnel_manager = Arc::new(RwLock::new(TunnelManager::new(metrics.clone())));
-        
+
         // Initialize peer storage for bootstrap
-        let peer_storage = PeerStorage::with_config(
-            config.data_dir.clone(),
-            config.bootstrap_config.clone(),
+        let peer_storage =
+            PeerStorage::with_config(config.data_dir.clone(), config.bootstrap_config.clone());
+        log::info!(
+            "Peer storage initialized with {} saved peers",
+            peer_storage.peer_count()
         );
-        log::info!("Peer storage initialized with {} saved peers", peer_storage.peer_count());
 
         Ok(Self {
             local_peer_id,
@@ -246,7 +280,7 @@ impl CinqNode {
         let listen_addr: Multiaddr = format!("/ip4/0.0.0.0/tcp/{}", self.config.listen_port)
             .parse()
             .expect("Valid multiaddr");
-        
+
         swarm.listen_on(listen_addr)?;
 
         // Auto-connect to bootstrap peers
@@ -254,7 +288,7 @@ impl CinqNode {
             let storage = self.peer_storage.read().await;
             storage.get_bootstrap_addresses()
         };
-        
+
         if !bootstrap_addrs.is_empty() {
             log::info!("Connecting to {} bootstrap peers...", bootstrap_addrs.len());
             for addr_str in &bootstrap_addrs {
@@ -265,10 +299,17 @@ impl CinqNode {
                         if let Some(peer_id) = extract_peer_id(&addr) {
                             // Add peer address to Kademlia routing table
                             let addr_without_peer_id = strip_peer_id(&addr);
-                            swarm.behaviour_mut().kademlia.add_address(&peer_id, addr_without_peer_id.clone());
-                            log::info!("Added peer {} to Kademlia with addr: {}", peer_id, addr_without_peer_id);
+                            swarm
+                                .behaviour_mut()
+                                .kademlia
+                                .add_address(&peer_id, addr_without_peer_id.clone());
+                            log::info!(
+                                "Added peer {} to Kademlia with addr: {}",
+                                peer_id,
+                                addr_without_peer_id
+                            );
                         }
-                        
+
                         log::info!("Dialing bootstrap: {}", addr);
                         if let Err(e) = swarm.dial(addr.clone()) {
                             log::warn!("Failed to dial bootstrap {}: {}", addr, e);
@@ -303,7 +344,7 @@ impl CinqNode {
                                 for (peer_id, addr) in peers_list {
                                     log::info!("Discovered peer: {} at {}", peer_id, addr);
                                     swarm.add_peer_address(peer_id, addr.clone());
-                                    
+
                                     // AUTO-CONNECT: Immediately dial discovered peers to form mesh
                                     if !swarm.is_connected(&peer_id) {
                                         log::info!("Auto-connecting to peer: {}", peer_id);
@@ -311,7 +352,7 @@ impl CinqNode {
                                             log::warn!("Failed to auto-dial {}: {}", peer_id, e);
                                         }
                                     }
-                                    
+
                                     let mut peers_guard = peers.write().await;
                                     let peer = peers_guard.entry(peer_id).or_insert(GridPeer {
                                         peer_id: peer_id.to_string(),
@@ -324,7 +365,7 @@ impl CinqNode {
                                         chat_id: None,
                                     });
                                     peer.addresses.push(addr.to_string());
-                                    
+
                                     let _ = event_tx.send(GridEvent::PeerDiscovered {
                                         peer_id: peer_id.to_string(),
                                         addresses: peer.addresses.clone(),
@@ -384,7 +425,7 @@ impl CinqNode {
                             SwarmEvent::Behaviour(CinqBehaviourEvent::Identify(identify_event)) => {
                                 match identify_event {
                                     identify::Event::Received { peer_id, info, .. } => {
-                                        log::info!("Identify: peer {} is running {} ({})", 
+                                        log::info!("Identify: peer {} is running {} ({})",
                                             peer_id, info.protocol_version, info.agent_version);
                                         // Add peer's addresses to Kademlia
                                         for addr in info.listen_addrs {
@@ -457,14 +498,14 @@ impl CinqNode {
                                                     }
                                                     // Handle ProxyConnect - we are the exit node
                                                     CinqRequest::ProxyConnect { tunnel_id, target_host, target_port } => {
-                                                        log::info!("ProxyConnect request from {}: tunnel {} -> {}:{}", 
+                                                        log::info!("ProxyConnect request from {}: tunnel {} -> {}:{}",
                                                             peer, tunnel_id, target_host, target_port);
-                                                        
+
                                                         let tm = tunnel_manager.clone();
                                                         let result = tm.write().await.create_exit_tunnel(
                                                             tunnel_id, peer, target_host.clone(), target_port
                                                         ).await;
-                                                        
+
                                                         match result {
                                                             Ok(()) => CinqResponse::ProxyConnected {
                                                                 tunnel_id,
@@ -480,31 +521,31 @@ impl CinqNode {
                                                     }
                                                     // Handle ProxyData - forward to exit tunnel
                                                     CinqRequest::ProxyData { tunnel_id, data } => {
-                                                        log::debug!("ProxyData from {}: tunnel {} ({} bytes)", 
+                                                        log::debug!("ProxyData from {}: tunnel {} ({} bytes)",
                                                             peer, tunnel_id, data.len());
-                                                        
+
                                                         let tm = tunnel_manager.clone();
                                                         tm.read().await.handle_exit_tunnel_data(tunnel_id, data).await;
-                                                        
+
                                                         // No response needed for data packets
                                                         CinqResponse::Pong // Dummy ack
                                                     }
                                                     // Handle ProxyClose
                                                     CinqRequest::ProxyClose { tunnel_id } => {
                                                         log::info!("ProxyClose from {}: tunnel {}", peer, tunnel_id);
-                                                        
+
                                                         let tm = tunnel_manager.clone();
                                                         tm.write().await.close_exit_tunnel(tunnel_id).await;
-                                                        
+
                                                         CinqResponse::ProxyClosed { tunnel_id }
                                                     }
                                                     // Handle incoming chat message
                                                     CinqRequest::ChatMessage { message_id, sender_name: _, encrypted_content, timestamp } => {
                                                         log::info!("ChatMessage from {}: id={}", peer, message_id);
-                                                        
+
                                                         let content = String::from_utf8_lossy(&encrypted_content);
                                                         log::info!("  Content: {}", content);
-                                                        
+
                                                         // Store message in chat database
                                                         if let Some(ref cm) = chat_manager {
                                                             let chat = cm.read().await;
@@ -524,7 +565,7 @@ impl CinqNode {
                                                         } else {
                                                             log::warn!("ChatManager not available - message not stored");
                                                         }
-                                                        
+
                                                         // Emit event to frontend
                                                         let _ = event_tx.send(GridEvent::ChatMessageReceived {
                                                             from_peer: peer.to_string(),
@@ -532,7 +573,7 @@ impl CinqNode {
                                                             content: content.to_string(),
                                                             timestamp,
                                                         }).await;
-                                                        
+
                                                         CinqResponse::ChatReceived {
                                                             message_id,
                                                             delivered: true,
@@ -581,7 +622,7 @@ impl CinqNode {
                             SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
                                 log::info!("Connected to peer: {} via {:?}", peer_id, endpoint);
                                 let addr_str = endpoint.get_remote_address().to_string();
-                                
+
                                 // Update in-memory peers
                                 let mut peers_guard = peers.write().await;
                                 let peer = peers_guard.entry(peer_id).or_insert(GridPeer {
@@ -604,13 +645,13 @@ impl CinqNode {
                                     peer.addresses.push(addr_str.clone());
                                 }
                                 drop(peers_guard);
-                                
+
                                 // Persist to storage for future bootstrap
                                 {
                                     let mut storage = peer_storage.write().await;
                                     storage.upsert_peer(&peer_id.to_string(), &addr_str);
                                 }
-                                
+
                                 let _ = event_tx.send(GridEvent::PeerConnected {
                                     peer_id: peer_id.to_string(),
                                 }).await;
@@ -715,30 +756,27 @@ impl CinqNode {
             .with_relay_client(noise::Config::new, yamux::Config::default)?
             .with_behaviour(|key, relay_client| {
                 let local_peer_id = key.public().to_peer_id();
-                
+
                 // mDNS for local discovery
-                let mdns = mdns::tokio::Behaviour::new(
-                    mdns::Config::default(),
-                    local_peer_id,
-                )?;
-                
+                let mdns = mdns::tokio::Behaviour::new(mdns::Config::default(), local_peer_id)?;
+
                 // Kademlia DHT for global discovery
                 let kademlia = new_kademlia(local_peer_id);
-                
+
                 // Identify protocol
                 let identify = new_identify(key.public());
-                
+
                 // AutoNAT for NAT detection
                 let autonat = new_autonat(local_peer_id);
-                
+
                 // DCUTR for hole punching
                 let dcutr = dcutr::Behaviour::new(local_peer_id);
-                
+
                 // Our custom protocol
                 let protocol = new_cinq_protocol();
-                
-                Ok(CinqBehaviour { 
-                    mdns, 
+
+                Ok(CinqBehaviour {
+                    mdns,
                     kademlia,
                     identify,
                     autonat,
@@ -757,17 +795,19 @@ impl CinqNode {
     pub async fn get_peers(&self) -> Vec<GridPeer> {
         let peers = self.peers.read().await;
         let our_id = self.local_peer_id.to_string();
-        peers.values()
+        peers
+            .values()
             .filter(|p| p.connected && p.peer_id != our_id)
             .cloned()
             .collect()
     }
-    
+
     /// Get list of all discovered peers (including unconnected)
     pub async fn get_all_discovered_peers(&self) -> Vec<GridPeer> {
         let peers = self.peers.read().await;
         let our_id = self.local_peer_id.to_string();
-        peers.values()
+        peers
+            .values()
             .filter(|p| p.peer_id != our_id)
             .cloned()
             .collect()
@@ -800,9 +840,14 @@ impl CinqNode {
     }
 
     /// Send a request to a peer (for chat, proxy, etc.)
-    pub async fn send_request(&self, peer_id: PeerId, request: CinqRequest) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub async fn send_request(
+        &self,
+        peer_id: PeerId,
+        request: CinqRequest,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(tx) = &self.command_tx {
-            tx.send(NodeCommand::SendProxyRequest { peer_id, request }).await?;
+            tx.send(NodeCommand::SendProxyRequest { peer_id, request })
+                .await?;
             Ok(())
         } else {
             Err("Node not running".into())
@@ -840,19 +885,16 @@ impl CinqNode {
         // Store outgoing message in chat manager
         if let Some(ref cm) = self.chat_manager {
             let chat = cm.read().await;
-            if let Err(e) = chat.store_outgoing_message(
-                &peer_id.to_string(),
-                &message_id,
-                content,
-                timestamp,
-            ) {
+            if let Err(e) =
+                chat.store_outgoing_message(&peer_id.to_string(), &message_id, content, timestamp)
+            {
                 log::warn!("Failed to store outgoing message: {}", e);
             }
         }
 
         self.send_request(peer_id, request).await?;
         log::info!("Sent chat message {} to {}", message_id, peer_id);
-        
+
         Ok(message_id)
     }
 
@@ -862,7 +904,8 @@ impl CinqNode {
         peer_id_str: &str,
         content: &str,
     ) -> Result<String, Box<dyn Error + Send + Sync>> {
-        let peer_id: PeerId = peer_id_str.parse()
+        let peer_id: PeerId = peer_id_str
+            .parse()
             .map_err(|_| format!("Invalid peer ID: {}", peer_id_str))?;
         self.send_chat_message(peer_id, content, None).await
     }
@@ -884,15 +927,15 @@ impl CinqNode {
         };
 
         let mut proxy = Socks5Proxy::with_config(config, self.metrics.clone());
-        
+
         // Give proxy access to tunnel manager for P2P routing
         proxy.set_tunnel_manager(self.tunnel_manager.clone());
-        
+
         proxy.start().await?;
-        
+
         self.proxy = Some(proxy);
         log::info!("SOCKS5 proxy started on port {}", port);
-        
+
         Ok(())
     }
 
@@ -928,7 +971,7 @@ impl CinqNode {
     }
 
     // =========================================================================
-    // P2P Tunnel Methods  
+    // P2P Tunnel Methods
     // =========================================================================
 
     /// Get the tunnel manager
@@ -939,7 +982,8 @@ impl CinqNode {
     /// Get a random connected peer for use as exit node
     pub async fn get_exit_peer(&self) -> Option<PeerId> {
         let peers = self.peers.read().await;
-        peers.values()
+        peers
+            .values()
             .filter(|p| p.connected)
             .next()
             .and_then(|p| p.peer_id.parse().ok())
@@ -948,7 +992,8 @@ impl CinqNode {
     /// Get list of connected peer IDs
     pub async fn get_connected_peer_ids(&self) -> Vec<PeerId> {
         let peers = self.peers.read().await;
-        peers.values()
+        peers
+            .values()
             .filter(|p| p.connected)
             .filter_map(|p| p.peer_id.parse().ok())
             .collect()

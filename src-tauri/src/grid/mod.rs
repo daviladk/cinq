@@ -6,23 +6,22 @@
 
 pub mod bootstrap;
 pub mod chat;
+pub mod metrics;
 pub mod node;
 pub mod protocol;
-pub mod transfer;
-pub mod metrics;
 pub mod proxy;
-pub mod tunnel;
-pub mod stratum;
-pub mod userid;
 pub mod sbt;
+pub mod stratum;
 pub mod swarm;
+pub mod transfer;
+pub mod tunnel;
+pub mod userid;
 
 pub use chat::{ChatManager, ChatMessage, Contact, Conversation, MessageStatus};
-pub use node::{CinqNode, GridPeer, NodeConfig};
 pub use metrics::BandwidthMetrics;
+pub use node::{CinqNode, GridPeer, NodeConfig};
 pub use proxy::ProxyStatus;
-pub use stratum::{StratumClient, PoolStats, Worker, StratumStatus};
+pub use stratum::{PoolStats, StratumClient, StratumStatus, Worker};
 pub use userid::UserIdRegistry;
-pub use swarm::{SwarmCoordinator, SwarmMessage, SwarmTask, SwarmAgent, TaskType, TaskState, AgentTier, Capability};
 
 // Re-export protocol types for relay binary

@@ -73,13 +73,11 @@ impl OllamaClient {
     /// Chat with the model, injecting Qora's persona
     pub async fn chat(&self, messages: &[QoraMessage]) -> Result<String, String> {
         // Start with Qora's system prompt
-        let mut ollama_messages: Vec<OllamaMessage> = vec![
-            OllamaMessage {
-                role: "system".to_string(),
-                content: QORA_SYSTEM_PROMPT.to_string(),
-            }
-        ];
-        
+        let mut ollama_messages: Vec<OllamaMessage> = vec![OllamaMessage {
+            role: "system".to_string(),
+            content: QORA_SYSTEM_PROMPT.to_string(),
+        }];
+
         // Add the conversation history
         ollama_messages.extend(messages.iter().map(|m| OllamaMessage {
             role: m.role.clone(),
@@ -92,7 +90,8 @@ impl OllamaClient {
             stream: false,
         };
 
-        let response = self.client
+        let response = self
+            .client
             .post(format!("{}/api/chat", self.url))
             .json(&request)
             .send()
@@ -129,13 +128,14 @@ impl OllamaClient {
         struct TagsResponse {
             models: Vec<ModelInfo>,
         }
-        
+
         #[derive(Deserialize)]
         struct ModelInfo {
             name: String,
         }
 
-        let response = self.client
+        let response = self
+            .client
             .get(format!("{}/api/tags", self.url))
             .send()
             .await

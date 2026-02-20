@@ -95,7 +95,12 @@ impl StratumClient {
 
     /// Check if StratumX API is available
     pub async fn check_connection(&self) -> bool {
-        match self.client.get(&format!("{}/health", self.base_url)).send().await {
+        match self
+            .client
+            .get(&format!("{}/health", self.base_url))
+            .send()
+            .await
+        {
             Ok(resp) => {
                 let ok = resp.status().is_success();
                 *self.connected.write().await = ok;
@@ -112,11 +117,11 @@ impl StratumClient {
     pub async fn get_pool_stats(&self) -> Result<PoolStats, StratumError> {
         let url = format!("{}/api/pool/stats", self.base_url);
         let resp = self.client.get(&url).send().await?;
-        
+
         if !resp.status().is_success() {
             return Err(StratumError::ApiError(resp.status().to_string()));
         }
-        
+
         let stats: PoolStats = resp.json().await?;
         *self.last_stats.write().await = Some(stats.clone());
         *self.connected.write().await = true;
@@ -127,11 +132,11 @@ impl StratumClient {
     pub async fn get_workers(&self) -> Result<Vec<Worker>, StratumError> {
         let url = format!("{}/api/pool/workers", self.base_url);
         let resp = self.client.get(&url).send().await?;
-        
+
         if !resp.status().is_success() {
             return Err(StratumError::ApiError(resp.status().to_string()));
         }
-        
+
         let workers: Vec<Worker> = resp.json().await?;
         Ok(workers)
     }
@@ -140,11 +145,11 @@ impl StratumClient {
     pub async fn get_blocks(&self) -> Result<Vec<BlockFound>, StratumError> {
         let url = format!("{}/api/pool/blocks", self.base_url);
         let resp = self.client.get(&url).send().await?;
-        
+
         if !resp.status().is_success() {
             return Err(StratumError::ApiError(resp.status().to_string()));
         }
-        
+
         let blocks: Vec<BlockFound> = resp.json().await?;
         Ok(blocks)
     }
@@ -153,11 +158,11 @@ impl StratumClient {
     pub async fn get_miner_stats(&self, address: &str) -> Result<MinerStats, StratumError> {
         let url = format!("{}/api/miner/{}/stats", self.base_url, address);
         let resp = self.client.get(&url).send().await?;
-        
+
         if !resp.status().is_success() {
             return Err(StratumError::ApiError(resp.status().to_string()));
         }
-        
+
         let stats: MinerStats = resp.json().await?;
         Ok(stats)
     }
@@ -165,10 +170,7 @@ impl StratumClient {
     /// Get unique miner addresses from workers (potential chat peers)
     pub async fn get_miner_addresses(&self) -> Result<Vec<String>, StratumError> {
         let workers = self.get_workers().await?;
-        let mut addresses: Vec<String> = workers
-            .iter()
-            .map(|w| w.address.clone())
-            .collect();
+        let mut addresses: Vec<String> = workers.iter().map(|w| w.address.clone()).collect();
         addresses.sort();
         addresses.dedup();
         Ok(addresses)

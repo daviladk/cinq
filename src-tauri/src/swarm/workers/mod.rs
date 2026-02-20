@@ -2,14 +2,18 @@
 //!
 //! Specialized workers that handle specific tasks in the swarm.
 //! Each worker is pure Rust, no external dependencies.
+//!
+//! Note: Workers are scaffolded for Phase 3 implementation.
+
+#![allow(dead_code)]
 
 pub mod bandwidth;
-pub mod storage;
 pub mod payment;
+pub mod storage;
 
 pub use bandwidth::BandwidthWorker;
-pub use storage::StorageWorker;
 pub use payment::PaymentWorker;
+pub use storage::StorageWorker;
 
 use serde::{Deserialize, Serialize};
 
@@ -41,7 +45,7 @@ impl WorkerResult {
             data: None,
         }
     }
-    
+
     pub fn err(message: impl Into<String>) -> Self {
         Self {
             success: false,
@@ -52,22 +56,22 @@ impl WorkerResult {
             data: None,
         }
     }
-    
+
     pub fn with_bytes(mut self, bytes: u64) -> Self {
         self.bytes_processed = bytes;
         self
     }
-    
+
     pub fn with_cost(mut self, cost: f64) -> Self {
         self.qi_cost = cost;
         self
     }
-    
+
     pub fn with_duration(mut self, secs: f64) -> Self {
         self.duration_secs = secs;
         self
     }
-    
+
     pub fn with_data(mut self, data: serde_json::Value) -> Self {
         self.data = Some(data);
         self
@@ -79,7 +83,7 @@ impl WorkerResult {
 pub trait Worker {
     /// Worker name for logging
     fn name(&self) -> &'static str;
-    
+
     /// Health check - is the worker ready?
     async fn health_check(&self) -> bool;
 }

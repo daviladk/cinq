@@ -2,9 +2,9 @@
 //!
 //! Tasks are stored locally and can be synced across peers.
 
-use std::path::PathBuf;
-use serde::{Deserialize, Serialize};
 use chrono::Utc;
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum TaskStatus {
@@ -59,7 +59,7 @@ pub struct TaskQueue {
 impl TaskQueue {
     pub fn new(project_root: &PathBuf) -> Self {
         let storage_path = project_root.join(".qora").join("tasks.json");
-        
+
         let tasks = if storage_path.exists() {
             std::fs::read_to_string(&storage_path)
                 .ok()
@@ -69,7 +69,10 @@ impl TaskQueue {
             Vec::new()
         };
 
-        Self { tasks, storage_path }
+        Self {
+            tasks,
+            storage_path,
+        }
     }
 
     fn save(&self) -> Result<(), String> {
@@ -77,12 +80,11 @@ impl TaskQueue {
             std::fs::create_dir_all(parent)
                 .map_err(|e| format!("Failed to create .qora directory: {}", e))?;
         }
-        
+
         let json = serde_json::to_string_pretty(&self.tasks)
             .map_err(|e| format!("Failed to serialize tasks: {}", e))?;
-        
-        std::fs::write(&self.storage_path, json)
-            .map_err(|e| format!("Failed to save tasks: {}", e))
+
+        std::fs::write(&self.storage_path, json).map_err(|e| format!("Failed to save tasks: {}", e))
     }
 
     pub fn add(&mut self, title: &str, description: &str) -> Result<Task, String> {
@@ -106,13 +108,16 @@ impl TaskQueue {
 
     pub fn next(&mut self) -> Option<Task> {
         // Find the index of the first pending task
-        let idx = self.tasks.iter().position(|t| t.status == TaskStatus::Pending)?;
-        
+        let idx = self
+            .tasks
+            .iter()
+            .position(|t| t.status == TaskStatus::Pending)?;
+
         // Update status
         self.tasks[idx].set_status(TaskStatus::InProgress);
         let task = self.tasks[idx].clone();
         let _ = self.save();
-        
+
         Some(task)
     }
 

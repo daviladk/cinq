@@ -1,5 +1,5 @@
 //! Cost Tables for Qi Pricing
-//! 
+//!
 //! Defines the Qi rates for all metered actions in the cinQ network.
 //! 1 Qi ≈ 1 GB of data transfer or 1 TeraFLOP of compute.
 
@@ -37,7 +37,7 @@ impl ActionType {
             ActionType::Storage => "Storage",
         }
     }
-    
+
     /// Unit of measurement for this action
     pub fn unit(&self) -> &'static str {
         match self {
@@ -106,7 +106,7 @@ impl CostTable {
         };
         rate * units
     }
-    
+
     /// Get the rate for an action type
     pub fn rate(&self, action_type: ActionType) -> f64 {
         match action_type {
@@ -119,7 +119,7 @@ impl CostTable {
             ActionType::Storage => self.storage_per_gb_day,
         }
     }
-    
+
     /// Estimate runway (time/units remaining) given current balance
     pub fn estimate_runway(&self, action_type: ActionType, balance: f64) -> f64 {
         let rate = self.rate(action_type);
@@ -134,28 +134,28 @@ impl CostTable {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_cost_calculation() {
         let table = CostTable::default();
-        
+
         // 1KB message = 0.001 Qi
         assert_eq!(table.calculate(ActionType::Message, 1.0), 0.001);
-        
+
         // 100MB file = 1.0 Qi
         assert_eq!(table.calculate(ActionType::FileTransfer, 100.0), 1.0);
-        
+
         // 10 min video call = 5.0 Qi
         assert_eq!(table.calculate(ActionType::VideoCall, 10.0), 5.0);
     }
-    
+
     #[test]
     fn test_runway_estimation() {
         let table = CostTable::default();
-        
+
         // With 2.5 Qi, video call runway = 5 minutes
         assert_eq!(table.estimate_runway(ActionType::VideoCall, 2.5), 5.0);
-        
+
         // With 1.0 Qi, voice call runway = 20 minutes
         assert_eq!(table.estimate_runway(ActionType::VoiceCall, 1.0), 20.0);
     }

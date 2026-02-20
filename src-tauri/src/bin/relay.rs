@@ -4,6 +4,7 @@
 // Usage: cinq-relay --port 9000 --external-ip 1.2.3.4
 
 use clap::Parser;
+use futures::StreamExt;
 use libp2p::{
     autonat, dcutr, identify,
     identity::{self, Keypair},
@@ -11,7 +12,6 @@ use libp2p::{
     swarm::SwarmEvent,
     tcp, yamux, Multiaddr, PeerId, Swarm,
 };
-use futures::StreamExt;
 use std::error::Error;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -19,8 +19,8 @@ use tokio::signal;
 
 // Re-use protocol definitions from the main crate
 use cinq_lib::grid::protocol::{
-    CinqRelayBehaviour, CinqRelayBehaviourEvent,
-    new_cinq_protocol, new_kademlia, new_identify, new_autonat,
+    new_autonat, new_cinq_protocol, new_identify, new_kademlia, CinqRelayBehaviour,
+    CinqRelayBehaviourEvent,
 };
 
 #[derive(Parser, Debug)]
@@ -87,9 +87,15 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     log::info!("║              CINQ RELAY NODE                                   ║");
     log::info!("╠════════════════════════════════════════════════════════════════╣");
     log::info!("║ Peer ID: {}  ║", local_peer_id);
-    log::info!("║ Port: {:5}                                                    ║", args.port);
+    log::info!(
+        "║ Port: {:5}                                                    ║",
+        args.port
+    );
     if let Some(ref ip) = args.external_ip {
-        log::info!("║ External IP: {:15}                                  ║", ip);
+        log::info!(
+            "║ External IP: {:15}                                  ║",
+            ip
+        );
     }
     log::info!("╚════════════════════════════════════════════════════════════════╝");
 
@@ -110,11 +116,16 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             .expect("Valid external multiaddr");
         swarm.add_external_address(external_addr.clone());
         log::info!("Added external address: {}", external_addr);
-        
+
         // Print the full connection string for clients
         log::info!("");
         log::info!("📋 Client connection string (add to bootstrap_config):");
-        log::info!("   /ip4/{}/tcp/{}/p2p/{}", external_ip, args.port, local_peer_id);
+        log::info!(
+            "   /ip4/{}/tcp/{}/p2p/{}",
+            external_ip,
+            args.port,
+            local_peer_id
+        );
         log::info!("");
     }
 
@@ -132,18 +143,18 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                     SwarmEvent::NewListenAddr { address, .. } => {
                         log::info!("🎧 Listening on: {}/p2p/{}", address, local_peer_id);
                     }
-                    
+
                     SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
                         connections += 1;
-                        log::info!("✅ Peer connected: {} via {:?} (total: {})", 
+                        log::info!("✅ Peer connected: {} via {:?} (total: {})",
                             peer_id, endpoint.get_remote_address(), connections);
                     }
-                    
+
                     SwarmEvent::ConnectionClosed { peer_id, cause, .. } => {
                         if connections > 0 {
                             connections -= 1;
                         }
-                        log::info!("❌ Peer disconnected: {} cause: {:?} (remaining: {})", 
+                        log::info!("❌ Peer disconnected: {} cause: {:?} (remaining: {})",
                             peer_id, cause, connections);
                     }
 
@@ -154,7 +165,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                                     log::debug!("🔄 Relay reservation renewed: {}", src_peer_id);
                                 } else {
                                     relayed_circuits += 1;
-                                    log::info!("🔗 Relay reservation accepted: {} (total circuits: {})", 
+                                    log::info!("🔗 Relay reservation accepted: {} (total circuits: {})",
                                         src_peer_id, relayed_circuits);
                                 }
                             }
@@ -200,7 +211,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                     }
                 }
             }
-            
+
             _ = signal::ctrl_c() => {
                 log::info!("Shutting down relay node...");
                 break;
@@ -208,12 +219,18 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         }
     }
 
-    log::info!("Relay node stopped. Stats: {} connections, {} circuits", connections, relayed_circuits);
+    log::info!(
+        "Relay node stopped. Stats: {} connections, {} circuits",
+        connections,
+        relayed_circuits
+    );
     Ok(())
 }
 
 /// Build a relay-capable swarm
-fn build_relay_swarm(keypair: Keypair) -> Result<Swarm<CinqRelayBehaviour>, Box<dyn Error + Send + Sync>> {
+fn build_relay_swarm(
+    keypair: Keypair,
+) -> Result<Swarm<CinqRelayBehaviour>, Box<dyn Error + Send + Sync>> {
     let swarm = libp2p::SwarmBuilder::with_existing_identity(keypair.clone())
         .with_tokio()
         .with_tcp(

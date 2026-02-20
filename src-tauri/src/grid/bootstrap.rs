@@ -43,13 +43,13 @@ impl SavedPeer {
         if total == 0 {
             return 0.5; // Unknown reliability
         }
-        
+
         let success_rate = self.success_count as f64 / total as f64;
-        
+
         // Decay based on how long ago we connected (prefer recent connections)
         let age_hours = (now() - self.last_connected) as f64 / 3600.0;
         let recency_factor = 1.0 / (1.0 + age_hours / 24.0); // Half weight after 24 hours
-        
+
         success_rate * recency_factor
     }
 
@@ -133,12 +133,12 @@ impl PeerStorage {
             config: BootstrapConfig::default(),
             storage_path: Some(storage_path),
         };
-        
+
         // Try to load existing peers
         if let Err(e) = storage.load() {
             log::warn!("Could not load saved peers: {}", e);
         }
-        
+
         storage
     }
 
@@ -151,9 +151,11 @@ impl PeerStorage {
 
     /// Load peers from disk
     pub fn load(&mut self) -> Result<(), String> {
-        let path = self.storage_path.as_ref()
+        let path = self
+            .storage_path
+            .as_ref()
             .ok_or_else(|| "No storage path configured".to_string())?;
-        
+
         if !path.exists() {
             log::info!("No saved peers file found, starting fresh");
             return Ok(());
@@ -161,21 +163,23 @@ impl PeerStorage {
 
         let data = std::fs::read_to_string(path)
             .map_err(|e| format!("Failed to read peers file: {}", e))?;
-        
+
         let loaded: PeerStorage = serde_json::from_str(&data)
             .map_err(|e| format!("Failed to parse peers file: {}", e))?;
-        
+
         self.peers = loaded.peers;
         log::info!("Loaded {} saved peers", self.peers.len());
-        
+
         Ok(())
     }
 
     /// Save peers to disk
     pub fn save(&self) -> Result<(), String> {
-        let path = self.storage_path.as_ref()
+        let path = self
+            .storage_path
+            .as_ref()
             .ok_or_else(|| "No storage path configured".to_string())?;
-        
+
         // Ensure directory exists
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)
@@ -184,12 +188,11 @@ impl PeerStorage {
 
         let data = serde_json::to_string_pretty(self)
             .map_err(|e| format!("Failed to serialize peers: {}", e))?;
-        
-        std::fs::write(path, data)
-            .map_err(|e| format!("Failed to write peers file: {}", e))?;
-        
+
+        std::fs::write(path, data).map_err(|e| format!("Failed to write peers file: {}", e))?;
+
         log::debug!("Saved {} peers to disk", self.peers.len());
-        
+
         Ok(())
     }
 
@@ -201,13 +204,13 @@ impl PeerStorage {
         } else {
             self.peers.insert(
                 peer_id.to_string(),
-                SavedPeer::new(peer_id.to_string(), address.to_string())
+                SavedPeer::new(peer_id.to_string(), address.to_string()),
             );
         }
-        
+
         // Prune if we have too many peers
         self.prune_old_peers();
-        
+
         // Auto-save
         if let Err(e) = self.save() {
             log::warn!("Failed to save peers: {}", e);
@@ -228,13 +231,17 @@ impl PeerStorage {
     pub fn record_connection_failure(&mut self, peer_id: &str) {
         if let Some(peer) = self.peers.get_mut(peer_id) {
             peer.record_failure();
-            
+
             // Remove peer if too many failures
             if peer.fail_count >= self.config.max_attempts_per_peer {
-                log::info!("Removing peer {} after {} failures", peer_id, peer.fail_count);
+                log::info!(
+                    "Removing peer {} after {} failures",
+                    peer_id,
+                    peer.fail_count
+                );
                 self.peers.remove(peer_id);
             }
-            
+
             if let Err(e) = self.save() {
                 log::warn!("Failed to save peers: {}", e);
             }
@@ -247,7 +254,8 @@ impl PeerStorage {
         // Sort peers by reliability score
         let mut peers: Vec<_> = self.peers.values().collect();
         peers.sort_by(|a, b| {
-            b.reliability_score().partial_cmp(&a.reliability_score())
+            b.reliability_score()
+                .partial_cmp(&a.reliability_score())
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
@@ -303,7 +311,8 @@ impl PeerStorage {
         // Sort by reliability score and keep the best
         let mut peers: Vec<_> = self.peers.iter().collect();
         peers.sort_by(|a, b| {
-            b.1.reliability_score().partial_cmp(&a.1.reliability_score())
+            b.1.reliability_score()
+                .partial_cmp(&a.1.reliability_score())
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
@@ -345,14 +354,11 @@ mod tests {
     fn test_peer_storage_save_load() {
         let dir = tempdir().unwrap();
         let mut storage = PeerStorage::new(dir.path().to_path_buf());
-        
-        storage.upsert_peer(
-            "12D3KooWTestPeerId123",
-            "/ip4/192.168.1.100/tcp/9000"
-        );
-        
+
+        storage.upsert_peer("12D3KooWTestPeerId123", "/ip4/192.168.1.100/tcp/9000");
+
         assert_eq!(storage.peer_count(), 1);
-        
+
         // Create a new storage and load
         let storage2 = PeerStorage::new(dir.path().to_path_buf());
         assert_eq!(storage2.peer_count(), 1);
@@ -361,11 +367,11 @@ mod tests {
     #[test]
     fn test_reliability_score() {
         let mut peer = SavedPeer::new("test".to_string(), "/ip4/1.2.3.4/tcp/9000".to_string());
-        
+
         // Fresh peer should have decent score
         let initial_score = peer.reliability_score();
         assert!(initial_score > 0.0);
-        
+
         // After failures, score should decrease
         peer.record_failure();
         peer.record_failure();

@@ -3,23 +3,25 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod apps;
 mod grid;
 mod qora;
 mod swarm;
 
-use grid::{CinqNode, BandwidthMetrics, GridPeer, ProxyStatus, NodeConfig};
-use grid::{ChatManager, ChatMessage, Contact, Conversation, MessageStatus};
-use grid::{StratumClient, PoolStats, Worker, StratumStatus};
+use apps::{AppId, AppInfo, AppRegistry};
 use grid::UserIdRegistry;
+use grid::{BandwidthMetrics, CinqNode, GridPeer, NodeConfig, ProxyStatus};
+use grid::{ChatManager, ChatMessage, Contact, Conversation, MessageStatus};
+use grid::{PoolStats, StratumClient, StratumStatus, Worker};
 use qora::{QoraAgent, Task};
-use swarm::{UsageTracker, ActionType, Warning, CostTable};
-use swarm::{Qora, QoraResponse, Intent, ResponseContext};
-use swarm::{BandwidthWorker, StorageWorker, PaymentWorker, WorkerResult};
-use std::sync::Arc;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use tokio::sync::RwLock;
+use std::sync::Arc;
+use swarm::{ActionType, CostTable, UsageTracker, Warning};
+use swarm::{BandwidthWorker, PaymentWorker, StorageWorker};
+use swarm::{Qora, QoraResponse};
 use tauri::State;
-use serde::{Serialize, Deserialize};
+use tokio::sync::RwLock;
 
 /// Global state for the Cinq node
 pub struct CinqState {
@@ -34,6 +36,8 @@ pub struct CinqState {
     bandwidth_worker: Arc<BandwidthWorker>,
     storage_worker: Arc<StorageWorker>,
     payment_worker: Arc<RwLock<PaymentWorker>>,
+    // App registry
+    apps: Arc<RwLock<AppRegistry>>,
 }
 
 impl CinqState {
@@ -42,7 +46,7 @@ impl CinqState {
         let data_dir = dirs::data_dir()
             .map(|d| d.join("cinq"))
             .unwrap_or_else(|| PathBuf::from("."));
-        
+
         Self {
             node: Arc::new(RwLock::new(None)),
             chat: Arc::new(RwLock::new(None)),
@@ -53,8 +57,10 @@ impl CinqState {
             // Initialize swarm components
             qora_swarm: Arc::new(Qora::new()),
             bandwidth_worker: Arc::new(BandwidthWorker::new()),
-            storage_worker: Arc::new(StorageWorker::new(data_dir)),
+            storage_worker: Arc::new(StorageWorker::new(data_dir.clone())),
             payment_worker: Arc::new(RwLock::new(PaymentWorker::new(tracker))),
+            // Initialize app registry
+            apps: Arc::new(RwLock::new(AppRegistry::new(data_dir))),
         }
     }
 }
@@ -69,11 +75,19 @@ pub struct CommandResponse<T: Serialize> {
 
 impl<T: Serialize> CommandResponse<T> {
     pub fn ok(data: T) -> Self {
-        Self { success: true, data: Some(data), error: None }
+        Self {
+            success: true,
+            data: Some(data),
+            error: None,
+        }
     }
-    
+
     pub fn err(msg: impl Into<String>) -> Self {
-        Self { success: false, data: None, error: Some(msg.into()) }
+        Self {
+            success: false,
+            data: None,
+            error: Some(msg.into()),
+        }
     }
 }
 
@@ -89,15 +103,17 @@ async fn reset_identity(state: State<'_, CinqState>) -> Result<CommandResponse<(
     {
         let node_guard = state.node.read().await;
         if node_guard.is_some() {
-            return Ok(CommandResponse::err("Stop the node before resetting identity"));
+            return Ok(CommandResponse::err(
+                "Stop the node before resetting identity",
+            ));
         }
     }
-    
+
     // Get data directory
     let data_dir = dirs::data_dir()
         .ok_or("Could not find data directory")?
         .join("cinq");
-    
+
     // Delete keypair.bin to get a new Mesh ID
     let keypair_path = data_dir.join("keypair.bin");
     if keypair_path.exists() {
@@ -107,7 +123,7 @@ async fn reset_identity(state: State<'_, CinqState>) -> Result<CommandResponse<(
             log::info!("Deleted keypair.bin - new Mesh ID will be generated");
         }
     }
-    
+
     // Clear Chat ID from registry
     let userid_guard = state.userid.read().await;
     if let Some(registry_arc) = userid_guard.as_ref() {
@@ -118,7 +134,7 @@ async fn reset_identity(state: State<'_, CinqState>) -> Result<CommandResponse<(
             log::info!("Reset Chat ID - new one will be generated");
         }
     }
-    
+
     // Also clear the chat database conversations (optional - fresh start)
     let chat_db_path = data_dir.join("chat.db");
     if chat_db_path.exists() {
@@ -128,7 +144,7 @@ async fn reset_identity(state: State<'_, CinqState>) -> Result<CommandResponse<(
             log::info!("Deleted chat.db - fresh message history");
         }
     }
-    
+
     Ok(CommandResponse::ok(()))
 }
 
@@ -140,22 +156,22 @@ async fn start_node(
     seed_phrase: Option<String>,
 ) -> Result<CommandResponse<String>, String> {
     let mut node_guard = state.node.write().await;
-    
+
     if node_guard.is_some() {
         return Ok(CommandResponse::err("Node is already running"));
     }
-    
+
     // Build config with optional bootstrap addresses
     let mut config = NodeConfig::default();
     if let Some(addrs) = bootstrap_addresses {
         config.bootstrap_config.initial_bootstraps = addrs;
     }
     // Note: seed_phrase is used for Chat ID (human identity), not Mesh ID (network plumbing)
-    
+
     match CinqNode::with_config(config.clone()) {
         Ok(mut node) => {
             let peer_id = node.peer_id_string();
-            
+
             // Initialize chat manager with peer ID
             let chat_arc = {
                 let mut chat_guard = state.chat.write().await;
@@ -173,7 +189,7 @@ async fn start_node(
                     }
                 }
             };
-            
+
             // Initialize user ID registry with seed phrase for deterministic Chat ID
             {
                 let mut userid_guard = state.userid.write().await;
@@ -192,20 +208,23 @@ async fn start_node(
                     }
                 }
             }
-            
+
             // Give the node access to chat manager for storing incoming messages
             if let Some(cm) = chat_arc {
                 node.set_chat_manager(cm);
             }
-            
+
             if let Err(e) = node.start().await {
                 return Ok(CommandResponse::err(format!("Failed to start node: {}", e)));
             }
-            
+
             *node_guard = Some(node);
             Ok(CommandResponse::ok(peer_id))
         }
-        Err(e) => Ok(CommandResponse::err(format!("Failed to create node: {}", e))),
+        Err(e) => Ok(CommandResponse::err(format!(
+            "Failed to create node: {}",
+            e
+        ))),
     }
 }
 
@@ -213,13 +232,13 @@ async fn start_node(
 #[tauri::command]
 async fn stop_node(state: State<'_, CinqState>) -> Result<CommandResponse<()>, String> {
     let mut node_guard = state.node.write().await;
-    
+
     if let Some(node) = node_guard.as_ref() {
         if let Err(e) = node.shutdown().await {
             return Ok(CommandResponse::err(format!("Failed to shutdown: {}", e)));
         }
     }
-    
+
     *node_guard = None;
     Ok(CommandResponse::ok(()))
 }
@@ -230,7 +249,7 @@ async fn get_peer_id(state: State<'_, CinqState>) -> Result<CommandResponse<Stri
     log::debug!("get_peer_id: acquiring read lock");
     let node_guard = state.node.read().await;
     log::debug!("get_peer_id: got read lock");
-    
+
     match node_guard.as_ref() {
         Some(node) => Ok(CommandResponse::ok(node.peer_id_string())),
         None => Ok(CommandResponse::err("Node is not running")),
@@ -241,29 +260,27 @@ async fn get_peer_id(state: State<'_, CinqState>) -> Result<CommandResponse<Stri
 #[tauri::command]
 async fn get_peers(state: State<'_, CinqState>) -> Result<CommandResponse<Vec<GridPeer>>, String> {
     log::debug!("get_peers: starting with full timeout");
-    
+
     // Wrap the entire operation in a timeout
-    let result = tokio::time::timeout(
-        std::time::Duration::from_secs(3),
-        async {
-            let node_guard = state.node.read().await;
-            log::debug!("get_peers: got read lock");
-            
-            match node_guard.as_ref() {
-                Some(node) => {
-                    log::debug!("get_peers: calling node.get_peers()");
-                    let peers = node.get_peers().await;
-                    log::debug!("get_peers: got {} peers", peers.len());
-                    CommandResponse::ok(peers)
-                }
-                None => {
-                    log::debug!("get_peers: node not running");
-                    CommandResponse::err("Node is not running")
-                }
+    let result = tokio::time::timeout(std::time::Duration::from_secs(3), async {
+        let node_guard = state.node.read().await;
+        log::debug!("get_peers: got read lock");
+
+        match node_guard.as_ref() {
+            Some(node) => {
+                log::debug!("get_peers: calling node.get_peers()");
+                let peers = node.get_peers().await;
+                log::debug!("get_peers: got {} peers", peers.len());
+                CommandResponse::ok(peers)
+            }
+            None => {
+                log::debug!("get_peers: node not running");
+                CommandResponse::err("Node is not running")
             }
         }
-    ).await;
-    
+    })
+    .await;
+
     match result {
         Ok(response) => Ok(response),
         Err(_) => {
@@ -275,25 +292,28 @@ async fn get_peers(state: State<'_, CinqState>) -> Result<CommandResponse<Vec<Gr
 
 /// Connect to a peer by address
 #[tauri::command]
-async fn connect_peer(state: State<'_, CinqState>, address: String) -> Result<CommandResponse<()>, String> {
+async fn connect_peer(
+    state: State<'_, CinqState>,
+    address: String,
+) -> Result<CommandResponse<()>, String> {
     let node_guard = state.node.read().await;
-    
+
     match node_guard.as_ref() {
-        Some(node) => {
-            match node.connect(&address).await {
-                Ok(_) => Ok(CommandResponse::ok(())),
-                Err(e) => Ok(CommandResponse::err(format!("Failed to connect: {}", e))),
-            }
-        }
+        Some(node) => match node.connect(&address).await {
+            Ok(_) => Ok(CommandResponse::ok(())),
+            Err(e) => Ok(CommandResponse::err(format!("Failed to connect: {}", e))),
+        },
         None => Ok(CommandResponse::err("Node is not running")),
     }
 }
 
 /// Get bandwidth metrics
 #[tauri::command]
-async fn get_bandwidth_metrics(state: State<'_, CinqState>) -> Result<CommandResponse<BandwidthMetrics>, String> {
+async fn get_bandwidth_metrics(
+    state: State<'_, CinqState>,
+) -> Result<CommandResponse<BandwidthMetrics>, String> {
     let node_guard = state.node.read().await;
-    
+
     match node_guard.as_ref() {
         Some(node) => {
             let metrics = node.metrics.read().await;
@@ -305,9 +325,11 @@ async fn get_bandwidth_metrics(state: State<'_, CinqState>) -> Result<CommandRes
 
 /// Get billing summary for Qi payments (future)
 #[tauri::command]
-async fn get_billing_summary(state: State<'_, CinqState>) -> Result<CommandResponse<grid::metrics::BillingSummary>, String> {
+async fn get_billing_summary(
+    state: State<'_, CinqState>,
+) -> Result<CommandResponse<grid::metrics::BillingSummary>, String> {
     let node_guard = state.node.read().await;
-    
+
     match node_guard.as_ref() {
         Some(node) => {
             let metrics = node.metrics.read().await;
@@ -334,25 +356,28 @@ fn calculate_deposit(amount: f64) -> String {
 
 /// Start the SOCKS5 proxy on the specified port
 #[tauri::command]
-async fn start_proxy(state: State<'_, CinqState>, port: Option<u16>) -> Result<CommandResponse<String>, String> {
+async fn start_proxy(
+    state: State<'_, CinqState>,
+    port: Option<u16>,
+) -> Result<CommandResponse<String>, String> {
     log::info!("start_proxy command received, acquiring write lock...");
-    
+
     // Use try_write with timeout to avoid blocking forever
-    let node_guard = tokio::time::timeout(
-        std::time::Duration::from_secs(5),
-        state.node.write()
-    ).await;
-    
+    let node_guard =
+        tokio::time::timeout(std::time::Duration::from_secs(5), state.node.write()).await;
+
     let mut node_guard = match node_guard {
         Ok(guard) => guard,
         Err(_) => {
             log::error!("Timeout acquiring write lock for start_proxy");
-            return Ok(CommandResponse::err("Timeout: could not acquire lock. Try again."));
+            return Ok(CommandResponse::err(
+                "Timeout: could not acquire lock. Try again.",
+            ));
         }
     };
-    
+
     log::info!("start_proxy: acquired write lock");
-    
+
     match node_guard.as_mut() {
         Some(node) => {
             let proxy_port = port.unwrap_or(1080);
@@ -364,11 +389,16 @@ async fn start_proxy(state: State<'_, CinqState>, port: Option<u16>) -> Result<C
                 }
                 Err(e) => {
                     log::error!("start_proxy: failed - {}", e);
-                    Ok(CommandResponse::err(format!("Failed to start proxy: {}", e)))
+                    Ok(CommandResponse::err(format!(
+                        "Failed to start proxy: {}",
+                        e
+                    )))
                 }
             }
         }
-        None => Ok(CommandResponse::err("Node is not running. Start the node first.")),
+        None => Ok(CommandResponse::err(
+            "Node is not running. Start the node first.",
+        )),
     }
 }
 
@@ -376,23 +406,23 @@ async fn start_proxy(state: State<'_, CinqState>, port: Option<u16>) -> Result<C
 #[tauri::command]
 async fn stop_proxy(state: State<'_, CinqState>) -> Result<CommandResponse<()>, String> {
     let mut node_guard = state.node.write().await;
-    
+
     match node_guard.as_mut() {
-        Some(node) => {
-            match node.stop_proxy().await {
-                Ok(_) => Ok(CommandResponse::ok(())),
-                Err(e) => Ok(CommandResponse::err(format!("Failed to stop proxy: {}", e))),
-            }
-        }
+        Some(node) => match node.stop_proxy().await {
+            Ok(_) => Ok(CommandResponse::ok(())),
+            Err(e) => Ok(CommandResponse::err(format!("Failed to stop proxy: {}", e))),
+        },
         None => Ok(CommandResponse::err("Node is not running")),
     }
 }
 
 /// Get proxy status
 #[tauri::command]
-async fn get_proxy_status(state: State<'_, CinqState>) -> Result<CommandResponse<ProxyStatus>, String> {
+async fn get_proxy_status(
+    state: State<'_, CinqState>,
+) -> Result<CommandResponse<ProxyStatus>, String> {
     let node_guard = state.node.read().await;
-    
+
     match node_guard.as_ref() {
         Some(node) => {
             let status = node.proxy_status().await;
@@ -410,9 +440,11 @@ async fn get_proxy_status(state: State<'_, CinqState>) -> Result<CommandResponse
 
 /// Get list of connected peers that can be used as exit nodes
 #[tauri::command]
-async fn get_exit_peers(state: State<'_, CinqState>) -> Result<CommandResponse<Vec<String>>, String> {
+async fn get_exit_peers(
+    state: State<'_, CinqState>,
+) -> Result<CommandResponse<Vec<String>>, String> {
     let node_guard = state.node.read().await;
-    
+
     match node_guard.as_ref() {
         Some(node) => {
             let peers = node.get_connected_peer_ids().await;
@@ -429,9 +461,11 @@ async fn get_exit_peers(state: State<'_, CinqState>) -> Result<CommandResponse<V
 
 /// Get all conversations
 #[tauri::command]
-async fn get_conversations(state: State<'_, CinqState>) -> Result<CommandResponse<Vec<Conversation>>, String> {
+async fn get_conversations(
+    state: State<'_, CinqState>,
+) -> Result<CommandResponse<Vec<Conversation>>, String> {
     let chat_guard = state.chat.read().await;
-    
+
     match chat_guard.as_ref() {
         Some(chat_arc) => {
             let chat = chat_arc.read().await;
@@ -453,7 +487,7 @@ async fn get_messages(
     before_timestamp: Option<u64>,
 ) -> Result<CommandResponse<Vec<ChatMessage>>, String> {
     let chat_guard = state.chat.read().await;
-    
+
     match chat_guard.as_ref() {
         Some(chat_arc) => {
             let chat = chat_arc.read().await;
@@ -487,7 +521,7 @@ async fn send_message(
             None => return Ok(CommandResponse::err("Chat not initialized")),
         }
     };
-    
+
     // Now send via the network
     let node_guard = state.node.read().await;
     match node_guard.as_ref() {
@@ -503,7 +537,7 @@ async fn send_message(
                         encrypted_content: content.as_bytes().to_vec(),
                         timestamp: msg.timestamp,
                     };
-                    
+
                     // Try to send (update status based on result)
                     if let Err(e) = node.send_request(pid, request).await {
                         log::warn!("Failed to send message: {}", e);
@@ -513,12 +547,12 @@ async fn send_message(
                             let chat = chat_arc.read().await;
                             let _ = chat.update_message_status(&msg.id, MessageStatus::Failed);
                         }
-                        return Ok(CommandResponse::ok(ChatMessage { 
-                            status: MessageStatus::Failed, 
-                            ..msg 
+                        return Ok(CommandResponse::ok(ChatMessage {
+                            status: MessageStatus::Failed,
+                            ..msg
                         }));
                     }
-                    
+
                     // Update status to sent
                     {
                         let chat_guard = state.chat.read().await;
@@ -527,10 +561,10 @@ async fn send_message(
                             let _ = chat.update_message_status(&msg.id, MessageStatus::Sent);
                         }
                     }
-                    
-                    Ok(CommandResponse::ok(ChatMessage { 
-                        status: MessageStatus::Sent, 
-                        ..msg 
+
+                    Ok(CommandResponse::ok(ChatMessage {
+                        status: MessageStatus::Sent,
+                        ..msg
                     }))
                 }
                 Err(_) => Ok(CommandResponse::err("Invalid peer ID")),
@@ -545,9 +579,11 @@ async fn send_message(
 
 /// Get all contacts
 #[tauri::command]
-async fn get_contacts(state: State<'_, CinqState>) -> Result<CommandResponse<Vec<Contact>>, String> {
+async fn get_contacts(
+    state: State<'_, CinqState>,
+) -> Result<CommandResponse<Vec<Contact>>, String> {
     let chat_guard = state.chat.read().await;
-    
+
     match chat_guard.as_ref() {
         Some(chat_arc) => {
             let chat = chat_arc.read().await;
@@ -568,7 +604,7 @@ async fn add_contact(
     display_name: String,
 ) -> Result<CommandResponse<Contact>, String> {
     let chat_guard = state.chat.read().await;
-    
+
     match chat_guard.as_ref() {
         Some(chat_arc) => {
             let chat = chat_arc.read().await;
@@ -576,7 +612,7 @@ async fn add_contact(
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_millis() as u64;
-            
+
             let contact = Contact {
                 peer_id: peer_id.clone(),
                 display_name,
@@ -585,7 +621,7 @@ async fn add_contact(
                 public_key: None,
                 is_online: false,
             };
-            
+
             match chat.upsert_contact(&contact) {
                 Ok(()) => Ok(CommandResponse::ok(contact)),
                 Err(e) => Ok(CommandResponse::err(e)),
@@ -602,7 +638,7 @@ async fn mark_conversation_read(
     conversation_id: String,
 ) -> Result<CommandResponse<()>, String> {
     let chat_guard = state.chat.read().await;
-    
+
     match chat_guard.as_ref() {
         Some(chat_arc) => {
             let chat = chat_arc.read().await;
@@ -623,12 +659,16 @@ async fn start_conversation(
     display_name: Option<String>,
 ) -> Result<CommandResponse<Conversation>, String> {
     let chat_guard = state.chat.read().await;
-    
+
     match chat_guard.as_ref() {
         Some(chat_arc) => {
             let chat = chat_arc.read().await;
             let name = display_name.unwrap_or_else(|| {
-                if peer_id.len() > 8 { peer_id[..8].to_string() } else { peer_id.clone() }
+                if peer_id.len() > 8 {
+                    peer_id[..8].to_string()
+                } else {
+                    peer_id.clone()
+                }
             });
             match chat.get_or_create_conversation(&peer_id, &name) {
                 Ok(conv) => Ok(CommandResponse::ok(conv)),
@@ -663,12 +703,12 @@ pub struct UserIdInfo {
 async fn get_user_id(state: State<'_, CinqState>) -> Result<CommandResponse<UserIdInfo>, String> {
     let userid_guard = state.userid.read().await;
     let node_guard = state.node.read().await;
-    
+
     let peer_id = match node_guard.as_ref() {
         Some(node) => node.peer_id_string(),
         None => return Ok(CommandResponse::err("Node is not running")),
     };
-    
+
     match userid_guard.as_ref() {
         Some(registry_arc) => {
             let registry = registry_arc.read().await;
@@ -695,28 +735,28 @@ async fn lookup_user_id(
 ) -> Result<CommandResponse<Option<String>>, String> {
     // Normalize the user ID (remove dashes if present)
     let normalized = user_id.replace("-", "").replace(" ", "");
-    
+
     // Validate format: either 10 digits (legacy) or 11 digits (zone-prefixed)
-    let is_valid = (normalized.len() == 10 || normalized.len() == 11) 
+    let is_valid = (normalized.len() == 10 || normalized.len() == 11)
         && normalized.chars().all(|c| c.is_ascii_digit());
-    
+
     if !is_valid {
         return Ok(CommandResponse::err(
             "Invalid user ID format. Use 10 digits (555-123-4567) or zone-prefixed (2-555-123-4567)"
         ));
     }
-    
+
     let userid_guard = state.userid.read().await;
-    
+
     match userid_guard.as_ref() {
         Some(registry_arc) => {
             let registry = registry_arc.read().await;
-            
+
             // Check local cache first
             if let Some(peer_id) = registry.lookup_cached(&normalized) {
                 return Ok(CommandResponse::ok(Some(peer_id)));
             }
-            
+
             // TODO: Query DHT for the user ID
             // For now, return None if not in cache
             Ok(CommandResponse::ok(None))
@@ -734,7 +774,7 @@ async fn cache_user_id(
     display_name: Option<String>,
 ) -> Result<CommandResponse<()>, String> {
     let userid_guard = state.userid.read().await;
-    
+
     match userid_guard.as_ref() {
         Some(registry_arc) => {
             let registry = registry_arc.read().await;
@@ -754,7 +794,7 @@ async fn get_user_id_for_peer(
     peer_id: String,
 ) -> Result<CommandResponse<Option<String>>, String> {
     let userid_guard = state.userid.read().await;
-    
+
     match userid_guard.as_ref() {
         Some(registry_arc) => {
             let registry = registry_arc.read().await;
@@ -781,14 +821,14 @@ async fn update_profile(
     avatar: Option<String>,
 ) -> Result<CommandResponse<()>, String> {
     let userid_guard = state.userid.read().await;
-    
+
     match userid_guard.as_ref() {
         Some(registry_arc) => {
             let registry = registry_arc.read().await;
             match registry.update_profile(
                 display_name.as_deref(),
                 bio.as_deref(),
-                avatar.as_deref()
+                avatar.as_deref(),
             ) {
                 Ok(()) => Ok(CommandResponse::ok(())),
                 Err(e) => Ok(CommandResponse::err(e)),
@@ -802,7 +842,7 @@ async fn update_profile(
 #[tauri::command]
 async fn get_profile(state: State<'_, CinqState>) -> Result<CommandResponse<ProfileInfo>, String> {
     let userid_guard = state.userid.read().await;
-    
+
     match userid_guard.as_ref() {
         Some(registry_arc) => {
             let registry = registry_arc.read().await;
@@ -845,9 +885,11 @@ pub struct ContactCardData {
 
 /// Get contact card for sharing (generates QR-ready data)
 #[tauri::command]
-async fn get_contact_card(state: State<'_, CinqState>) -> Result<CommandResponse<ContactCardInfo>, String> {
+async fn get_contact_card(
+    state: State<'_, CinqState>,
+) -> Result<CommandResponse<ContactCardInfo>, String> {
     let userid_guard = state.userid.read().await;
-    
+
     match userid_guard.as_ref() {
         Some(registry_arc) => {
             let registry = registry_arc.read().await;
@@ -876,7 +918,7 @@ async fn get_contact_card(state: State<'_, CinqState>) -> Result<CommandResponse
 #[tauri::command]
 async fn parse_contact_card(data: String) -> Result<CommandResponse<ContactCardData>, String> {
     use grid::userid::ContactCard;
-    
+
     // Try parsing as URL first
     if let Some(card) = ContactCard::from_url(&data) {
         return Ok(CommandResponse::ok(ContactCardData {
@@ -888,7 +930,7 @@ async fn parse_contact_card(data: String) -> Result<CommandResponse<ContactCardD
             zone_name: card.zone_name,
         }));
     }
-    
+
     // Try parsing as JSON
     if let Some(card) = ContactCard::from_json(&data) {
         return Ok(CommandResponse::ok(ContactCardData {
@@ -900,7 +942,7 @@ async fn parse_contact_card(data: String) -> Result<CommandResponse<ContactCardD
             zone_name: card.zone_name,
         }));
     }
-    
+
     Ok(CommandResponse::err("Invalid contact card format"))
 }
 
@@ -915,14 +957,16 @@ async fn stratum_connect(
     url: Option<String>,
 ) -> Result<CommandResponse<StratumStatus>, String> {
     let mut stratum_guard = state.stratum.write().await;
-    
+
     let client = StratumClient::new(url);
-    
+
     // Check connection
     if !client.check_connection().await {
-        return Ok(CommandResponse::err("Cannot connect to StratumX API. Is go-quai running with --node.stratum-enabled?"));
+        return Ok(CommandResponse::err(
+            "Cannot connect to StratumX API. Is go-quai running with --node.stratum-enabled?",
+        ));
     }
-    
+
     // Get initial stats
     match client.get_pool_stats().await {
         Ok(stats) => {
@@ -931,9 +975,10 @@ async fn stratum_connect(
             log::info!("Connected to StratumX: {:?}", status);
             Ok(CommandResponse::ok(status))
         }
-        Err(e) => {
-            Ok(CommandResponse::err(format!("Failed to get pool stats: {}", e)))
-        }
+        Err(e) => Ok(CommandResponse::err(format!(
+            "Failed to get pool stats: {}",
+            e
+        ))),
     }
 }
 
@@ -948,57 +993,62 @@ async fn stratum_disconnect(state: State<'_, CinqState>) -> Result<CommandRespon
 
 /// Get StratumX pool stats
 #[tauri::command]
-async fn stratum_get_stats(state: State<'_, CinqState>) -> Result<CommandResponse<PoolStats>, String> {
+async fn stratum_get_stats(
+    state: State<'_, CinqState>,
+) -> Result<CommandResponse<PoolStats>, String> {
     let stratum_guard = state.stratum.read().await;
-    
+
     match stratum_guard.as_ref() {
-        Some(client) => {
-            match client.get_pool_stats().await {
-                Ok(stats) => Ok(CommandResponse::ok(stats)),
-                Err(e) => Ok(CommandResponse::err(format!("Failed to get stats: {}", e))),
-            }
-        }
+        Some(client) => match client.get_pool_stats().await {
+            Ok(stats) => Ok(CommandResponse::ok(stats)),
+            Err(e) => Ok(CommandResponse::err(format!("Failed to get stats: {}", e))),
+        },
         None => Ok(CommandResponse::err("Not connected to StratumX")),
     }
 }
 
 /// Get StratumX workers (potential chat peers)
 #[tauri::command]
-async fn stratum_get_workers(state: State<'_, CinqState>) -> Result<CommandResponse<Vec<Worker>>, String> {
+async fn stratum_get_workers(
+    state: State<'_, CinqState>,
+) -> Result<CommandResponse<Vec<Worker>>, String> {
     let stratum_guard = state.stratum.read().await;
-    
+
     match stratum_guard.as_ref() {
-        Some(client) => {
-            match client.get_workers().await {
-                Ok(workers) => Ok(CommandResponse::ok(workers)),
-                Err(e) => Ok(CommandResponse::err(format!("Failed to get workers: {}", e))),
-            }
-        }
+        Some(client) => match client.get_workers().await {
+            Ok(workers) => Ok(CommandResponse::ok(workers)),
+            Err(e) => Ok(CommandResponse::err(format!(
+                "Failed to get workers: {}",
+                e
+            ))),
+        },
         None => Ok(CommandResponse::err("Not connected to StratumX")),
     }
 }
 
 /// Get unique miner addresses from StratumX
 #[tauri::command]
-async fn stratum_get_miners(state: State<'_, CinqState>) -> Result<CommandResponse<Vec<String>>, String> {
+async fn stratum_get_miners(
+    state: State<'_, CinqState>,
+) -> Result<CommandResponse<Vec<String>>, String> {
     let stratum_guard = state.stratum.read().await;
-    
+
     match stratum_guard.as_ref() {
-        Some(client) => {
-            match client.get_miner_addresses().await {
-                Ok(addresses) => Ok(CommandResponse::ok(addresses)),
-                Err(e) => Ok(CommandResponse::err(format!("Failed to get miners: {}", e))),
-            }
-        }
+        Some(client) => match client.get_miner_addresses().await {
+            Ok(addresses) => Ok(CommandResponse::ok(addresses)),
+            Err(e) => Ok(CommandResponse::err(format!("Failed to get miners: {}", e))),
+        },
         None => Ok(CommandResponse::err("Not connected to StratumX")),
     }
 }
 
 /// Check if connected to StratumX
 #[tauri::command]
-async fn stratum_is_connected(state: State<'_, CinqState>) -> Result<CommandResponse<bool>, String> {
+async fn stratum_is_connected(
+    state: State<'_, CinqState>,
+) -> Result<CommandResponse<bool>, String> {
     let stratum_guard = state.stratum.read().await;
-    
+
     match stratum_guard.as_ref() {
         Some(client) => Ok(CommandResponse::ok(client.is_connected().await)),
         None => Ok(CommandResponse::ok(false)),
@@ -1027,20 +1077,20 @@ async fn qora_init(
     model: Option<String>,
 ) -> Result<CommandResponse<QoraStatus>, String> {
     let mut qora_guard = state.qora.write().await;
-    
+
     // Get project root (current directory for now)
     let project_root = std::env::current_dir()
         .map(|p| p.parent().map(|pp| pp.to_path_buf()).unwrap_or(p))
         .unwrap_or_else(|_| std::path::PathBuf::from("."));
-    
+
     let url = ollama_url.unwrap_or_else(|| "http://localhost:11434".to_string());
     let model_name = model.unwrap_or_else(|| "deepseek-coder:33b".to_string());
-    
+
     let agent = QoraAgent::new(project_root, Some(url), Some(model_name.clone()));
-    
+
     // Check if Ollama is available
     let ollama_available = agent.health_check().await;
-    
+
     let status = QoraStatus {
         initialized: true,
         ollama_available,
@@ -1048,9 +1098,9 @@ async fn qora_init(
         pending_tasks: 0,
         pending_questions: vec![],
     };
-    
+
     *qora_guard = Some(agent);
-    
+
     log::info!("Qora initialized. Ollama available: {}", ollama_available);
     Ok(CommandResponse::ok(status))
 }
@@ -1059,12 +1109,12 @@ async fn qora_init(
 #[tauri::command]
 async fn qora_status(state: State<'_, CinqState>) -> Result<CommandResponse<QoraStatus>, String> {
     let qora_guard = state.qora.read().await;
-    
+
     match qora_guard.as_ref() {
         Some(agent) => {
             let state_data = agent.get_state().await;
             let ollama_available = agent.health_check().await;
-            
+
             Ok(CommandResponse::ok(QoraStatus {
                 initialized: true,
                 ollama_available,
@@ -1090,15 +1140,15 @@ async fn qora_chat(
     message: String,
 ) -> Result<CommandResponse<String>, String> {
     let qora_guard = state.qora.read().await;
-    
+
     match qora_guard.as_ref() {
-        Some(agent) => {
-            match agent.chat(&message).await {
-                Ok(response) => Ok(CommandResponse::ok(response)),
-                Err(e) => Ok(CommandResponse::err(format!("Qora error: {}", e))),
-            }
-        }
-        None => Ok(CommandResponse::err("Qora not initialized. Call qora_init first.")),
+        Some(agent) => match agent.chat(&message).await {
+            Ok(response) => Ok(CommandResponse::ok(response)),
+            Err(e) => Ok(CommandResponse::err(format!("Qora error: {}", e))),
+        },
+        None => Ok(CommandResponse::err(
+            "Qora not initialized. Call qora_init first.",
+        )),
     }
 }
 
@@ -1110,14 +1160,12 @@ async fn qora_add_task(
     description: String,
 ) -> Result<CommandResponse<Task>, String> {
     let qora_guard = state.qora.read().await;
-    
+
     match qora_guard.as_ref() {
-        Some(agent) => {
-            match agent.add_task(&title, &description).await {
-                Ok(task) => Ok(CommandResponse::ok(task)),
-                Err(e) => Ok(CommandResponse::err(e)),
-            }
-        }
+        Some(agent) => match agent.add_task(&title, &description).await {
+            Ok(task) => Ok(CommandResponse::ok(task)),
+            Err(e) => Ok(CommandResponse::err(e)),
+        },
         None => Ok(CommandResponse::err("Qora not initialized")),
     }
 }
@@ -1126,7 +1174,7 @@ async fn qora_add_task(
 #[tauri::command]
 async fn qora_get_tasks(state: State<'_, CinqState>) -> Result<CommandResponse<Vec<Task>>, String> {
     let qora_guard = state.qora.read().await;
-    
+
     match qora_guard.as_ref() {
         Some(agent) => {
             let tasks = agent.get_tasks().await;
@@ -1140,14 +1188,12 @@ async fn qora_get_tasks(state: State<'_, CinqState>) -> Result<CommandResponse<V
 #[tauri::command]
 async fn qora_work(state: State<'_, CinqState>) -> Result<CommandResponse<Option<String>>, String> {
     let qora_guard = state.qora.read().await;
-    
+
     match qora_guard.as_ref() {
-        Some(agent) => {
-            match agent.work().await {
-                Ok(result) => Ok(CommandResponse::ok(result)),
-                Err(e) => Ok(CommandResponse::err(format!("Work failed: {}", e))),
-            }
-        }
+        Some(agent) => match agent.work().await {
+            Ok(result) => Ok(CommandResponse::ok(result)),
+            Err(e) => Ok(CommandResponse::err(format!("Work failed: {}", e))),
+        },
         None => Ok(CommandResponse::err("Qora not initialized")),
     }
 }
@@ -1160,23 +1206,23 @@ async fn qora_answer_question(
     answer: String,
 ) -> Result<CommandResponse<String>, String> {
     let qora_guard = state.qora.read().await;
-    
+
     match qora_guard.as_ref() {
-        Some(agent) => {
-            match agent.answer_question(question_index, &answer).await {
-                Ok(response) => Ok(CommandResponse::ok(response)),
-                Err(e) => Ok(CommandResponse::err(e)),
-            }
-        }
+        Some(agent) => match agent.answer_question(question_index, &answer).await {
+            Ok(response) => Ok(CommandResponse::ok(response)),
+            Err(e) => Ok(CommandResponse::err(e)),
+        },
         None => Ok(CommandResponse::err("Qora not initialized")),
     }
 }
 
 /// Get Qora's conversation history
 #[tauri::command]
-async fn qora_get_history(state: State<'_, CinqState>) -> Result<CommandResponse<Vec<qora::agent::QoraMessage>>, String> {
+async fn qora_get_history(
+    state: State<'_, CinqState>,
+) -> Result<CommandResponse<Vec<qora::agent::QoraMessage>>, String> {
     let qora_guard = state.qora.read().await;
-    
+
     match qora_guard.as_ref() {
         Some(agent) => {
             let state_data = agent.get_state().await;
@@ -1191,23 +1237,23 @@ async fn qora_get_history(state: State<'_, CinqState>) -> Result<CommandResponse
 #[tauri::command]
 async fn qora_work_all(state: State<'_, CinqState>) -> Result<CommandResponse<String>, String> {
     let qora_guard = state.qora.read().await;
-    
+
     match qora_guard.as_ref() {
-        Some(agent) => {
-            match agent.work_all().await {
-                Ok(summary) => Ok(CommandResponse::ok(summary)),
-                Err(e) => Ok(CommandResponse::err(format!("Work failed: {}", e))),
-            }
-        }
+        Some(agent) => match agent.work_all().await {
+            Ok(summary) => Ok(CommandResponse::ok(summary)),
+            Err(e) => Ok(CommandResponse::err(format!("Work failed: {}", e))),
+        },
         None => Ok(CommandResponse::err("Qora not initialized")),
     }
 }
 
 /// Get Qora's pending questions that need human input
 #[tauri::command]
-async fn qora_get_questions(state: State<'_, CinqState>) -> Result<CommandResponse<Vec<String>>, String> {
+async fn qora_get_questions(
+    state: State<'_, CinqState>,
+) -> Result<CommandResponse<Vec<String>>, String> {
     let qora_guard = state.qora.read().await;
-    
+
     match qora_guard.as_ref() {
         Some(agent) => {
             let questions = agent.get_pending_questions().await;
@@ -1231,11 +1277,13 @@ pub struct BalanceInfo {
 
 /// Get current Qi balance and active sessions
 #[tauri::command]
-async fn swarm_get_balance(state: State<'_, CinqState>) -> Result<CommandResponse<BalanceInfo>, String> {
+async fn swarm_get_balance(
+    state: State<'_, CinqState>,
+) -> Result<CommandResponse<BalanceInfo>, String> {
     let balance = state.tracker.get_balance().await;
     let sessions = state.tracker.get_active_sessions().await;
     let in_use: f64 = sessions.iter().map(|s| s.qi_consumed).sum();
-    
+
     Ok(CommandResponse::ok(BalanceInfo {
         qi_balance: balance,
         active_sessions: sessions,
@@ -1269,10 +1317,18 @@ async fn swarm_start_session(
         "inference" => ActionType::Inference,
         "compute" => ActionType::Compute,
         "storage" => ActionType::Storage,
-        _ => return Ok(CommandResponse::err(format!("Unknown action type: {}", action_type))),
+        _ => {
+            return Ok(CommandResponse::err(format!(
+                "Unknown action type: {}",
+                action_type
+            )))
+        }
     };
-    
-    let session_id = state.tracker.start_session(action, description, peer_id).await;
+
+    let session_id = state
+        .tracker
+        .start_session(action, description, peer_id)
+        .await;
     Ok(CommandResponse::ok(session_id.to_string()))
 }
 
@@ -1282,9 +1338,9 @@ async fn swarm_end_session(
     state: State<'_, CinqState>,
     session_id: String,
 ) -> Result<CommandResponse<f64>, String> {
-    let uuid = uuid::Uuid::parse_str(&session_id)
-        .map_err(|e| format!("Invalid session ID: {}", e))?;
-    
+    let uuid =
+        uuid::Uuid::parse_str(&session_id).map_err(|e| format!("Invalid session ID: {}", e))?;
+
     match state.tracker.end_session(uuid).await {
         Some(qi) => Ok(CommandResponse::ok(qi)),
         None => Ok(CommandResponse::err("Session not found")),
@@ -1299,22 +1355,27 @@ async fn swarm_record_bytes(
     bytes_sent: u64,
     bytes_received: u64,
 ) -> Result<CommandResponse<()>, String> {
-    let uuid = uuid::Uuid::parse_str(&session_id)
-        .map_err(|e| format!("Invalid session ID: {}", e))?;
-    
+    let uuid =
+        uuid::Uuid::parse_str(&session_id).map_err(|e| format!("Invalid session ID: {}", e))?;
+
     if bytes_sent > 0 {
         state.tracker.record_bytes_sent(uuid, bytes_sent).await;
     }
     if bytes_received > 0 {
-        state.tracker.record_bytes_received(uuid, bytes_received).await;
+        state
+            .tracker
+            .record_bytes_received(uuid, bytes_received)
+            .await;
     }
-    
+
     Ok(CommandResponse::ok(()))
 }
 
 /// Check for any warnings across active sessions
 #[tauri::command]
-async fn swarm_check_warnings(state: State<'_, CinqState>) -> Result<CommandResponse<Vec<Warning>>, String> {
+async fn swarm_check_warnings(
+    state: State<'_, CinqState>,
+) -> Result<CommandResponse<Vec<Warning>>, String> {
     let warnings = state.tracker.check_warnings().await;
     Ok(CommandResponse::ok(warnings))
 }
@@ -1334,16 +1395,23 @@ async fn swarm_estimate_cost(
         "inference" => ActionType::Inference,
         "compute" => ActionType::Compute,
         "storage" => ActionType::Storage,
-        _ => return Ok(CommandResponse::err(format!("Unknown action type: {}", action_type))),
+        _ => {
+            return Ok(CommandResponse::err(format!(
+                "Unknown action type: {}",
+                action_type
+            )))
+        }
     };
-    
+
     let estimate = state.tracker.estimate_cost(action, units);
     Ok(CommandResponse::ok(estimate))
 }
 
 /// Get the cost table (all rates)
 #[tauri::command]
-async fn swarm_get_cost_table(_state: State<'_, CinqState>) -> Result<CommandResponse<CostTable>, String> {
+async fn swarm_get_cost_table(
+    _state: State<'_, CinqState>,
+) -> Result<CommandResponse<CostTable>, String> {
     Ok(CommandResponse::ok(CostTable::default()))
 }
 
@@ -1363,7 +1431,9 @@ async fn qora_process(
 
 /// Get all supported intents for the UI
 #[tauri::command]
-async fn qora_get_intents(_state: State<'_, CinqState>) -> Result<CommandResponse<Vec<String>>, String> {
+async fn qora_get_intents(
+    _state: State<'_, CinqState>,
+) -> Result<CommandResponse<Vec<String>>, String> {
     let intents = vec![
         "SendMessage".to_string(),
         "StartCall".to_string(),
@@ -1403,8 +1473,11 @@ async fn worker_send_message(
     peer_id: String,
     content: String,
 ) -> Result<CommandResponse<BandwidthResponse>, String> {
-    let result = state.bandwidth_worker.send_message(&peer_id, &content).await;
-    
+    let result = state
+        .bandwidth_worker
+        .send_message(&peer_id, &content)
+        .await;
+
     Ok(CommandResponse::ok(BandwidthResponse {
         success: result.success,
         message: result.message,
@@ -1421,12 +1494,14 @@ async fn worker_start_call(
     peer_id: String,
 ) -> Result<CommandResponse<BandwidthResponse>, String> {
     let result = state.bandwidth_worker.start_call(&peer_id).await;
-    
+
     // Extract stream_id from result data if present
-    let stream_id = result.data.as_ref()
+    let stream_id = result
+        .data
+        .as_ref()
         .and_then(|d| d.as_str())
         .map(|s| s.to_string());
-    
+
     Ok(CommandResponse::ok(BandwidthResponse {
         success: result.success,
         message: result.message,
@@ -1443,11 +1518,13 @@ async fn worker_start_video_call(
     peer_id: String,
 ) -> Result<CommandResponse<BandwidthResponse>, String> {
     let result = state.bandwidth_worker.start_video_call(&peer_id).await;
-    
-    let stream_id = result.data.as_ref()
+
+    let stream_id = result
+        .data
+        .as_ref()
         .and_then(|d| d.as_str())
         .map(|s| s.to_string());
-    
+
     Ok(CommandResponse::ok(BandwidthResponse {
         success: result.success,
         message: result.message,
@@ -1464,7 +1541,7 @@ async fn worker_end_call(
     stream_id: String,
 ) -> Result<CommandResponse<BandwidthResponse>, String> {
     let result = state.bandwidth_worker.end_call(&stream_id).await;
-    
+
     Ok(CommandResponse::ok(BandwidthResponse {
         success: result.success,
         message: result.message,
@@ -1510,12 +1587,11 @@ async fn worker_store_message(
     sender_id: String,
     content: String,
 ) -> Result<CommandResponse<StorageResponse>, String> {
-    let result = state.storage_worker.store_message(
-        &conversation_id,
-        &sender_id,
-        &content,
-    ).await;
-    
+    let result = state
+        .storage_worker
+        .store_message(&conversation_id, &sender_id, &content)
+        .await;
+
     Ok(CommandResponse::ok(StorageResponse {
         success: result.success,
         message: result.message,
@@ -1532,12 +1608,13 @@ async fn worker_search_messages(
     query: String,
 ) -> Result<CommandResponse<Vec<serde_json::Value>>, String> {
     let result = state.storage_worker.search_messages(&query).await;
-    
+
     // Parse the data field which contains search results
-    let messages = result.data
+    let messages = result
+        .data
         .and_then(|d| d.as_array().cloned())
         .unwrap_or_default();
-    
+
     Ok(CommandResponse::ok(messages))
 }
 
@@ -1549,13 +1626,18 @@ async fn worker_store_file(
     data: Vec<u8>,
     mime_type: String,
 ) -> Result<CommandResponse<StorageResponse>, String> {
-    let result = state.storage_worker.store_file_local(&filename, &data, &mime_type).await;
-    
-    let file_id = result.data.as_ref()
+    let result = state
+        .storage_worker
+        .store_file_local(&filename, &data, &mime_type)
+        .await;
+
+    let file_id = result
+        .data
+        .as_ref()
         .and_then(|d| d.get("file_id"))
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
-    
+
     Ok(CommandResponse::ok(StorageResponse {
         success: result.success,
         message: result.message,
@@ -1572,7 +1654,7 @@ async fn worker_upload_cloud(
     file_id: String,
 ) -> Result<CommandResponse<StorageResponse>, String> {
     let result = state.storage_worker.upload_to_cloud(&file_id).await;
-    
+
     Ok(CommandResponse::ok(StorageResponse {
         success: result.success,
         message: result.message,
@@ -1614,7 +1696,7 @@ async fn worker_payment_start_session(
 ) -> Result<CommandResponse<PaymentResponse>, String> {
     let worker = state.payment_worker.write().await;
     let result = worker.start_session().await;
-    
+
     Ok(CommandResponse::ok(PaymentResponse {
         success: result.success,
         message: result.message,
@@ -1639,12 +1721,17 @@ async fn worker_payment_record_cost(
         "inference" => ActionType::Inference,
         "compute" => ActionType::Compute,
         "storage" => ActionType::Storage,
-        _ => return Ok(CommandResponse::err(format!("Unknown action type: {}", action_type))),
+        _ => {
+            return Ok(CommandResponse::err(format!(
+                "Unknown action type: {}",
+                action_type
+            )))
+        }
     };
-    
+
     let worker = state.payment_worker.read().await;
     let result = worker.record_cost(action, units, cost).await;
-    
+
     Ok(CommandResponse::ok(PaymentResponse {
         success: result.success,
         message: result.message,
@@ -1660,7 +1747,7 @@ async fn worker_payment_end_session(
 ) -> Result<CommandResponse<PaymentResponse>, String> {
     let worker = state.payment_worker.read().await;
     let result = worker.end_session().await;
-    
+
     Ok(CommandResponse::ok(PaymentResponse {
         success: result.success,
         message: result.message,
@@ -1676,7 +1763,7 @@ async fn worker_payment_get_pending(
 ) -> Result<CommandResponse<serde_json::Value>, String> {
     let worker = state.payment_worker.read().await;
     let payments = worker.get_pending_payments().await;
-    
+
     Ok(CommandResponse::ok(serde_json::json!(payments)))
 }
 
@@ -1688,9 +1775,145 @@ async fn worker_payment_prepare_settlement(
 ) -> Result<CommandResponse<serde_json::Value>, String> {
     let worker = state.payment_worker.read().await;
     let result = worker.prepare_settlement(&payment_id).await;
-    
+
     let settlement = result.data.unwrap_or(serde_json::json!({}));
     Ok(CommandResponse::ok(settlement))
+}
+
+// ============================================================================
+// App Registry Commands
+// ============================================================================
+
+/// Get all registered apps
+#[tauri::command]
+async fn apps_list(state: State<'_, CinqState>) -> Result<CommandResponse<Vec<AppInfo>>, String> {
+    let registry = state.apps.read().await;
+    let apps: Vec<AppInfo> = registry.list_apps().into_iter().map(|a| a.into()).collect();
+
+    Ok(CommandResponse::ok(apps))
+}
+
+/// Get pinned apps for dock/sidebar
+#[tauri::command]
+async fn apps_pinned(state: State<'_, CinqState>) -> Result<CommandResponse<Vec<AppInfo>>, String> {
+    let registry = state.apps.read().await;
+    let apps: Vec<AppInfo> = registry
+        .pinned_apps()
+        .into_iter()
+        .map(|a| a.into())
+        .collect();
+
+    Ok(CommandResponse::ok(apps))
+}
+
+/// Get a specific app
+#[tauri::command]
+async fn apps_get(
+    state: State<'_, CinqState>,
+    app_id: String,
+) -> Result<CommandResponse<AppInfo>, String> {
+    let registry = state.apps.read().await;
+    let id = AppId::new(&app_id);
+
+    match registry.get_app(&id) {
+        Some(app) => Ok(CommandResponse::ok(app.into())),
+        None => Ok(CommandResponse::err(format!("App not found: {}", app_id))),
+    }
+}
+
+/// Get currently active app
+#[tauri::command]
+async fn apps_active(
+    state: State<'_, CinqState>,
+) -> Result<CommandResponse<Option<AppInfo>>, String> {
+    let registry = state.apps.read().await;
+    let active = registry.active_app().map(|a| a.into());
+
+    Ok(CommandResponse::ok(active))
+}
+
+/// Launch an app
+#[tauri::command]
+async fn apps_launch(
+    state: State<'_, CinqState>,
+    app_id: String,
+) -> Result<CommandResponse<AppInfo>, String> {
+    let mut registry = state.apps.write().await;
+    let id = AppId::new(&app_id);
+
+    if let Err(e) = registry.launch_app(&id) {
+        return Ok(CommandResponse::err(e));
+    }
+
+    match registry.get_app(&id) {
+        Some(app) => Ok(CommandResponse::ok(app.into())),
+        None => Ok(CommandResponse::err(format!("App not found: {}", app_id))),
+    }
+}
+
+/// Close an app
+#[tauri::command]
+async fn apps_close(
+    state: State<'_, CinqState>,
+    app_id: String,
+) -> Result<CommandResponse<()>, String> {
+    let mut registry = state.apps.write().await;
+    let id = AppId::new(&app_id);
+
+    if let Err(e) = registry.close_app(&id) {
+        return Ok(CommandResponse::err(e));
+    }
+
+    Ok(CommandResponse::ok(()))
+}
+
+/// Minimize an app to background
+#[tauri::command]
+async fn apps_minimize(
+    state: State<'_, CinqState>,
+    app_id: String,
+) -> Result<CommandResponse<()>, String> {
+    let mut registry = state.apps.write().await;
+    let id = AppId::new(&app_id);
+
+    if let Err(e) = registry.minimize_app(&id) {
+        return Ok(CommandResponse::err(e));
+    }
+
+    Ok(CommandResponse::ok(()))
+}
+
+/// Pin an app to the dock
+#[tauri::command]
+async fn apps_pin(
+    state: State<'_, CinqState>,
+    app_id: String,
+    position: u32,
+) -> Result<CommandResponse<()>, String> {
+    let mut registry = state.apps.write().await;
+    let id = AppId::new(&app_id);
+
+    if let Err(e) = registry.pin_app(&id, position) {
+        return Ok(CommandResponse::err(e));
+    }
+
+    Ok(CommandResponse::ok(()))
+}
+
+/// Unpin an app from the dock
+#[tauri::command]
+async fn apps_unpin(
+    state: State<'_, CinqState>,
+    app_id: String,
+) -> Result<CommandResponse<()>, String> {
+    let mut registry = state.apps.write().await;
+    let id = AppId::new(&app_id);
+
+    if let Err(e) = registry.unpin_app(&id) {
+        return Ok(CommandResponse::err(e));
+    }
+
+    Ok(CommandResponse::ok(()))
 }
 
 fn main() {
@@ -1778,6 +2001,16 @@ fn main() {
             worker_payment_end_session,
             worker_payment_get_pending,
             worker_payment_prepare_settlement,
+            // App registry commands
+            apps_list,
+            apps_pinned,
+            apps_get,
+            apps_active,
+            apps_launch,
+            apps_close,
+            apps_minimize,
+            apps_pin,
+            apps_unpin,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Cinq Connect");

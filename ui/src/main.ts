@@ -7,6 +7,8 @@
 import { invoke } from '@tauri-apps/api/core';
 import * as wallet from './wallet';
 import { renderApp } from './ui';
+import * as apps from './apps';
+import * as canvas from './canvas';
 
 // Chat types
 interface ChatMessage {
@@ -115,6 +117,13 @@ interface AppState {
   // UI
   currentView: 'landing' | 'main' | 'wallet-setup';
   activeTab: 'messages' | 'qora';
+  layoutMode: 'classic' | 'canvas';
+  
+  // Apps
+  apps: apps.AppsState;
+  
+  // Canvas
+  canvas: canvas.CanvasState;
 }
 
 const state: AppState = {
@@ -149,6 +158,11 @@ const state: AppState = {
   },
   // UI state
   activeTab: 'messages',
+  layoutMode: (localStorage.getItem('cinq_layout_mode') as 'classic' | 'canvas') || 'classic',
+  // Apps state
+  apps: apps.initialAppsState,
+  // Canvas state
+  canvas: canvas.initCanvasState(),
 };
 
 // Response type from Rust backend
@@ -209,6 +223,9 @@ async function startNode(): Promise<void> {
     // Fetch user ID after node starts
     await getUserId();
     
+    // Load apps
+    await loadApps();
+    
     updateUI();
     console.log('Node started:', result.data);
     console.log('User ID:', state.userIdDisplay);
@@ -216,6 +233,65 @@ async function startNode(): Promise<void> {
     console.error('Failed to start node:', error);
     throw error;
   }
+}
+
+// Load apps from backend
+async function loadApps(): Promise<void> {
+  try {
+    const [allApps, pinnedApps, activeApp] = await Promise.all([
+      apps.listApps(),
+      apps.getPinnedApps(),
+      apps.getActiveApp(),
+    ]);
+    
+    state.apps.apps = allApps;
+    state.apps.pinnedApps = pinnedApps;
+    state.apps.activeApp = activeApp;
+    
+    console.log('Apps loaded:', allApps.length, 'apps');
+  } catch (error) {
+    console.error('Failed to load apps:', error);
+  }
+}
+
+// Launch an app
+async function launchApp(appId: string): Promise<void> {
+  const app = await apps.launchApp(appId);
+  if (app) {
+    state.apps.activeApp = app;
+    
+    // Refresh apps state
+    state.apps.apps = await apps.listApps();
+    state.apps.pinnedApps = await apps.getPinnedApps();
+    
+    // Switch to the appropriate tab based on app
+    if (appId === 'cinq.chat') {
+      state.activeTab = 'messages';
+    } else if (appId === 'cinq.qora' || appId === 'cinq.compute') {
+      state.activeTab = 'qora';
+    }
+    
+    updateUI();
+  }
+}
+
+// Toggle app launcher visibility
+function toggleAppLauncher(): void {
+  state.apps.showLauncher = !state.apps.showLauncher;
+  updateUI();
+}
+
+// Toggle between classic and canvas layout modes
+function toggleLayoutMode(): void {
+  state.layoutMode = state.layoutMode === 'classic' ? 'canvas' : 'classic';
+  localStorage.setItem('cinq_layout_mode', state.layoutMode);
+  updateUI();
+}
+
+// Update canvas state
+function updateCanvas(newCanvasState: Partial<canvas.CanvasState>): void {
+  state.canvas = { ...state.canvas, ...newCanvasState };
+  updateUI();
 }
 
 async function stopNode(): Promise<void> {
@@ -895,6 +971,12 @@ function updateUI(): void {
     processWithQora,
     // Tab state
     setActiveTab,
+    // Apps
+    launchApp,
+    toggleAppLauncher,
+    // Canvas layout
+    toggleLayoutMode,
+    updateCanvas,
   });
   
   // Restore input values after render
