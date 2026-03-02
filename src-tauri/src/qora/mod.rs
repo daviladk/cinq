@@ -12,4 +12,4 @@ pub mod ollama;
 pub mod tasks;
 
 pub use agent::QoraAgent;
-pub use tasks::Task;
+pub use tasks::{Task, TaskQueue, TaskStatus};

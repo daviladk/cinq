@@ -1430,6 +1430,59 @@ button:disabled {
   color: var(--green);
 }
 
+/* Session Cost Bar - Shows relay economics */
+.session-cost-bar {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, rgba(226, 41, 1, 0.08) 0%, rgba(0, 0, 0, 0.4) 100%);
+  border-bottom: 1px solid var(--border);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.session-cost-bar .cost-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.session-cost-bar .cost-label {
+  color: var(--text-dim);
+}
+
+.session-cost-bar .cost-value {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.session-cost-bar .cost-item.highlight {
+  background: rgba(226, 41, 1, 0.15);
+  padding: 0.375rem 0.625rem;
+  border-radius: 4px;
+  border: 1px solid rgba(226, 41, 1, 0.3);
+}
+
+.session-cost-bar .cost-item.highlight .cost-label {
+  color: var(--accent);
+}
+
+.session-cost-bar .qi-amount {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.session-cost-bar .cost-item.last-msg {
+  opacity: 0.7;
+  font-size: 0.6875rem;
+}
+
+.session-cost-bar .cost-item.last-msg .cost-value {
+  color: var(--text-secondary);
+}
+
 .chat-empty {
   flex: 1;
   display: flex;

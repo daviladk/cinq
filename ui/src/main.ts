@@ -102,6 +102,15 @@ interface AppState {
   messages: ChatMessage[];
   chatView: 'list' | 'conversation';
   
+  // Session cost tracking (for demo display)
+  sessionCost: {
+    totalBytesSent: number;
+    totalBytesReceived: number;
+    totalQiCost: number;
+    messageCount: number;
+    lastMessageCost: { bytes: number; qi: number } | null;
+  };
+  
   // Qora AI Agent
   qora: {
     initialized: boolean;
@@ -145,6 +154,14 @@ const state: AppState = {
   currentConversation: null,
   messages: [],
   chatView: 'list',
+  // Session cost tracking
+  sessionCost: {
+    totalBytesSent: 0,
+    totalBytesReceived: 0,
+    totalQiCost: 0,
+    messageCount: 0,
+    lastMessageCost: null,
+  },
   // Qora state
   qora: {
     initialized: false,
@@ -380,7 +397,14 @@ async function sendMessage(peerId: string, content: string): Promise<ChatMessage
     });
     
     if (workerResult.success && workerResult.data) {
-      console.log(`Message metered: ${workerResult.data.bytes_processed} bytes, ${workerResult.data.qi_cost} Qi`);
+      const { bytes_processed, qi_cost } = workerResult.data;
+      console.log(`Message metered: ${bytes_processed} bytes, ${qi_cost} Qi`);
+      
+      // Update session cost tracking
+      state.sessionCost.totalBytesSent += bytes_processed;
+      state.sessionCost.totalQiCost += qi_cost;
+      state.sessionCost.messageCount += 1;
+      state.sessionCost.lastMessageCost = { bytes: bytes_processed, qi: qi_cost };
     }
     
     // Send the actual message through P2P

@@ -86,6 +86,14 @@ interface AppState {
   currentConversation: Conversation | null;
   messages: ChatMessage[];
   chatView: 'list' | 'conversation';
+  // Session cost tracking (for demo display)
+  sessionCost: {
+    totalBytesSent: number;
+    totalBytesReceived: number;
+    totalQiCost: number;
+    messageCount: number;
+    lastMessageCost: { bytes: number; qi: number } | null;
+  };
   // Qora state
   qora: QoraState;
   // UI state
@@ -1162,6 +1170,17 @@ function renderConversationList(state: AppState): string {
 function renderConversation(state: AppState): string {
   const conv = state.currentConversation!;
   const messages = state.messages;
+  const { sessionCost } = state;
+  
+  // Format bytes for display
+  const formatBytes = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  };
+  
+  // Format Qi for display (6 decimal places)
+  const formatQiCost = (qi: number): string => qi.toFixed(6);
   
   return `
     <div class="chat-container conversation-view">
@@ -1171,6 +1190,28 @@ function renderConversation(state: AppState): string {
           <span class="conv-name">${conv.display_name}</span>
           <span class="conv-status">● Online</span>
         </div>
+      </div>
+      
+      <!-- Session Cost Bar - Shows relay economics -->
+      <div class="session-cost-bar">
+        <div class="cost-item">
+          <span class="cost-label">📤 Sent</span>
+          <span class="cost-value">${formatBytes(sessionCost.totalBytesSent)}</span>
+        </div>
+        <div class="cost-item">
+          <span class="cost-label">💬 Messages</span>
+          <span class="cost-value">${sessionCost.messageCount}</span>
+        </div>
+        <div class="cost-item highlight">
+          <span class="cost-label">⚡ Relay Cost</span>
+          <span class="cost-value qi-amount">${formatQiCost(sessionCost.totalQiCost)} Qi</span>
+        </div>
+        ${sessionCost.lastMessageCost ? `
+          <div class="cost-item last-msg">
+            <span class="cost-label">Last msg</span>
+            <span class="cost-value">${formatBytes(sessionCost.lastMessageCost.bytes)} → ${formatQiCost(sessionCost.lastMessageCost.qi)} Qi</span>
+          </div>
+        ` : ''}
       </div>
       
       <div class="messages-container" id="messages-container">

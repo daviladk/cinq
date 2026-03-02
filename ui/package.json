@@ -13,7 +13,7 @@
     "@quai/agent-sdk": "github:0xnovabyte/qi-agent-sdk"
   },
   "devDependencies": {
-    "@tauri-apps/api": "^2.10.1",
+    "@tauri-apps/api": "^2.9.1",
     "@tauri-apps/cli": "^2.0.0",
     "typescript": "^5.9.3",
     "vite": "^5.4.21"
