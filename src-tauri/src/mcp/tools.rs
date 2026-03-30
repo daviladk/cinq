@@ -1,11 +1,14 @@
 // cinQ MCP Tools
 //
-// Tool definitions for cinQ Cloud services:
-// - cinQ ID (identity)
-// - cinQ Chat (messaging)
-// - cinQ Drive (storage)
-// - cinQ Pay (payments)
+// Tool definitions for cinQ Cloud services (v0.9 MVP):
+// - cinQ ID (identity + contacts)
+// - cinQ Chat (P2P messaging)
+// - cinQ Drive Lite (local storage + share)
+// - cinQ Pay (usage metering)
+//
+// Future:
 // - cinQ Browser (web3 browser with Pelagus wallet)
+// - cinQ Mail (async email)
 
 use super::protocol::{CallToolResult, Tool};
 use serde_json::json;

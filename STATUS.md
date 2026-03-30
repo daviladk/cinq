@@ -1,244 +1,210 @@
 # cinQ Cloud — Project Status
 
-> **Last Updated:** March 30, 2026  
-> **Version:** 0.8.0 (cinQ Cloud for Entropic)  
-> **Build Status:** ✅ Working
+> **Version:** 0.9.0  
+> **Updated:** March 30, 2026  
+> **Build:** ✅ Compiles and runs
 
 ---
 
-## Project Vision
+## What's Working
 
-**cinQ Cloud** is a decentralized Google Workspace for [Entropic](https://github.com/dominant-strategies/entropic) — Quai Network's Claude AI desktop app.
+### cinQ ID (Identity)
+- ✅ Chat ID registration (`@alice`)
+- ✅ Peer ID generation (libp2p keypair)
+- ✅ Contact list (SQLite)
+- ✅ DHT lookup (resolve Chat ID → Peer ID)
 
-Entropic handles **AI**. cinQ handles **data**:
-- **cinQ ID** — Decentralized identity (like Google Account)
-- **cinQ Mail** — Async email (like Gmail)
-- **cinQ Chat** — Real-time messaging (like Google Chat)
-- **cinQ Drive** — File storage (like Google Drive)
-- **cinQ Browser** — Web3 browser with Pelagus wallet
-- **cinQ Pay** — Qi-based metering (like Google Pay for services)
+**How identity works:**
+- User picks a Chat ID (like `@alice`)
+- cinQ generates a libp2p Peer ID (cryptographic keypair)
+- Chat ID → Peer ID mapping published to Kademlia DHT
+- Contacts stored locally in SQLite
 
-**Not a fork** — cinQ is an extension that gives Entropic's Claude access to familiar productivity tools, all running on a P2P mesh with Qi payments.
+**Limitations:**
+- DHT entries don't persist across restarts (no permanent storage yet)
+- No key recovery mechanism
+- No spam protection on Chat ID registration
+
+### cinQ Chat (Messaging)
+- ✅ Send/receive P2P messages
+- ✅ Conversation history (SQLite)
+- ✅ Message delivery when both peers online
+
+**How chat works:**
+- Messages sent directly peer-to-peer via libp2p
+- Stored in local SQLite database
+- Chat IDs resolved via DHT before sending
+
+**Limitations:**
+- No offline message queue (messages fail if recipient offline)
+- No read receipts
+- No group chat
+
+### cinQ Drive Lite (Storage)
+- ✅ Save files locally (`~/.cinq/drive/`)
+- ✅ Read files
+- ✅ Generate P2P share links
+
+**How Drive Lite works:**
+- Files stored in local filesystem
+- Share links contain Peer ID + file path
+- Recipients connect directly to sender to fetch
+
+**Limitations:**
+- Local-first only (not distributed across peers)
+- Share links require sender to be online
+- No redundancy or availability guarantees
+- No storage provider economy yet
+
+### cinQ Pay (Metering)
+- ✅ Track Qi costs for operations
+- ✅ Usage breakdown by category
+- ✅ Cost table display
+
+**How Pay works:**
+- Every operation has a Qi cost (defined in `costs.rs`)
+- Usage accumulated locally in memory
+- Balance and breakdown available via MCP
+
+**Limitations:**
+- Metering only — no actual Qi transactions yet
+- Requires Pelagus wallet integration for real payments
+- No provider payments
+
+### MCP Server
+- ✅ HTTP server on `localhost:3000`
+- ✅ JSON-RPC protocol (MCP spec)
+- ✅ Tool definitions for all services
+- ✅ Entropic can discover and call tools
 
 ---
 
-## Current Phase: MCP Integration
+## MCP Tools Available
 
-Building the MCP server so Entropic's Claude can use cinQ services.
-
-### Completed
-- ✅ P2P mesh networking (libp2p + Kademlia DHT)
-- ✅ cinQ ID (identity registry with Chat IDs)
-- ✅ cinQ Chat (real-time P2P messaging)
-- ✅ cinQ Pay (usage tracking + Qi cost tables)
-- ✅ MCP server (localhost:3000)
-- ✅ cinQ Browser tools (Pelagus wallet integration)
-
-### In Progress
-- 🔄 Wire MCP tools to actual CinqState services
-- 🔄 Test with Entropic on MacBook Air
-
-### To Build
-- ⏳ cinQ Mail (async threaded email)
-- ⏳ cinQ Drive (distributed storage with providers)
-- ⏳ Provider mode (earn Qi for sharing storage)
+| Tool | Service | Status |
+|------|---------|--------|
+| `cinq_id_whoami` | ID | ✅ |
+| `cinq_id_lookup` | ID | ✅ |
+| `cinq_id_contacts` | ID | ✅ |
+| `cinq_chat_send` | Chat | ✅ |
+| `cinq_chat_history` | Chat | ✅ |
+| `cinq_chat_conversations` | Chat | ✅ |
+| `cinq_drive_list` | Drive | ✅ |
+| `cinq_drive_read` | Drive | ✅ |
+| `cinq_drive_write` | Drive | ✅ |
+| `cinq_drive_share` | Drive | ✅ |
+| `cinq_pay_balance` | Pay | ✅ |
+| `cinq_pay_usage` | Pay | ✅ |
+| `cinq_pay_costs` | Pay | ✅ |
 
 ---
 
-## Architecture
+## Technical Questions & Answers
 
-### Tech Stack
+### How are identities resolved?
+Chat IDs (`@alice`) are resolved via Kademlia DHT. When you register, your Chat ID → Peer ID mapping is published to the DHT. Others query the DHT to find you.
+
+### How are peers discovered?
+- **Local**: mDNS broadcasts on local network
+- **Remote**: Kademlia DHT with bootstrap nodes
+- **Direct**: If you know someone's Peer ID, dial directly
+
+### What happens offline?
+- **Chat**: Messages fail if recipient offline (no queue yet)
+- **Drive**: Files accessible locally, share links fail
+- **Identity**: Cached locally, DHT lookup fails
+
+### Who guarantees availability?
+Currently: nobody. Drive Lite is local-first. Future: storage providers stake Qi for availability SLAs.
+
+### How is spam handled?
+Currently: not handled. Future: Qi deposits to register Chat IDs, Qi costs to send messages.
+
+### How is key recovery handled?
+Currently: not handled. Lose your keys, lose your identity. Future: social recovery or seed phrases.
+
+---
+
+## Tech Stack
+
 | Component | Technology |
 |-----------|------------|
-| **App Framework** | Tauri 2.x (Rust + Web) |
-| **P2P Networking** | libp2p 0.54 (Kademlia DHT, mDNS, Noise) |
-| **Database** | SQLite (rusqlite) |
-| **MCP Server** | Axum 0.7 (HTTP + JSON-RPC) |
-| **Payments** | Qi on Quai Network (via Pelagus wallet) |
-
-### Network Setup (Testing)
-| Device | IP Address | Peer ID |
-|--------|------------|---------|
-| Mac Mini | 192.168.5.4:9000 | `12D3KooWP7zQ4dLEw3JiPdrerChHsTzhjfxs69oEBcxZieXU1sAu` |
-| MacBook Air | 192.168.4.253:9000 | `12D3KooWGhyNKVUhwiigtPZ9DpMyho9gvAsRWhGfeGDVcEt6Tgkr` |
-
----
-
-## MCP Tools
-
-The MCP server exposes these tools for Entropic's Claude:
-
-### Identity (cinQ ID)
-| Tool | Description |
-|------|-------------|
-| `cinq_id_whoami` | Get current user identity |
-| `cinq_id_lookup` | Find user by Chat ID |
-| `cinq_id_contacts` | List contacts |
-
-### Messaging (cinQ Chat)
-| Tool | Description |
-|------|-------------|
-| `cinq_chat_send` | Send a message |
-| `cinq_chat_history` | Get conversation history |
-| `cinq_chat_conversations` | List all conversations |
-
-### Storage (cinQ Drive)
-| Tool | Description |
-|------|-------------|
-| `cinq_drive_list` | List files in directory |
-| `cinq_drive_read` | Read file contents |
-| `cinq_drive_write` | Write file |
-| `cinq_drive_delete` | Delete file |
-| `cinq_drive_share` | Generate share link |
-
-### Browser (cinQ Browser)
-| Tool | Description |
-|------|-------------|
-| `cinq_browser_open` | Open URL |
-| `cinq_browser_current` | Get current page state |
-| `cinq_browser_tabs` | List open tabs |
-| `cinq_browser_wallet_status` | Get Pelagus status |
-| `cinq_browser_wallet_connect` | Connect to dApp |
-| `cinq_browser_wallet_send` | Send Qi transaction |
-
-### Payments (cinQ Pay)
-| Tool | Description |
-|------|-------------|
-| `cinq_pay_balance` | Get Qi balance |
-| `cinq_pay_usage` | Get usage breakdown |
-| `cinq_pay_costs` | Get pricing table |
+| Framework | Tauri 2.x |
+| P2P | libp2p 0.54 |
+| DHT | Kademlia |
+| Discovery | mDNS |
+| Encryption | Noise protocol |
+| Database | SQLite (rusqlite) |
+| MCP Server | Axum 0.7 |
+| Payments | Qi (Quai Network) |
 
 ---
 
 ## File Structure
 
 ```
-cinq/
-├── ui/                       # Frontend (Vite + TypeScript)
-│   ├── src/main.ts          # App logic + Tauri invoke
-│   ├── src/ui.ts            # DOM rendering
-│   └── index.html           # Entry point
-│
-├── src-tauri/src/
-│   ├── main.rs              # Tauri commands + MCP server start
-│   ├── lib.rs               # Module exports
-│   │
-│   ├── mcp/                 # MCP server for Entropic
-│   │   ├── mod.rs           # Module exports
-│   │   ├── server.rs        # Axum HTTP server (:3000)
-│   │   ├── protocol.rs      # JSON-RPC types
-│   │   └── tools.rs         # Tool definitions + handlers
-│   │
-│   ├── grid/                # P2P networking
-│   │   ├── mod.rs           # Module re-exports
-│   │   ├── node.rs          # libp2p swarm
-│   │   ├── chat.rs          # Chat + SQLite storage
-│   │   ├── userid.rs        # Identity registry
-│   │   ├── transfer.rs      # File transfer protocol
-│   │   └── protocol.rs      # P2P message types
-│   │
-│   └── swarm/               # Usage tracking
-│       ├── costs.rs         # Qi pricing tables
-│       ├── tracker.rs       # Real-time metering
-│       └── workers/         # Service workers
-│
-├── docs/
-│   ├── DESIGN.md            # Technical design
-│   └── CINQ_CLOUD.md        # Architecture spec
-├── CHANGELOG.md             # Version history
-├── README.md                # Project overview
-└── STATUS.md                # This file
+src-tauri/src/
+├── main.rs           # Tauri app + MCP server startup
+├── lib.rs            # Module exports
+├── mcp/
+│   ├── server.rs     # Axum HTTP server
+│   ├── protocol.rs   # JSON-RPC types
+│   └── tools.rs      # Tool definitions
+├── grid/
+│   ├── node.rs       # libp2p swarm
+│   ├── chat.rs       # Messaging + SQLite
+│   ├── userid.rs     # Identity registry
+│   └── transfer.rs   # File transfer
+└── swarm/
+    ├── costs.rs      # Qi pricing
+    └── tracker.rs    # Usage metering
 ```
 
 ---
 
-## Data Storage
+## Roadmap
 
-**Location:** `~/.cinq/`
+### v0.9 (Current)
+- [x] Core services working locally
+- [x] MCP server running
+- [x] Tools callable from Entropic
 
-| File | Purpose |
-|------|---------|
-| `keypair.bin` | Ed25519 keypair (persistent Peer ID) |
-| `peers.json` | Known peer addresses for bootstrap |
-| `chat.db` | SQLite database for conversations/messages |
+### v1.0 (MVP)
+- [ ] Persistent DHT (survive restarts)
+- [ ] Offline message queue
+- [ ] Pelagus wallet integration (real Qi)
+- [ ] Share link relay (work when sender offline)
 
-### SQLite Schema (`chat.db`)
-```sql
--- Conversations
-CREATE TABLE conversations (
-    id TEXT PRIMARY KEY,
-    peer_id TEXT NOT NULL,
-    display_name TEXT,
-    created_at INTEGER,
-    last_message_at INTEGER,
-    unread_count INTEGER DEFAULT 0
-);
+### v1.x (Growth)
+- [ ] Distributed storage (multiple providers)
+- [ ] Provider mode (earn Qi)
+- [ ] Anti-spam (Qi deposits)
+- [ ] Key recovery
 
--- Messages
-CREATE TABLE messages (
-    id TEXT PRIMARY KEY,
-    conversation_id TEXT NOT NULL,
-    sender_id TEXT NOT NULL,
-    content TEXT NOT NULL,
-    timestamp INTEGER NOT NULL,
-    is_outgoing INTEGER NOT NULL,
-    status TEXT DEFAULT 'pending'
-);
-
--- Contacts
-CREATE TABLE contacts (
-    peer_id TEXT PRIMARY KEY,
-    display_name TEXT NOT NULL,
-    added_at INTEGER NOT NULL,
-    last_seen INTEGER,
-    public_key TEXT,
-    is_online INTEGER DEFAULT 0
-);
-```
+### Future
+- [ ] cinQ Mail
+- [ ] cinQ Browser
+- [ ] Full provider economy
 
 ---
 
-## Next Steps
+## Testing
 
-### Immediate
-1. [ ] Wire MCP tool handlers to CinqState services
-2. [ ] Test MCP server with Entropic
-3. [ ] Add message encryption (currently plaintext over Noise transport)
-
-### Short-term
-4. [ ] Build cinQ Mail service
-5. [ ] Build cinQ Drive distributed storage
-6. [ ] Provider mode (share storage, earn Qi)
-
-### Long-term
-7. [ ] Anti-spam (Qi deposits for unknown senders)
-8. [ ] Mobile companion app
-9. [ ] Federation with other cinQ networks
-
----
-
-## How to Resume Development
-
-### Build & Run
+### Two-Node Test
 ```bash
-cd /Users/Dad/cinq
+# Mac Mini (192.168.5.4)
+cargo run --release -- --port 9000
 
-# Development (with hot reload)
-cargo tauri dev
-
-# Production build
-cargo tauri build
-
-# DMG location
-open src-tauri/target/release/bundle/dmg/
+# MacBook Air (192.168.4.253)  
+cargo run --release -- --port 9000 --bootstrap /ip4/192.168.5.4/tcp/9000/p2p/PEER_ID
 ```
 
-### Test MCP Server
+### MCP Test
 ```bash
-# Check if server is running
+# Health check
 curl http://localhost:3000/
 
-# List available tools
+# List tools
 curl -X POST http://localhost:3000/mcp \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
@@ -248,35 +214,3 @@ curl -X POST http://localhost:3000/mcp \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"cinq_id_whoami","arguments":{}},"id":2}'
 ```
-
-### Testing on MacBook Air
-```bash
-# Clear quarantine
-xattr -cr "/Applications/Cinq Connect.app"
-
-# Run with logs
-RUST_LOG=info "/Applications/Cinq Connect.app/Contents/MacOS/cinq-connect" 2>&1
-```
-
----
-
-## Known Issues
-
-1. **mDNS blocked on Eero mesh** - Different subnets can't discover via mDNS, but DHT bootstrap works
-2. **MCP handlers are stubs** - Tool definitions exist but handlers return mock data
-3. **Messages are plaintext** - Noise transport encrypts the channel, but message content not additionally encrypted
-
----
-
-## Version History
-
-| Version | Date | Milestone |
-|---------|------|-----------|
-| 0.8.0 | Mar 30, 2026 | cinQ Cloud for Entropic, MCP server, Browser tools |
-| 0.7.0 | Mar 15, 2026 | Usage tracking, Qi cost tables |
-| 0.6.0 | Feb 12, 2026 | Chat IDs, Contact cards |
-| 0.5.0 | Jan 2026 | P2P chat with message storage |
-| 0.4.0 | Jan 2026 | Pelagus wallet integration |
-| 0.3.0 | Dec 2025 | P2P tunnel infrastructure |
-| 0.2.0 | Dec 2025 | SOCKS5 proxy implementation |
-| 0.1.0 | Nov 2025 | P2P peer discovery working |

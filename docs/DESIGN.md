@@ -1,75 +1,62 @@
 # cinQ Cloud — Design Document
 
-> **Version:** 0.8.0  
-> **Date:** March 30, 2026  
-> **Status:** Phase 4 - cinQ Cloud for Entropic
+> **Version:** 0.9.0  
+> **Date:** March 30, 2026
 
 ---
 
 ## Overview
 
-**cinQ Cloud** is a decentralized workspace layer for [Entropic](https://github.com/dominant-strategies/entropic), providing familiar productivity services (identity, email, chat, storage, payments) powered by a P2P mesh network.
+cinQ is the decentralized workspace layer for [Entropic](https://github.com/dominant-strategies/entropic) — identity, messaging, storage, and payments exposed as tools an AI assistant can actually use.
 
-### Core Vision
+### Core Thesis
 
-- **People-powered infrastructure** — Users ARE the network, no dedicated servers needed
-- **Familiar services** — Google Workspace UX with decentralized backend
-- **MCP integration** — Claude in Entropic can use cinQ tools directly
-- **Qi economy** — All services metered in Qi for fair compensation
+Claude can actually use your workspace: save, share, message, pay — as actions.
 
-### The Stack
+### What's Built (v0.9)
+
+| Service | Description | Status |
+|---------|-------------|--------|
+| **cinQ ID** | Identity + contacts | ✅ Working |
+| **cinQ Chat** | P2P messaging | ✅ Working |
+| **cinQ Drive Lite** | Local storage + share | ✅ Working |
+| **cinQ Pay** | Usage metering | ✅ Working |
+
+---
+
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        ENTROPIC                                 │
-│                  (Claude AI Desktop App)                        │
-│                                                                 │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │                    Claude Agent                          │   │
-│   │            (understands natural language)                │   │
-│   └─────────────────────────────────────────────────────────┘   │
-│                             │                                   │
-│                        MCP Protocol                             │
-│                             │                                   │
-└─────────────────────────────┼───────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                        cinQ CLOUD                               │
-│                  (Decentralized Workspace)                      │
-│                                                                 │
-│   ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐          │
-│   │ cinQ ID  │ │cinQ Chat │ │cinQ Drive│ │cinQ Mail │          │
-│   └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘          │
-│        │            │            │            │                 │
-│   ┌──────────┐ ┌──────────┐                                    │
-│   │cinQ Pay  │ │cinQBrowser│                                    │
-│   └────┬─────┘ └────┬─────┘                                    │
-│        │            │                                           │
-│        └────────────┴────────────┬──────────────────────────┐  │
-│                                  │                           │  │
-│                          ┌───────┴───────┐                   │  │
-│                          │  libp2p mesh  │                   │  │
-│                          └───────────────┘                   │  │
-│                                                              │  │
-│   ┌──────────────────────────────────────────────────────┐  │  │
-│   │                 MCP SERVER (:3000)                    │  │  │
-│   │           JSON-RPC over HTTP (Axum)                   │  │  │
-│   └──────────────────────────────────────────────────────┘  │  │
-│                                                              │  │
-└──────────────────────────────────────────────────────────────┘  │
-                                                                  │
-                              ▼                                   │
-┌─────────────────────────────────────────────────────────────────┘
-│                      QUAI NETWORK
-│                   (Qi Payments + Identity)
-│
-│   ┌──────────────────────────────────────────────────────┐
-│   │                  Pelagus Wallet                       │
-│   │          (handles all blockchain operations)          │
-│   └──────────────────────────────────────────────────────┘
-│
-└─────────────────────────────────────────────────────────────────
+┌─────────────────────────────────────────────────────────────┐
+│                        ENTROPIC                             │
+│                   (Claude AI + Runtime)                     │
+│                            │                                │
+│                       MCP Protocol                          │
+│                            ▼                                │
+├─────────────────────────────────────────────────────────────┤
+│                        cinQ CLOUD                           │
+│                                                             │
+│   ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐      │
+│   │ cinQ ID  │ │cinQ Chat │ │cinQ Drive│ │ cinQ Pay │      │
+│   │ identity │ │ messaging│ │  storage │ │ metering │      │
+│   └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘      │
+│        └────────────┴────────────┴────────────┘            │
+│                          │                                  │
+│                   libp2p mesh                               │
+│            (Kademlia DHT + mDNS + Noise)                   │
+│                          │                                  │
+│   ┌──────────────────────┴─────────────────────────────┐   │
+│   │              MCP SERVER (localhost:3000)            │   │
+│   │                   JSON-RPC / HTTP                   │   │
+│   └─────────────────────────────────────────────────────┘   │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+              ┌─────────────────────────┐
+              │      QUAI NETWORK       │
+              │    (Qi via Pelagus)     │
+              └─────────────────────────┘
 ```
 
 ---
@@ -78,162 +65,247 @@
 
 ### cinQ ID (Identity)
 
-Decentralized identity with human-readable Chat IDs.
+Human-readable Chat IDs mapped to cryptographic Peer IDs.
 
-**Features:**
-- Chat ID registration (`@username`)
-- Peer ID mapping (libp2p Ed25519 keypair)
-- Contact management
-- Profile information (name, avatar, bio)
+**How it works:**
+1. User picks Chat ID (`@alice`)
+2. cinQ generates libp2p keypair (Ed25519)
+3. Mapping published to Kademlia DHT
+4. Others query DHT: `@alice` → Peer ID
 
 **Storage:** SQLite (`~/.cinq/chat.db`)
 
 **MCP Tools:**
-- `cinq_id_whoami` — Get current user's identity
-- `cinq_id_lookup` — Find user by Chat ID
-- `cinq_id_contacts` — List all contacts
+| Tool | Description |
+|------|-------------|
+| `cinq_id_whoami` | Get your identity |
+| `cinq_id_lookup` | Find user by Chat ID |
+| `cinq_id_contacts` | List contacts |
+
+**Current Limitations:**
+- DHT entries don't persist across node restarts
+- No spam protection on registration
+- No key recovery
 
 ---
 
 ### cinQ Chat (Messaging)
 
-Real-time P2P messaging over libp2p.
+Direct P2P messaging over libp2p.
 
-**Features:**
-- Direct peer-to-peer messages
-- Conversation history (persisted to SQLite)
-- Online/offline presence
-- Read receipts
+**How it works:**
+1. Resolve recipient Chat ID via DHT
+2. Connect directly to their Peer ID
+3. Send encrypted message (Noise protocol)
+4. Store in local SQLite
 
-**Protocol:** GossipSub over libp2p with Noise encryption
+**Protocol:** Request-response over libp2p streams
 
 **MCP Tools:**
-- `cinq_chat_send` — Send a message
-- `cinq_chat_history` — Get conversation history
-- `cinq_chat_conversations` — List all conversations
+| Tool | Description |
+|------|-------------|
+| `cinq_chat_send` | Send a message |
+| `cinq_chat_history` | Get conversation history |
+| `cinq_chat_conversations` | List conversations |
+
+**Current Limitations:**
+- Requires both peers online (no offline queue)
+- No read receipts
+- No group chat
 
 ---
 
-### cinQ Drive (Storage)
+### cinQ Drive Lite (Storage)
 
-Decentralized file storage with providers.
+Local-first file storage with P2P sharing.
 
-**Features:**
-- Local file storage
-- P2P file transfer
+**How it works:**
+1. Files stored locally in `~/.cinq/drive/`
+2. Share generates link with Peer ID + path
+3. Recipient connects directly to fetch file
+
+**Current Implementation:**
+```
+File save → Local filesystem
+Share → P2P link (sender must be online)
+Fetch → Direct peer connection
+```
+
+**MCP Tools:**
+| Tool | Description |
+|------|-------------|
+| `cinq_drive_list` | List files |
+| `cinq_drive_read` | Read file |
+| `cinq_drive_write` | Write file |
+| `cinq_drive_share` | Generate share link |
+
+**Current Limitations:**
+- Local storage only (not distributed)
+- Share links fail if sender offline
+- No redundancy or availability guarantees
+- No provider economy
+
+**Future (Drive Full):**
 - Distributed storage across providers
-- Encrypted chunks with Reed-Solomon redundancy
+- Encrypted chunks with Reed-Solomon
+- Availability SLAs backed by Qi stakes
 
-**How It Works:**
+---
+
+### cinQ Pay (Metering)
+
+Track Qi costs for operations.
+
+**How it works:**
+- Every operation has a defined Qi cost
+- Usage accumulated locally
+- Breakdown available by category and time
+
+**Current Qi Costs (defined in `costs.rs`):**
+| Operation | Cost |
+|-----------|------|
+| Send message | 0.001 Qi |
+| Store 1 MB | 0.01 Qi/month |
+| Share file | 0.002 Qi |
+
+**MCP Tools:**
+| Tool | Description |
+|------|-------------|
+| `cinq_pay_balance` | Check balance |
+| `cinq_pay_usage` | Usage breakdown |
+| `cinq_pay_costs` | Pricing table |
+
+**Current Limitations:**
+- Metering only — no actual Qi transactions
+- Requires Pelagus wallet integration for payments
+
+---
+
+## Technical Details
+
+### Peer Discovery
+
+| Method | Scope | How |
+|--------|-------|-----|
+| mDNS | Local network | Broadcast on 224.0.0.251:5353 |
+| Kademlia DHT | Internet | Bootstrap to known nodes |
+| Direct dial | Anywhere | Connect via known Peer ID |
+
+### Identity Resolution
+
 ```
-YOUR FILE
-    │
-    ▼ Encrypt (your keys)
-    │
-    ▼ Chunk into pieces
-    │
-    ▼ Reed-Solomon parity
-    │
-    ▼ Distribute to providers
-    │
-┌───┴───┬───────┬───────┐
-▼       ▼       ▼       ▼
-Provider Provider Provider Provider
+@alice → DHT query → Peer ID (12D3KooW...)
 ```
 
-**MCP Tools:**
-- `cinq_drive_list` — List files in directory
-- `cinq_drive_read` — Read file contents
-- `cinq_drive_write` — Write a file
-- `cinq_drive_delete` — Delete a file
-- `cinq_drive_share` — Generate share link
+- Chat IDs are keys in the Kademlia DHT
+- Values are Peer ID + Quai address + metadata
+- Cached locally after first lookup
+
+### Message Flow
+
+```
+User A                           User B
+   │                                │
+   ├─ resolve @bob ───DHT───────────┤
+   │◄──────────────── Peer ID ──────┤
+   │                                │
+   ├─ connect ──────────────────────┤
+   ├─ send message (encrypted) ─────┤
+   │                                │
+   ├─ store locally                 ├─ store locally
+```
+
+### File Sharing Flow
+
+```
+User A                           User B
+   │                                │
+   ├─ write file locally            │
+   ├─ share → generate link         │
+   │                                │
+   │   Link: cinq://PeerID/path     │
+   │                                │
+   ├─────── send link via chat ─────┤
+   │                                │
+   │                    connect ◄───┤
+   │◄───────── request file ────────┤
+   ├─────────── send file ──────────┤
+```
 
 ---
 
-### cinQ Mail (Email)
+## Data Storage
 
-Async threaded messaging (like email).
+### SQLite Schema (`~/.cinq/chat.db`)
 
-**Features:**
-- Subject lines
-- Rich text bodies
-- Attachments (via cinQ Drive)
-- Threading/replies
-- Anti-spam (Qi deposit for unknowns)
+**users**
+```sql
+CREATE TABLE users (
+    peer_id TEXT PRIMARY KEY,
+    chat_id TEXT UNIQUE,
+    quai_address TEXT,
+    name TEXT,
+    created_at INTEGER
+);
+```
 
-**Anti-Spam Model:**
-- Messages from contacts: Free
-- Messages from unknowns: Require 0.01 Qi deposit
-- If recipient accepts: Deposit refunded
-- If recipient rejects as spam: Deposit kept
+**messages**
+```sql
+CREATE TABLE messages (
+    id INTEGER PRIMARY KEY,
+    from_peer TEXT,
+    to_peer TEXT,
+    content TEXT,
+    timestamp INTEGER,
+    read INTEGER DEFAULT 0
+);
+```
 
-**Status:** To be built
+**contacts**
+```sql
+CREATE TABLE contacts (
+    peer_id TEXT PRIMARY KEY,
+    chat_id TEXT,
+    name TEXT,
+    added_at INTEGER
+);
+```
 
----
+### File Storage
 
-### cinQ Browser (Web3 Browser)
-
-Integrated browser with Pelagus wallet for web3.
-
-**Features:**
-- Full web browser
-- Pelagus wallet integration
-- dApp connectivity
-- Transaction signing
-- Tab management
-- Bookmarks and history
-
-**MCP Tools:**
-- `cinq_browser_open` — Navigate to URL
-- `cinq_browser_current` — Get current page state
-- `cinq_browser_tabs` — List open tabs
-- `cinq_browser_wallet_status` — Get wallet connection
-- `cinq_browser_wallet_connect` — Connect to dApp
-- `cinq_browser_wallet_send` — Request Qi transaction
-
-**Security:** All wallet operations require user approval in Pelagus.
-
----
-
-### cinQ Pay (Payments)
-
-Usage tracking and Qi payments.
-
-**Features:**
-- Real-time usage metering
-- Qi cost tables
-- Session accounting
-- Pelagus integration for actual payments
-
-**Cost Table:**
-| Service | Cost |
-|---------|------|
-| Chat message | 0.0001 Qi |
-| Mail to unknown | 0.01 Qi deposit |
-| Mail to contact | Free |
-| Storage | 0.5 Qi/GB/month |
-| Transfer | 1.0 Qi/GB |
-| Share link | 0.001 Qi |
-
-**MCP Tools:**
-- `cinq_pay_balance` — Get Qi balance and usage
-- `cinq_pay_usage` — Get detailed breakdown
-- `cinq_pay_costs` — Get pricing table
+```
+~/.cinq/
+├── chat.db          # SQLite (identity, messages, contacts)
+├── keys/            # libp2p keypair
+└── drive/           # Local file storage
+    ├── documents/
+    ├── shared/
+    └── ...
+```
 
 ---
 
 ## MCP Server
 
-The MCP (Model Context Protocol) server allows Entropic's Claude to use cinQ services.
+### Endpoints
 
-### Protocol
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | Health check + server info |
+| `/mcp` | POST | JSON-RPC handler |
 
-JSON-RPC 2.0 over HTTP.
+### JSON-RPC Protocol
 
-**Endpoint:** `http://localhost:3000/mcp`
+**List tools:**
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "tools/list",
+  "id": 1
+}
+```
 
-### Request Format
-
+**Call tool:**
 ```json
 {
   "jsonrpc": "2.0",
@@ -245,279 +317,41 @@ JSON-RPC 2.0 over HTTP.
       "message": "Hello!"
     }
   },
-  "id": 1
+  "id": 2
 }
 ```
 
-### Response Format
+---
 
-```json
-{
-  "jsonrpc": "2.0",
-  "result": {
-    "content": [
-      {
-        "type": "text",
-        "text": "{\"success\": true, \"message_id\": \"abc123\"}"
-      }
-    ]
-  },
-  "id": 1
-}
-```
+## Tech Stack
 
-### Available Methods
-
-| Method | Description |
-|--------|-------------|
-| `initialize` | Initialize MCP session |
-| `tools/list` | List available tools |
-| `tools/call` | Call a tool |
+| Component | Technology | Version |
+|-----------|------------|---------|
+| Framework | Tauri | 2.x |
+| P2P | libp2p | 0.54 |
+| DHT | Kademlia | — |
+| Encryption | Noise | — |
+| Discovery | mDNS | — |
+| Database | SQLite | rusqlite |
+| MCP Server | Axum | 0.7 |
+| Serialization | serde_json | — |
 
 ---
 
-## P2P Networking
+## Future Work
 
-### libp2p Stack
+### v1.0 (MVP Polish)
+- Persistent DHT entries
+- Offline message queue
+- Pelagus wallet integration
 
-| Component | Purpose |
-|-----------|---------|
-| **Kademlia DHT** | Peer discovery and content routing |
-| **mDNS** | Local network discovery |
-| **Noise** | Encrypted connections |
-| **Yamux** | Stream multiplexing |
-| **GossipSub** | Message propagation |
+### v1.x (Growth)
+- Distributed storage (providers)
+- Provider mode (earn Qi)
+- Anti-spam (Qi deposits)
+- Key recovery
 
-### Peer Discovery
-
-1. **Local (mDNS)** — Discover peers on same network
-2. **Bootstrap nodes** — Well-known peers for initial connectivity
-3. **DHT** — Find peers by ID across the internet
-
-### Connection Flow
-
-```
-1. User starts cinQ app
-2. Load keypair from ~/.cinq/keypair.bin (or generate)
-3. Start libp2p swarm on port 9000
-4. Discover peers via mDNS + bootstrap
-5. Connect to discovered peers
-6. Exchange identity via /cinq/id/1.0.0
-7. Ready for chat/file transfer
-```
-
----
-
-## Security Model
-
-### Trust Boundaries
-
-1. **Pelagus Wallet** — Handles all blockchain operations (signing, transactions)
-2. **cinQ App** — Handles compute/data (never sees private keys)
-3. **Claude Agent** — Can request actions but requires user approval for payments
-
-### Encryption
-
-| Layer | Protection |
-|-------|-----------|
-| **Transport** | Noise protocol (all P2P traffic) |
-| **Storage** | User's encryption keys (Drive) |
-| **Wallet** | Hardware/browser wallet (Pelagus) |
-
-### Key Management
-
-- **Peer Identity**: Ed25519 keypair in `~/.cinq/keypair.bin`
-- **Wallet Keys**: Managed by Pelagus (never exposed to cinQ)
-- **Encryption Keys**: Derived from user's wallet (for Drive)
-
----
-
-## Data Storage
-
-### Local Files
-
-| Path | Purpose |
-|------|---------|
-| `~/.cinq/keypair.bin` | Ed25519 keypair (Peer ID) |
-| `~/.cinq/peers.json` | Known peers for bootstrap |
-| `~/.cinq/chat.db` | SQLite database |
-| `~/.cinq/drive/` | Local file storage |
-
-### SQLite Schema
-
-```sql
--- Conversations
-CREATE TABLE conversations (
-    id TEXT PRIMARY KEY,
-    peer_id TEXT NOT NULL,
-    display_name TEXT,
-    created_at INTEGER,
-    last_message_at INTEGER,
-    unread_count INTEGER DEFAULT 0
-);
-
--- Messages
-CREATE TABLE messages (
-    id TEXT PRIMARY KEY,
-    conversation_id TEXT NOT NULL,
-    sender_id TEXT NOT NULL,
-    content TEXT NOT NULL,
-    timestamp INTEGER NOT NULL,
-    is_outgoing INTEGER NOT NULL,
-    status TEXT DEFAULT 'pending'
-);
-
--- Contacts
-CREATE TABLE contacts (
-    peer_id TEXT PRIMARY KEY,
-    display_name TEXT NOT NULL,
-    chat_id TEXT,
-    added_at INTEGER NOT NULL,
-    last_seen INTEGER,
-    is_online INTEGER DEFAULT 0
-);
-
--- Files (for Drive)
-CREATE TABLE files (
-    id TEXT PRIMARY KEY,
-    path TEXT NOT NULL,
-    size INTEGER NOT NULL,
-    hash TEXT NOT NULL,
-    encrypted INTEGER DEFAULT 1,
-    created_at INTEGER,
-    modified_at INTEGER,
-    shared INTEGER DEFAULT 0
-);
-```
-
----
-
-## Provider Model
-
-Anyone can be a provider and earn Qi for sharing resources.
-
-### Becoming a Provider
-
-1. Enable "Provider Mode" in settings
-2. Configure storage allocation (e.g., 50GB)
-3. Set availability schedule
-4. Start earning Qi
-
-### Provider Earnings
-
-| Resource | Rate |
-|----------|------|
-| Storage | 0.25 Qi/GB/month (50% of user cost) |
-| Transfer | 0.5 Qi/GB (50% of user cost) |
-
-### Quality Metrics
-
-Providers are rated on:
-- **Uptime** — Percentage of time online
-- **Latency** — Response time
-- **Reliability** — Data retrieval success rate
-
-Higher ratings = More jobs = More earnings.
-
----
-
-## Roadmap
-
-### Phase 1 — Foundation ✅
-- P2P mesh networking (libp2p)
-- Basic chat functionality
-- Identity (Chat IDs)
-
-### Phase 2 — cinQ Cloud ✅
-- MCP server for Entropic
-- cinQ Browser with Pelagus
-- Usage tracking (cinQ Pay)
-
-### Phase 3 — Storage (Current)
-- cinQ Drive (distributed storage)
-- Provider mode
-- File sharing
-
-### Phase 4 — Communication
+### Future Services
 - cinQ Mail (async email)
-- Anti-spam system
-- Rich media support
-
-### Phase 5 — Scale
-- Federation between networks
-- Mobile companion app
-- Enterprise features
-
----
-
-## Development Guide
-
-### Prerequisites
-
-- Rust 1.77+
-- Node.js 18+
-- Tauri CLI
-
-### Build Commands
-
-```bash
-# Development
-cargo tauri dev
-
-# Production
-cargo tauri build
-
-# Check compilation
-cd src-tauri && cargo check
-```
-
-### Testing MCP
-
-```bash
-# Health check
-curl http://localhost:3000/
-
-# List tools
-curl -X POST http://localhost:3000/mcp \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
-```
-
-### Adding a New Tool
-
-1. Define tool in `src/mcp/tools.rs`:
-```rust
-Tool {
-    name: "cinq_new_tool".to_string(),
-    description: "Does something".to_string(),
-    input_schema: json!({
-        "type": "object",
-        "properties": { ... },
-        "required": []
-    }),
-}
-```
-
-2. Add handler in `handle_tool_call()`:
-```rust
-"cinq_new_tool" => handle_new_tool(arguments).await,
-```
-
-3. Implement handler:
-```rust
-async fn handle_new_tool(args: &HashMap<String, Value>) -> CallToolResult {
-    // Implementation
-    CallToolResult::json(&json!({ "result": "..." }))
-}
-```
-
----
-
-## References
-
-- [Entropic](https://github.com/dominant-strategies/entropic) — Claude AI desktop app
-- [Quai Network](https://qu.ai) — Layer 1 blockchain
-- [Pelagus Wallet](https://pelaguswallet.io) — Quai browser wallet
-- [libp2p](https://libp2p.io) — P2P networking
-- [Tauri](https://tauri.app) — Desktop app framework
-- [MCP Protocol](https://modelcontextprotocol.io) — Model Context Protocol
+- cinQ Browser (web3 browser)
+- Provider economy
