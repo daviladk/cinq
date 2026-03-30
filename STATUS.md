@@ -1,20 +1,29 @@
-# cinQ - Project Status
+# cinQ Cloud — Project Status
 
-> **Last Updated:** February 18, 2026  
-> **Version:** 0.7.0 (Phase 3: Qora Swarm Architecture)  
+> **Last Updated:** March 29, 2026  
+> **Version:** 0.8.0 (Phase 4: cinQ Cloud for Entropic)  
 > **Build Status:** ✅ Working
 
 ---
 
 ## 🎯 Project Vision
 
-**cinQ** is a decentralized Infrastructure-as-a-Service (IaaS) platform on Quai Network. Unlike speculative DePIN models, cinQ uses Qi (energy-backed currency) to create a compute marketplace where FLOPs have real value.
+**cinQ Cloud** is a decentralized Google Workspace for [Entropic](https://github.com/dominant-strategies/entropic) — Quai Network's Claude AI desktop app.
+
+While Quai handles **compute** (AI models on idle hardware), cinQ handles **data**:
+- **cinQ ID** — Decentralized identity (like Google Account)
+- **cinQ Mail** — Async email (like Gmail)
+- **cinQ Chat** — Real-time messaging (like Google Chat)
+- **cinQ Drive** — File storage (like Google Drive)
+- **cinQ Pay** — Qi-based metering (like Google Pay for services)
+
+**Not a fork** — cinQ is an extension that gives Entropic's Claude access to familiar productivity tools, all running on a P2P mesh with Qi payments.
 
 ---
 
-## 🎉 Current Phase: Qora Swarm + Worker Agents
+## 🎉 Current Phase: cinQ Cloud Architecture
 
-Building the local agent swarm with **Qora as the orchestrator** and specialized workers for bandwidth, storage, and payment tracking.
+Building the cloud services layer and MCP integration for Entropic.
 
 ### Qora Orchestrator (Alpha - Pure Rust)
 - Intent parsing via keyword patterns (no LLM dependency)
@@ -51,6 +60,45 @@ Building the local agent swarm with **Qora as the orchestrator** and specialized
 
 ---
 
+## cinQ Cloud Services
+
+### ✅ cinQ ID (Identity) — Built
+- Chat ID registration (`@username`)
+- Peer ID mapping (libp2p keypair)
+- SQLite storage for identity registry
+- Contact management
+
+### ✅ cinQ Chat (Messaging) — Built
+- Real-time P2P messaging
+- Conversation history (SQLite)
+- Online/offline presence
+- Read receipts
+
+### ✅ cinQ Drive (Storage) — Built
+- Local file storage
+- P2P file transfer protocol
+- Folder organization
+- Share links (planned)
+
+### ✅ cinQ Pay (Payments) — Built
+- Real-time usage tracking
+- Qi cost tables
+- Session accounting
+- Pelagus integration (wallet handles signing)
+
+### 🆕 cinQ Mail (Email) — To Build
+- Async threaded messages
+- Subject lines + rich text
+- Attachments (via Drive)
+- Anti-spam (Qi deposit for unknowns)
+
+### 🆕 MCP Server — To Build
+- Expose cinQ services to Entropic
+- Tool definitions for Claude
+- HTTP/WebSocket interface
+
+---
+
 ## File Structure
 
 ```
@@ -64,6 +112,19 @@ cinq/
 │   ├── main.rs              # Tauri commands (90+ commands)
 │   ├── lib.rs               # Module exports
 │   │
+│   ├── cloud/               # 🆕 cinQ Cloud services
+│   │   ├── mod.rs           # Re-exports
+│   │   ├── id.rs            # Identity service
+│   │   ├── mail.rs          # Email service
+│   │   ├── chat.rs          # Chat service
+│   │   ├── drive.rs         # Storage service
+│   │   └── pay.rs           # Payment service
+│   │
+│   ├── mcp/                 # 🆕 MCP server for Entropic
+│   │   ├── mod.rs           # MCP protocol handler
+│   │   ├── server.rs        # HTTP/WebSocket server
+│   │   └── tools.rs         # Tool definitions
+│   │
 │   ├── grid/                # P2P networking
 │   │   ├── mod.rs           # Module re-exports
 │   │   ├── node.rs          # libp2p swarm, peer management
@@ -71,17 +132,17 @@ cinq/
 │   │   ├── protocol.rs      # CinqRequest/CinqResponse types
 │   │   └── ...
 │   │
-│   ├── qora/                # Qora AI Agent (Ollama-based)
+│   ├── qora/                # Local AI agent (Qora)
 │   │   ├── mod.rs           # Module exports
-│   │   ├── agent.rs         # QoraAgent with Ollama
+│   │   ├── agent.rs         # QoraAgent
 │   │   ├── ollama.rs        # Ollama API client
 │   │   └── tasks.rs         # Task queue
 │   │
-│   └── swarm/               # Local Agent Swarm (NEW)
+│   └── swarm/               # Worker agents
 │       ├── mod.rs           # Module exports
 │       ├── costs.rs         # Qi pricing tables
 │       ├── tracker.rs       # Real-time usage tracking
-│       ├── intent.rs        # Intent parsing (pure Rust)
+│       ├── intent.rs        # Intent parsing
 │       ├── qora.rs          # Qora orchestrator
 │       └── workers/
 │           ├── mod.rs       # Worker trait
@@ -89,7 +150,9 @@ cinq/
 │           ├── storage.rs   # StorageWorker
 │           └── payment.rs   # PaymentWorker
 │
-├── docs/DESIGN.md           # Architecture & design
+├── docs/
+│   ├── DESIGN.md            # Architecture & design
+│   └── CINQ_CLOUD.md        # 🆕 Cloud services spec
 ├── CHANGELOG.md             # Version history
 ├── README.md                # Project overview
 └── STATUS.md                # This file
