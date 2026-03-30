@@ -1,5 +1,5 @@
-// Cinq Connect - DePIN Grid Foundation
-// Secure P2P mesh network for Quai Network
+// cinQ Cloud - Decentralized Workspace for Entropic
+// P2P mesh services: ID, Chat, Drive, Mail, Browser, Pay
 // MCP Server for Entropic integration
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
