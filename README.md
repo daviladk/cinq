@@ -106,9 +106,9 @@ Claude (in Entropic):
 
 ### Prerequisites
 
-- [Rust](https://rustup.rs/) (1.77+)
-- [Node.js](https://nodejs.org/) (18+)
-- [Entropic](https://github.com/dominant-strategies/entropic-releases/releases) (optional, for AI integration)
+- [Entropic](https://github.com/dominant-strategies/entropic-releases/releases) — cinQ runs as an app within Entropic
+- [Rust](https://rustup.rs/) (1.77+) — for building from source
+- [Node.js](https://nodejs.org/) (18+) — for UI dependencies
 
 ### Build and Run
 
