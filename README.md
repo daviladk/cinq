@@ -25,12 +25,15 @@ CLAUDE (via cinQ):
 
 | Service | What It Does | Status |
 |---------|--------------|--------|
-| **cinQ ID** | Your identity, contacts, Chat IDs | ✅ Working |
-| **cinQ Chat** | P2P messaging, conversation history | ✅ Working |
-| **cinQ Drive Lite** | Save/read/share files (local-first) | ✅ Working |
-| **cinQ Pay** | Usage metering, Qi costs, balances | ✅ Working |
+| **cinQ ID** | Your identity, contacts, Chat IDs | 🔧 Stubbed |
+| **cinQ Chat** | P2P messaging, conversation history | 🔧 Stubbed |
+| **cinQ Drive Lite** | Save/read/share files (local-first) | 🔧 Stubbed |
+| **cinQ Pay** | Usage metering, Qi costs, balances | 🔧 Stubbed |
 
-### The Demo Flow
+**Status key:**
+- 🔧 **Stubbed** = MCP tool defined, returns mock data, not wired to real services yet
+
+### The Demo Flow (Target)
 
 1. **User has cinQ identity** — `@alice` resolved to Peer ID
 2. **Claude saves a file** — stored locally in cinQ Drive
