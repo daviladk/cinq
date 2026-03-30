@@ -4,13 +4,11 @@
 pub mod apps;
 pub mod grid;
 pub mod mcp;
-pub mod qora;
 pub mod swarm;
 
 pub use apps::{App, AppId, AppInfo, AppKind, AppManifest, AppRegistry, AppStatus};
 pub use grid::{BandwidthMetrics, CinqNode};
 pub use mcp::{McpServerConfig, spawn_mcp_server};
-pub use qora::{QoraAgent, Task, TaskQueue, TaskStatus};
 pub use swarm::{ActionType, CostTable, UsageTracker, Warning, WarningLevel};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

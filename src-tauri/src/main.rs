@@ -7,7 +7,7 @@
 mod apps;
 mod grid;
 mod mcp;
-mod qora;
+// mod qora; // Removed - Entropic's Claude handles AI
 mod swarm;
 
 use apps::{AppId, AppInfo, AppRegistry};
@@ -16,13 +16,13 @@ use grid::{BandwidthMetrics, CinqNode, GridPeer, NodeConfig, ProxyStatus};
 use grid::{ChatManager, ChatMessage, Contact, Conversation, MessageStatus};
 use grid::{PoolStats, StratumClient, StratumStatus, Worker};
 use mcp::{McpServerConfig, spawn_mcp_server};
-use qora::{QoraAgent, Task};
+// use qora::{QoraAgent, Task}; // Removed - Entropic's Claude handles AI
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
 use swarm::{ActionType, CostTable, UsageTracker, Warning};
 use swarm::{BandwidthWorker, PaymentWorker, StorageWorker};
-use swarm::{Qora, QoraResponse};
+// use swarm::{Qora, QoraResponse}; // Removed - Entropic's Claude handles AI
 use tauri::State;
 use tokio::sync::RwLock;
 
@@ -32,10 +32,8 @@ pub struct CinqState {
     chat: Arc<RwLock<Option<Arc<RwLock<ChatManager>>>>>,
     stratum: Arc<RwLock<Option<StratumClient>>>,
     userid: Arc<RwLock<Option<Arc<RwLock<UserIdRegistry>>>>>,
-    qora: Arc<RwLock<Option<QoraAgent>>>,
     tracker: Arc<UsageTracker>,
-    // Swarm orchestrator and workers
-    qora_swarm: Arc<Qora>,
+    // Service workers
     bandwidth_worker: Arc<BandwidthWorker>,
     storage_worker: Arc<StorageWorker>,
     payment_worker: Arc<RwLock<PaymentWorker>>,
@@ -55,10 +53,8 @@ impl CinqState {
             chat: Arc::new(RwLock::new(None)),
             stratum: Arc::new(RwLock::new(None)),
             userid: Arc::new(RwLock::new(None)),
-            qora: Arc::new(RwLock::new(None)),
             tracker: tracker.clone(),
-            // Initialize swarm components
-            qora_swarm: Arc::new(Qora::new()),
+            // Initialize service workers
             bandwidth_worker: Arc::new(BandwidthWorker::new()),
             storage_worker: Arc::new(StorageWorker::new(data_dir.clone())),
             payment_worker: Arc::new(RwLock::new(PaymentWorker::new(tracker))),
@@ -1059,214 +1055,6 @@ async fn stratum_is_connected(
 }
 
 // ============================================================================
-// Qora AI Agent Commands
-// ============================================================================
-
-/// Qora state returned to frontend
-#[derive(Debug, Serialize, Deserialize)]
-pub struct QoraStatus {
-    pub initialized: bool,
-    pub ollama_available: bool,
-    pub model: String,
-    pub pending_tasks: usize,
-    pub pending_questions: Vec<String>,
-}
-
-/// Initialize Qora agent
-#[tauri::command]
-async fn qora_init(
-    state: State<'_, CinqState>,
-    ollama_url: Option<String>,
-    model: Option<String>,
-) -> Result<CommandResponse<QoraStatus>, String> {
-    let mut qora_guard = state.qora.write().await;
-
-    // Get project root (current directory for now)
-    let project_root = std::env::current_dir()
-        .map(|p| p.parent().map(|pp| pp.to_path_buf()).unwrap_or(p))
-        .unwrap_or_else(|_| std::path::PathBuf::from("."));
-
-    let url = ollama_url.unwrap_or_else(|| "http://localhost:11434".to_string());
-    let model_name = model.unwrap_or_else(|| "deepseek-coder:33b".to_string());
-
-    let agent = QoraAgent::new(project_root, Some(url), Some(model_name.clone()));
-
-    // Check if Ollama is available
-    let ollama_available = agent.health_check().await;
-
-    let status = QoraStatus {
-        initialized: true,
-        ollama_available,
-        model: model_name,
-        pending_tasks: 0,
-        pending_questions: vec![],
-    };
-
-    *qora_guard = Some(agent);
-
-    log::info!("Qora initialized. Ollama available: {}", ollama_available);
-    Ok(CommandResponse::ok(status))
-}
-
-/// Get Qora status
-#[tauri::command]
-async fn qora_status(state: State<'_, CinqState>) -> Result<CommandResponse<QoraStatus>, String> {
-    let qora_guard = state.qora.read().await;
-
-    match qora_guard.as_ref() {
-        Some(agent) => {
-            let state_data = agent.get_state().await;
-            let ollama_available = agent.health_check().await;
-
-            Ok(CommandResponse::ok(QoraStatus {
-                initialized: true,
-                ollama_available,
-                model: state_data.model,
-                pending_tasks: agent.pending_task_count().await,
-                pending_questions: state_data.pending_questions,
-            }))
-        }
-        None => Ok(CommandResponse::ok(QoraStatus {
-            initialized: false,
-            ollama_available: false,
-            model: String::new(),
-            pending_tasks: 0,
-            pending_questions: vec![],
-        })),
-    }
-}
-
-/// Chat with Qora
-#[tauri::command]
-async fn qora_chat(
-    state: State<'_, CinqState>,
-    message: String,
-) -> Result<CommandResponse<String>, String> {
-    let qora_guard = state.qora.read().await;
-
-    match qora_guard.as_ref() {
-        Some(agent) => match agent.chat(&message).await {
-            Ok(response) => Ok(CommandResponse::ok(response)),
-            Err(e) => Ok(CommandResponse::err(format!("Qora error: {}", e))),
-        },
-        None => Ok(CommandResponse::err(
-            "Qora not initialized. Call qora_init first.",
-        )),
-    }
-}
-
-/// Add a task for Qora
-#[tauri::command]
-async fn qora_add_task(
-    state: State<'_, CinqState>,
-    title: String,
-    description: String,
-) -> Result<CommandResponse<Task>, String> {
-    let qora_guard = state.qora.read().await;
-
-    match qora_guard.as_ref() {
-        Some(agent) => match agent.add_task(&title, &description).await {
-            Ok(task) => Ok(CommandResponse::ok(task)),
-            Err(e) => Ok(CommandResponse::err(e)),
-        },
-        None => Ok(CommandResponse::err("Qora not initialized")),
-    }
-}
-
-/// Get all Qora tasks
-#[tauri::command]
-async fn qora_get_tasks(state: State<'_, CinqState>) -> Result<CommandResponse<Vec<Task>>, String> {
-    let qora_guard = state.qora.read().await;
-
-    match qora_guard.as_ref() {
-        Some(agent) => {
-            let tasks = agent.get_tasks().await;
-            Ok(CommandResponse::ok(tasks))
-        }
-        None => Ok(CommandResponse::err("Qora not initialized")),
-    }
-}
-
-/// Tell Qora to work on the next pending task
-#[tauri::command]
-async fn qora_work(state: State<'_, CinqState>) -> Result<CommandResponse<Option<String>>, String> {
-    let qora_guard = state.qora.read().await;
-
-    match qora_guard.as_ref() {
-        Some(agent) => match agent.work().await {
-            Ok(result) => Ok(CommandResponse::ok(result)),
-            Err(e) => Ok(CommandResponse::err(format!("Work failed: {}", e))),
-        },
-        None => Ok(CommandResponse::err("Qora not initialized")),
-    }
-}
-
-/// Answer one of Qora's pending questions
-#[tauri::command]
-async fn qora_answer_question(
-    state: State<'_, CinqState>,
-    question_index: usize,
-    answer: String,
-) -> Result<CommandResponse<String>, String> {
-    let qora_guard = state.qora.read().await;
-
-    match qora_guard.as_ref() {
-        Some(agent) => match agent.answer_question(question_index, &answer).await {
-            Ok(response) => Ok(CommandResponse::ok(response)),
-            Err(e) => Ok(CommandResponse::err(e)),
-        },
-        None => Ok(CommandResponse::err("Qora not initialized")),
-    }
-}
-
-/// Get Qora's conversation history
-#[tauri::command]
-async fn qora_get_history(
-    state: State<'_, CinqState>,
-) -> Result<CommandResponse<Vec<qora::agent::QoraMessage>>, String> {
-    let qora_guard = state.qora.read().await;
-
-    match qora_guard.as_ref() {
-        Some(agent) => {
-            let state_data = agent.get_state().await;
-            Ok(CommandResponse::ok(state_data.conversation))
-        }
-        None => Ok(CommandResponse::err("Qora not initialized")),
-    }
-}
-
-/// Start Qora working autonomously through all tasks
-/// Call this before going to work - she'll grind through the queue
-#[tauri::command]
-async fn qora_work_all(state: State<'_, CinqState>) -> Result<CommandResponse<String>, String> {
-    let qora_guard = state.qora.read().await;
-
-    match qora_guard.as_ref() {
-        Some(agent) => match agent.work_all().await {
-            Ok(summary) => Ok(CommandResponse::ok(summary)),
-            Err(e) => Ok(CommandResponse::err(format!("Work failed: {}", e))),
-        },
-        None => Ok(CommandResponse::err("Qora not initialized")),
-    }
-}
-
-/// Get Qora's pending questions that need human input
-#[tauri::command]
-async fn qora_get_questions(
-    state: State<'_, CinqState>,
-) -> Result<CommandResponse<Vec<String>>, String> {
-    let qora_guard = state.qora.read().await;
-
-    match qora_guard.as_ref() {
-        Some(agent) => {
-            let questions = agent.get_pending_questions().await;
-            Ok(CommandResponse::ok(questions))
-        }
-        None => Ok(CommandResponse::err("Qora not initialized")),
-    }
-}
-
-// ============================================================================
 // Swarm Usage Tracker Commands
 // ============================================================================
 
@@ -1416,43 +1204,6 @@ async fn swarm_get_cost_table(
     _state: State<'_, CinqState>,
 ) -> Result<CommandResponse<CostTable>, String> {
     Ok(CommandResponse::ok(CostTable::default()))
-}
-
-// ============================================================================
-// Qora Swarm Orchestrator Commands
-// ============================================================================
-
-/// Process natural language input through Qora orchestrator
-#[tauri::command]
-async fn qora_process(
-    state: State<'_, CinqState>,
-    input: String,
-) -> Result<CommandResponse<QoraResponse>, String> {
-    let response = state.qora_swarm.process(&input);
-    Ok(CommandResponse::ok(response))
-}
-
-/// Get all supported intents for the UI
-#[tauri::command]
-async fn qora_get_intents(
-    _state: State<'_, CinqState>,
-) -> Result<CommandResponse<Vec<String>>, String> {
-    let intents = vec![
-        "SendMessage".to_string(),
-        "StartCall".to_string(),
-        "StartVideoCall".to_string(),
-        "EndCall".to_string(),
-        "UploadFile".to_string(),
-        "DownloadFile".to_string(),
-        "CheckBalance".to_string(),
-        "CheckUsage".to_string(),
-        "FindContact".to_string(),
-        "SearchMessages".to_string(),
-        "GetHistory".to_string(),
-        "Help".to_string(),
-        "Unknown".to_string(),
-    ];
-    Ok(CommandResponse::ok(intents))
 }
 
 // ============================================================================
@@ -1975,17 +1726,6 @@ fn main() {
             stratum_get_workers,
             stratum_get_miners,
             stratum_is_connected,
-            // Qora AI agent commands
-            qora_init,
-            qora_status,
-            qora_chat,
-            qora_add_task,
-            qora_get_tasks,
-            qora_work,
-            qora_work_all,
-            qora_answer_question,
-            qora_get_questions,
-            qora_get_history,
             // Swarm usage tracker commands
             swarm_get_balance,
             swarm_set_balance,
@@ -1995,9 +1735,6 @@ fn main() {
             swarm_check_warnings,
             swarm_estimate_cost,
             swarm_get_cost_table,
-            // Qora swarm orchestrator commands
-            qora_process,
-            qora_get_intents,
             // Bandwidth worker commands
             worker_send_message,
             worker_start_call,

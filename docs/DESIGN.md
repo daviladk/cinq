@@ -1,1511 +1,523 @@
-# cinQ - Design Document
+# cinQ Cloud — Design Document
 
-> **Version:** 0.6.0  
-> **Date:** February 12, 2026  
-> **Status:** Phase 2 - Gateway Shell
+> **Version:** 0.8.0  
+> **Date:** March 30, 2026  
+> **Status:** Phase 4 - cinQ Cloud for Entropic
 
 ---
 
 ## Overview
 
-**cinQ** is a decentralized Infrastructure-as-a-Service (IaaS) platform built on Quai Network. By linking Qi directly to FLOPs, cinQ creates a marketplace where hardware providers are compensated in energy-backed currency—eliminating speculative token economics.
+**cinQ Cloud** is a decentralized workspace layer for [Entropic](https://github.com/dominant-strategies/entropic), providing familiar productivity services (identity, email, chat, storage, payments) powered by a P2P mesh network.
 
 ### Core Vision
 
-- **Qi = FLOPs** - Energy-anchored compute pricing
-- **Qora Agent Swarm** - AI-orchestrated workload management
-- **Harvest Idle Silicon** - Gaming PCs, servers, EVs → productive mesh
-- **10/90 Deposit Model** - High-quality, audit-ready nodes
-- **$CINQ Soulbound Identity** - Non-tradable reputation (1:1 mint, 100:1 redeem)
+- **People-powered infrastructure** — Users ARE the network, no dedicated servers needed
+- **Familiar services** — Google Workspace UX with decentralized backend
+- **MCP integration** — Claude in Entropic can use cinQ tools directly
+- **Qi economy** — All services metered in Qi for fair compensation
 
-### Qi: The Energy Dollar for AI
-
-> *"By denominating costs in Energy Dollars, we create a seamless accounting system where the currency of transaction aligns perfectly with the currency of computation."*  
-> — Alan Orwick, Quai Network Founder
-
-**Why Traditional Cryptocurrencies Fail for AI:**
-
-| Currency | Problem for AI |
-|----------|----------------|
-| **BTC/ETH** | Volatility makes long-running tasks unpredictable. An AI job taking hours could see compensation fluctuate wildly. |
-| **Stablecoins** | Oracle dependency introduces risk. Ties to traditional finance break crypto-native principles. |
-| **DePIN Tokens** | Speculative, marketing-driven. No intrinsic link to compute costs. |
-
-**Why Qi (Energy Dollar) Works:**
-
-- **Energy = AI Growth** - Data center consumption is the key driver of AI capabilities (projected 9.1% of US electricity by 2030)
-- **Direct Hardware Integration** - AI agents tap into the hardware they run on to validate energy consumption
-- **Proof of Work as Value Creation** - Nodes can generate the currency they need without external exchanges
-- **No Oracle Risk** - Qi is minted through energy expenditure, not pegged via price feeds
-
-cinQ implements this vision: **Qi is the currency of transaction, FLOPs are the currency of computation.**
-
-### Why DePIN Projects Struggle
-
-Most DePIN projects share a fundamental flaw: **their token economics are disconnected from the utility they provide.** This creates a misalignment where:
+### The Stack
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│              THE DEPIN DEATH SPIRAL                             │
-├─────────────────────────────────────────────────────────────────┤
+│                        ENTROPIC                                 │
+│                  (Claude AI Desktop App)                        │
 │                                                                 │
-│   1. Token price drops → Provider revenue drops                 │
-│   2. Providers shut off hardware (unprofitable)                 │
-│   3. Network capacity decreases → Service quality drops         │
-│   4. Users leave → Less demand for token                        │
-│   5. Token price drops further → Repeat                         │
-│                                                                 │
-│   The utility token BECOMES the vulnerability.                  │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-**Case Studies:**
-
-| Project | Model | Problem |
-|---------|-------|--------|
-| **Flux** | Providers earn FLUX tokens | Token price crashed 95%+ from ATH. Providers earning less than electricity costs. Network relies on "true believers" subsidizing operations. Human operators manually managing workloads—no AI orchestration. |
-| **Helium** | Hotspot owners earn HNT | Early adopters earned well, but as network grew, per-device earnings collapsed. Migration to Solana signals tokenomics failure. Hardware sits idle as ROI disappeared. |
-| **Dabba** | Users pay DABBA to router operators | Human-controlled payment rails. Token value disconnected from bandwidth delivered. Indian operators dependent on token speculation, not utility revenue. |
-| **Akash** | Providers bid in AKT | Price discovery is manual and human-driven. No autonomous agent economy. AKT volatility makes long-term compute contracts risky. |
-| **Render** | GPU providers earn RNDR | Centralized job distribution. Single point of failure. Token speculation overshadows actual render utility. |
-
-**The Common Thread:** All these projects pay providers in a token whose value is determined by market speculation, not by the energy/compute actually delivered.
-
-**cinQ's Solution:**
-
-```
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                    Claude Agent                          │   │
+│   │            (understands natural language)                │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                             │                                   │
+│                        MCP Protocol                             │
+│                             │                                   │
+└─────────────────────────────┼───────────────────────────────────┘
+                              │
+                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│              THE ENERGY DOLLAR FLYWHEEL                         │
-├─────────────────────────────────────────────────────────────────┤
+│                        cinQ CLOUD                               │
+│                  (Decentralized Workspace)                      │
 │                                                                 │
-│   1. Provider delivers 1 TFLOP of compute                       │
-│   2. Qi payment reflects actual energy cost (not speculation)   │
-│   3. Provider is ALWAYS profitable if efficient                 │
-│   4. More providers join → Network capacity grows               │
-│   5. Better service → More AI agents use the network            │
-│   6. More demand → More Qi flows → Repeat                       │
-│                                                                 │
-│   Energy-backed currency CANNOT death spiral.                   │
-│   Providers earn what they spend, plus margin.                  │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+│   ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐          │
+│   │ cinQ ID  │ │cinQ Chat │ │cinQ Drive│ │cinQ Mail │          │
+│   └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘          │
+│        │            │            │            │                 │
+│   ┌──────────┐ ┌──────────┐                                    │
+│   │cinQ Pay  │ │cinQBrowser│                                    │
+│   └────┬─────┘ └────┬─────┘                                    │
+│        │            │                                           │
+│        └────────────┴────────────┬──────────────────────────┐  │
+│                                  │                           │  │
+│                          ┌───────┴───────┐                   │  │
+│                          │  libp2p mesh  │                   │  │
+│                          └───────────────┘                   │  │
+│                                                              │  │
+│   ┌──────────────────────────────────────────────────────┐  │  │
+│   │                 MCP SERVER (:3000)                    │  │  │
+│   │           JSON-RPC over HTTP (Axum)                   │  │  │
+│   └──────────────────────────────────────────────────────┘  │  │
+│                                                              │  │
+└──────────────────────────────────────────────────────────────┘  │
+                                                                  │
+                              ▼                                   │
+┌─────────────────────────────────────────────────────────────────┘
+│                      QUAI NETWORK
+│                   (Qi Payments + Identity)
+│
+│   ┌──────────────────────────────────────────────────────┐
+│   │                  Pelagus Wallet                       │
+│   │          (handles all blockchain operations)          │
+│   └──────────────────────────────────────────────────────┘
+│
+└─────────────────────────────────────────────────────────────────
 ```
-
-**Key Difference:** In cinQ, provider revenue is tied to **physics** (energy consumed), not **hype** (token speculation). An efficient RTX 4090 will always be profitable because Qi/TFLOP tracks real energy costs.
-
-### Vampire Migration: Rescuing Stranded Hardware
-
-Millions of dollars in DePIN hardware is sitting idle or earning below electricity costs. cinQ offers these "refugee" providers an escape hatch:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│              VAMPIRE MIGRATION TOOL                             │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│   ONE-CLICK ONBOARDING FOR DEPIN REFUGEES                       │
-│                                                                 │
-│   Step 1: Install cinQ Gateway on existing hardware             │
-│   Step 2: Auto-detect CPU/GPU/RAM/Antenna capabilities          │
-│   Step 3: Assign optimal role in Qora Swarm                     │
-│   Step 4: Start earning Qi immediately                          │
-│                                                                 │
-│   YOUR HARDWARE. YOUR ELECTRICITY. FINALLY PROFITABLE.          │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-**Hardware Migration Paths:**
-
-| Source | Hardware Type | cinQ Role |
-|--------|--------------|----------|
-| **Flux** | High-spec servers, GPUs | Compute Provider - heavy AI/HPC workloads |
-| **Helium** | LoRa hotspots, antennas | Long-Range Sentinel - geographic verification, mesh heartbeat |
-| **Dabba** | India-based routers | Regional Gateway - bandwidth for Indian community |
-| **Wingbits** | ADS-B antennas (1090MHz) | Location Oracle - aviation data, hex verification |
-| **Akash** | GPU clusters | HPC Pool - AI training, rendering |
-| **Mining Rigs** | ASICs, GPUs | Qi Mining + Compute - dual revenue streams |
-
-**Why Providers Migrate:**
-- **Immediate profitability** - Qi tracks energy costs, not speculation
-- **No collateral lockup** - Unlike Flux's tiered collateral system
-- **AI-managed workloads** - Qora handles routing, no manual bidding
-- **Dual revenue** - Mine Qi during idle periods, earn Qi during compute jobs
-
-**The Value Proposition:** If your DePIN hardware is earning less than your electricity bill, cinQ turns it profitable by anchoring payments to the energy you actually consume.
-
-### FLOPs as Trustless Oracle
-
-**Why FLOPs matter for AI agents:** Autonomous agents need a payment system that is simple, mathematical, and auditable. FLOPs provide exactly that.
-
-| Property | Why It Matters |
-|----------|----------------|
-| **Simple** | FLOP is a fixed unit of work. No pricing complexity. |
-| **Mathematical** | Measurable, benchmarkable, deterministic. |
-| **Understandable** | Anyone can verify: "I paid for X FLOPs, I got X FLOPs" |
-| **Auditable** | Anomalies stand out immediately—fraud is detectable by math. |
-
-**Important:** The Qi/TFLOP rate is **not** fixed at 1:1. It floats based on energy costs:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│              QI/TFLOP PRICING MODEL                             │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│   FIXED: The unit (FLOP) - physics, measurable, deterministic   │
-│   FLOATS: The price (Qi/FLOP) - tracks real energy costs        │
-│                                                                 │
-│   Formula:                                                      │
-│   Qi/TFLOP = (Qi/kWh from Energy Oracle) ÷ (TFLOPs/kWh)        │
-│                                                                 │
-│   Example:                                                      │
-│   ├── RTX 4090: 82 TFLOPs @ 450W = 182 TFLOPs/kWh              │
-│   ├── If Qi/kWh = 0.10 Qi → 1 TFLOP ≈ 0.00055 Qi               │
-│   │                                                             │
-│   ├── Old GPU: 10 TFLOPs @ 300W = 33 TFLOPs/kWh                │
-│   └── Same energy → 1 TFLOP ≈ 0.003 Qi (less efficient)        │
-│                                                                 │
-│   WHO TRACKS THIS? The Indexer Agent                            │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│              WHY QI FOR AGENTIC TRANSACTIONS                    │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│   Traditional Cloud Pricing:                                    │
-│   └── "Pay $0.0001 per token" ← What is a token worth? Arbitrary│
-│                                                                 │
-│   cinQ/Qi Pricing:                                              │
-│   └── "Pay 1 Qi per TFLOP" ← Verifiable unit of work. Math.    │
-│                                                                 │
-│   THE SECURITY MODEL:                                           │
-│   ┌────────────────────────────────────────────────────────┐    │
-│   │ Agent requests job → pays 50 Qi                        │    │
-│   │ Provider claims completion → submits proof             │    │
-│   │ Network verifies: FLOPs delivered ≈ FLOPs paid?        │    │
-│   │   ✓ Match → settlement                                 │    │
-│   │   ✗ Mismatch → dispute, reputation hit, slashing       │    │
-│   └────────────────────────────────────────────────────────┘    │
-│                                                                 │
-│   Agents can't be fooled when payment = physics.                │
-│   Malicious node claims 100 TFLOPs but delivers 10?             │
-│   The math doesn't lie. The network detects and penalizes.      │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-This is why Quai's Qi is perfect for autonomous AI economies—it's not just "energy-backed currency," it's a **verifiable work receipt** that agents can trust without human intervention.
-
-### The Agent Economy: Active From Day 1
-
-**Agents don't arrive in a later phase—they ARE the network from testnet onward.**
-
-Even the simplest message in testnet involves agents:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│              TESTNET: 1-HOP ROUTING (AGENTS ACTIVE)             │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│   Alice sends "Hello" to Bob                                    │
-│        │                                                        │
-│        ▼                                                        │
-│   Navigator Agent: "Route via Node C" (DHT lookup)              │
-│        │                                                        │
-│        ▼                                                        │
-│   Relay Agent @ Node C: routes message → earns 0.0001 Qi        │
-│        │                                                        │
-│        ▼                                                        │
-│   Treasurer Agent: settles UTXO micropayment                    │
-│        │                                                        │
-│        ▼                                                        │
-│   Bob receives "Hello"                                          │
-│                                                                 │
-│   TOTAL: 3 agents involved, 1 micropayment settled.             │
-│   This is the FOUNDATION. Privacy/compute come later.           │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-**The phases aren't about "adding agents"—they're about adding workloads and security layers:**
-
-| Phase | What Changes | Agents Doing |
-|-------|--------------|--------------|
-| **Testnet** | 1-hop routing, basic mesh | Navigate, Relay, Settle |
-| **Phase 2** | Messaging + Chat IDs | Same agents, user-facing app |
-| **Phase 3** | 3-hop onion routing, streaming | Privacy upgrade, bandwidth agents |
-| **Phase 4** | GPU compute marketplace | Provider agents, job orchestration |
-| **Phase 5** | Storage, CRDTs, federation | Storage agents, cross-network |
-
-**Critical Insight:** In testnet, users might even send transactions to themselves just to prove the pattern works. The economic primitive is exercised from day 1—we're not "adding payments later."
-
-### Development Phases (Agents Always Running)
-
-| Phase | Focus | Routing | Agent Activity |
-|-------|-------|---------|----------------|
-| Testnet | Prove the mesh works | 1-hop (single relay) | Agents settle micro-Qi, even self-tx |
-| 2. Gateway Shell | User app + Messaging | 1-hop (simple) | Relay + Gossip agents active |
-| 3. Streaming & Privacy | Voice/Video + Onion routing | 3-hop (privacy) | Bandwidth + Codec agents added |
-| 4. Full Compute | GPU marketplace | 3-hop | Provider + Job agents added |
-| 5. Sovereign OS | Storage, CRDTs | 3-hop | Storage + Federation agents |
-
-#### Testnet: The Economic Primitive
-
-Before anything else works, we prove:
-1. **Node A can find Node B** via DHT (Navigator Agent)
-2. **Node A can route through Node C** (Relay Agent earns Qi)
-3. **Micropayment settles** via UTXO (Treasurer Agent)
-
-Even if Node A sends to itself through C, the pattern is proven. This is the foundation.
-
-#### Phase 2: User-Facing App (Same Agents)
-
-Add the Tauri shell, Chat IDs, contact cards. The agents are already running—we just give humans a UI to interact with them.
-
-```
-Phase 2 Stack:
-├── Tauri app (UI layer)
-├── Chat IDs + Contact Cards (identity)
-├── E2EE messaging (encryption)
-└── SAME agents from testnet (1-hop, micro-Qi)
-```
-
-#### Phase 3: Privacy + Streaming (Upgrade Routing)
-
-Now we add complexity:
-- **3-hop onion routing** for privacy
-- **Bandwidth agents** for streaming
-- Each hop earns Qi → 3x the micropayments per message
-
-```
-Message with 3-hop routing:
-     │
-     ├── Relay Agent A → earns 0.0001 Qi
-     ├── Relay Agent B → earns 0.0001 Qi  
-     ├── Relay Agent C → earns 0.0001 Qi
-     │
-     └── Total: 0.0003 Qi (3x testnet cost, 3x privacy)
-```
-
-Streaming (voice/video) uses the same pattern but more bytes → more Qi.
-
-#### Phase 4: Compute (Add GPU Workloads)
-
-The agent economy is proven. Now we add heavy workloads:
-- Provider agents offer GPU/CPU
-- Job agents orchestrate multi-node tasks
-- Same UTXO micropayments, larger values
-
-#### Phase 5: Sovereign OS (Full Stack)
-
-Storage agents, CRDTs, federation. The complete AWS replacement—but still using the same economic primitive proven in testnet.
 
 ---
 
-## Identity System
+## Services
 
-### Chat IDs (Phone Number Style)
+### cinQ ID (Identity)
 
-Users get memorable identifiers instead of complex peer IDs:
+Decentralized identity with human-readable Chat IDs.
 
-| Peer ID | Chat ID |
-|---------|---------|
-| `12D3KooWP7zQ4dLEw3JiPdrerChHsTzhjfxs69oEBcxZieXU1sAu` | `555-123-4567` |
+**Features:**
+- Chat ID registration (`@username`)
+- Peer ID mapping (libp2p Ed25519 keypair)
+- Contact management
+- Profile information (name, avatar, bio)
 
-### ID Formats & Zone Prefixes (Like Country Codes)
+**Storage:** SQLite (`~/.cinq/chat.db`)
 
-Zones work like **country codes for phone numbers**, based on Quai Network shards:
-
-| Type | Format | Example | Description |
-|------|--------|---------|-------------|
-| Legacy (Alpha) | 10 digits | `555-123-4567` | Pre-SBT users, no zone prefix |
-| Cyprus (Zone 1) | 1 + 10 digits | `1-555-123-4567` | First shard, SBT verified |
-| Paxos (Zone 2) | 2 + 10 digits | `2-555-123-4567` | Second shard, SBT verified |
-| Hydra (Zone 3) | 3 + 10 digits | `3-555-123-4567` | Third shard, SBT verified |
-| Future Zones | N + 10 digits | `N-XXX-XXX-XXXX` | Expands with Quai shards |
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    ZONE PREFIX SYSTEM                            │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│   Legacy Users (pre-SBT):                                       │
-│   └── No prefix: 555-123-4567 (alpha testers, unverified)       │
-│                                                                 │
-│   SBT Holders (verified on-chain):                              │
-│   ├── Cyprus (Zone 1): 1-555-123-4567                           │
-│   ├── Paxos  (Zone 2): 2-555-123-4567                           │
-│   ├── Hydra  (Zone 3): 3-555-123-4567                           │
-│   └── Future shards:   4-9+ as Quai expands                     │
-│                                                                 │
-│   Per-Zone Capacity: 10 billion unique IDs                      │
-│   Total Capacity: Unlimited (grows with Quai shards)            │
-│                                                                 │
-│   Zone = Quai shard where SBT was minted                        │
-│   Your zone prefix is permanent (part of your identity)         │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-**Why this works:**
-- **Infinite scalability** - Each Quai shard = new zone = 10B more IDs
-- **Sybil resistance** - SBT mint ties ID to on-chain payment
-- **Cross-shard routing** - Zone prefix tells network which shard to query
-
-### Legacy ID Migration
-
-Legacy IDs (no zone prefix) are **ephemeral alpha testing IDs**. They do NOT migrate to SBT:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    LEGACY → SBT MIGRATION                        │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│   ALPHA PHASE (pre-SBT):                                        │
-│   └── User gets: 555-123-4567 (temporary, unverified)           │
-│                                                                 │
-│   SBT LAUNCH:                                                   │
-│   └── User mints SBT on Cyprus shard                            │
-│   └── Gets NEW number: 1-867-530-9999                           │
-│   └── Old legacy ID (555-123-4567) expires/becomes inactive     │
-│   └── Proof of alpha participation → Bonus $CINQ reward!        │
-│                                                                 │
-│   WHY NO MIGRATION?                                             │
-│   • Legacy IDs were never on-chain (no ownership proof)         │
-│   • SBT numbers are assigned at mint time by smart contract     │
-│   • Clean slate = no complex migration logic                    │
-│   • Alpha testers get rewarded with $CINQ, not number claims    │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-**Alpha Tester Rewards:**
-| Proof | Reward | How to Verify |
-|-------|--------|---------------|
-| Had legacy ID before SBT launch | 500 $CINQ | Signed message from old peer ID |
-| Sent 100+ messages in alpha | +250 $CINQ | DHT activity logs |
-| Relayed 1GB+ in alpha | +250 $CINQ | Bandwidth metrics |
-
-This rewards early adopters **without** complex ID migration. Your new SBT number is your permanent identity.
-
-### Soul Bound Token (SBT) Integration
-
-SBTs are non-transferable NFTs that prove on-chain identity:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    SBT MINTING FLOW                             │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  1. User connects wallet (Pelagus)                              │
-│  2. Wallet address reveals zone (Cyprus, Paxos, Hydra, etc.)    │
-│  3. Pays mint fee on that shard (sybil resistance)              │
-│  4. Contract assigns next sequential Chat ID for that zone      │
-│  5. Chat ID is MINTED INTO THE SBT as permanent metadata        │
-│  6. SBT lives in user's Pelagus wallet forever (non-transferable)│
-│                                                                 │
-│  Your Chat ID = Your SBT = Your Phone Number on cinQ            │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-#### Authentication Flow (Login)
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    LOGIN WITH WALLET                            │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  1. User opens cinQ app → clicks "Connect Wallet"               │
-│  2. Wallet popup → User approves connection                     │
-│  3. cinQ reads wallet contents:                                 │
-│     ├── cinQ SBT found? → Extract Chat ID from metadata         │
-│     ├── Genesis NFT found? → Show Genesis badge                 │
-│     └── Alpha badge found? → Show Alpha badge                   │
-│  4. User is logged in as their Chat ID (e.g., 1-555-0001)       │
-│                                                                 │
-│  NO PASSWORDS. NO ACCOUNTS. WALLET = IDENTITY.                  │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-#### Wallet Options
-
-Your cinQ ID lives at a **Quai address** - any compatible wallet works:
-
-| Wallet | Type | Backup Method | Best For |
-|--------|------|---------------|----------|
-| **Pelagus** | Software | Seed phrase (12-24 words) | Desktop/browser users |
-| **Tangem** | Hardware (NFC cards) | PIN code + replacement cards | Security-conscious, mobile |
-
-**Why Tangem is ideal for identity:**
-- No seed phrase to lose/leak/forget
-- Tap card to sign (like tapping a credit card)
-- **Recoverable**: Lost cards? Get new ones, enter your PIN, done
-- PIN is easier to remember than 24 random words
-- **Biometric authentication**: Fingerprint verification on supported cards
-- More intuitive: "my ID is this card + my PIN + my fingerprint"
-
-**Three-Factor Identity with Tangem:**
-| Factor | What It Proves |
-|--------|----------------|
-| 🔐 **Something you have** | Tangem NFC card |
-| 🔢 **Something you know** | PIN code |
-| 👆 **Something you are** | Biometrics (fingerprint) |
-
-*This makes your cinQ ID stronger than most government IDs - backed by hardware, cryptography, and biometrics.*
-
-**Recovery comparison:**
-| Wallet | Lost Device Recovery | What You Must Remember |
-|--------|---------------------|----------------------|
-| **Pelagus** | Enter seed phrase on new device | 12-24 random words |
-| **Tangem** | Order new cards, enter PIN | 4-6 digit PIN |
-
-**Recommendation:** For your cinQ ID (something you'll keep forever), Tangem's PIN + biometric model is more forgiving and more secure than seed phrases. Reserve Pelagus for daily spending wallets.
-
-**Potential Tangem Partnership:**
-- cinQ as a flagship "identity wallet" use case
-- Co-branded "cinQ Identity Card" edition
-- Hardware discount program for cinQ users
-- Marketing: "Your digital identity, in your wallet"
-
-**SBT Metadata (stored on-chain):**
-```json
-{
-  "chatId": "1-555-0001",
-  "mintedAt": 1707700000,
-  "zone": 1
-}
-```
-
-**What cinQ can verify:**
-- Chat ID is real (SBT exists on-chain)
-- User owns it (wallet signature)
-- Zone is correct (matches wallet address prefix)
-- Any badges (Genesis/Alpha NFTs in same wallet)
-
-#### SBT Mint Pricing (Anti-Sybil)
-
-The goal is **economic friction, not gatekeeping**. The mint fee should be:
-- **Meaningful enough** that average users only want one identity
-- **Low enough** that anyone can afford their first
-- **Not prohibitive** - wealthy bad actors could still create multiple, and that's acceptable
-
-| Approach | Price | Rationale |
-|----------|-------|-----------|
-| **Flat Fee** | ~$5-10 Qi | Coffee money - accessible but not free |
-| **Tiered** | First: $1, Second: $10, Third: $100 | Exponential discourages multiples |
-
-**Philosophy:** Freedom over identity verification. We're not trying to create a police state—we're creating friction that makes spam uneconomical while preserving pseudonymity. If someone wants 10 identities and pays 10x, that's their choice.
-
-**Revenue Split:**
-- 90% → Foundation (funds development)
-- 10% → Contract maintenance (covers gas)
-
-#### Rollout Phases
-
-**Phase 1: Testnet (Alpha)**
-- Regular sequential Chat IDs **without zone prefix** (e.g., `555-0001`, `555-0002`)
-- No zone prefix = instant visual indicator it's a testnet ID
-- Testing on Quai testnet - no real value at stake
-- Alpha testers help find bugs, stress-test the network
-- All testnet IDs are ephemeral - won't carry over to mainnet
-
-**Phase 2: Mainnet Launch (Genesis)**
-- Genesis NFT mint opens for early adopters
-- Real SBT identity minted on Quai mainnet
-- **Zone prefix auto-detected** from user's wallet address
-- Chat ID format: `{zone}-{area}-{number}` (e.g., `1-555-0001` for Cyprus)
-- Network goes live with actual Qi transactions
-
-**Zone Detection at Mint:**
-```
-User connects wallet → Address prefix reveals zone → SBT contract reads zone
-                                                   → Chat ID includes zone prefix
-                                                   
-Example: 0x00... address = Cyprus (Zone 1) → Chat ID: 1-XXX-XXXX
-         0x1E... address = Paxos (Zone 2)  → Chat ID: 2-XXX-XXXX
-         0x2C... address = Hydra (Zone 3)  → Chat ID: 3-XXX-XXXX
-```
-
-*Quai addresses encode their zone at the protocol level - no guessing required.*
+**MCP Tools:**
+- `cinq_id_whoami` — Get current user's identity
+- `cinq_id_lookup` — Find user by Chat ID
+- `cinq_id_contacts` — List all contacts
 
 ---
 
-#### Early Adopter Benefits
+### cinQ Chat (Messaging)
 
-**Genesis NFT** - Free mint commemorative collectible for mainnet OGs:
+Real-time P2P messaging over libp2p.
 
-| Item | Who Qualifies | What You Get |
-|------|---------------|---------------|
-| 🌟 **Genesis NFT** | First 1,000-10,000 mainnet SBT mints | Free mint collectible + "Genesis" badge |
-| 🧪 **Alpha Badge** | Participated in testnet | "Alpha Tester" badge on mainnet profile |
+**Features:**
+- Direct peer-to-peer messages
+- Conversation history (persisted to SQLite)
+- Online/offline presence
+- Read receipts
 
-*Quantity TBD based on testnet excitement - could be 1,000 or 10,000 free mints.*
+**Protocol:** GossipSub over libp2p with Noise encryption
 
-*Free to mint - the value is exclusivity and community, not financial advantage.*
+**MCP Tools:**
+- `cinq_chat_send` — Send a message
+- `cinq_chat_history` — Get conversation history
+- `cinq_chat_conversations` — List all conversations
 
-**Genesis Ambassadors** - Our founding members become the voice of cinQ:
+---
 
-| Perk | Description |
-|------|-------------|
-| 🏆 **Hall of Fame** | Permanent listing on cinQ website/app as founding members |
-| 💬 **Genesis Discord** | Private channel with direct team access |
-| 🎨 **Flex NFT** | Unique collectible art usable as PFP |
-| 🔑 **Early Access** | First to test new features before public release |
-| 🎙️ **AMA Invites** | Exclusive Q&A sessions with the team |
-| 📱 **Vanity Chat ID** | First pick of custom Chat IDs (e.g., 1-555-ALICE) |
-| 🗣️ **Alpha Voice** | Input on roadmap priorities and feature decisions |
+### cinQ Drive (Storage)
 
-**Alpha Tester Perks:**
-- **"Alpha Tester" badge** visible on mainnet profile
-- **Recognition** in Hall of Fame as pre-launch contributor
-- Access to Genesis Discord channel
+Decentralized file storage with providers.
 
-**What Genesis is NOT:**
-- ❌ No token airdrops
-- ❌ No earnings multipliers
-- ❌ No referral bonuses
-- ❌ No financial advantage over other users
+**Features:**
+- Local file storage
+- P2P file transfer
+- Distributed storage across providers
+- Encrypted chunks with Reed-Solomon redundancy
 
-*Genesis status is about being part of the founding community - ambassadors who believe in cinQ and help shape its future.*
-
-### $CINQ Points (Reputation GameFi)
-
-$CINQ points gamify engagement like credit card rewards:
-
+**How It Works:**
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    EARNING $CINQ POINTS                          │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  DAILY ACTIONS                          POINTS                  │
-│  ─────────────────────────────────────────────────              │
-│  • Come online (daily check-in)         +10                     │
-│  • Send first message of day            +5                      │
-│  • Relay 1 GB of traffic                +50                     │
-│  • Complete a compute job               +100                    │
-│  • Refer a friend (on mint)             +500                    │
-│                                                                 │
-│  STREAKS                                                        │
-│  ─────────────────────────────────────────────────              │
-│  • 7-day streak                         +100 bonus              │
-│  • 30-day streak                        +500 bonus              │
-│  • 365-day streak                       +5,000 bonus            │
-│                                                                 │
-│  REPUTATION TIERS                                               │
-│  ─────────────────────────────────────────────────              │
-│  • Bronze   (0-999)       → Basic access                        │
-│  • Silver   (1K-9.9K)     → Priority job queue                  │
-│  • Gold     (10K-99K)     → Reduced fees (5%)                   │
-│  • Platinum (100K+)       → VIP support, beta features          │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+YOUR FILE
+    │
+    ▼ Encrypt (your keys)
+    │
+    ▼ Chunk into pieces
+    │
+    ▼ Reed-Solomon parity
+    │
+    ▼ Distribute to providers
+    │
+┌───┴───┬───────┬───────┐
+▼       ▼       ▼       ▼
+Provider Provider Provider Provider
 ```
 
-#### Points Properties
+**MCP Tools:**
+- `cinq_drive_list` — List files in directory
+- `cinq_drive_read` — Read file contents
+- `cinq_drive_write` — Write a file
+- `cinq_drive_delete` — Delete a file
+- `cinq_drive_share` — Generate share link
 
-- **Soulbound** - Points are tied to your SBT, not tradable
-- **Decay** - Inactive accounts lose 1% per month (use it or lose it)
-- **Convertible** - Redeem for Qi at 100:1 ratio (subject to change)
-- **Non-inflatable** - Total supply capped per epoch
+---
 
-This creates a flywheel: **Use cinQ → Earn points → Higher reputation → Better rates → Use cinQ more**
+### cinQ Mail (Email)
 
-#### Foundation Reserve (Qi Liability)
+Async threaded messaging (like email).
 
-Since $CINQ is redeemable at **100:1 for Qi**, the Foundation must hold reserves.
+**Features:**
+- Subject lines
+- Rich text bodies
+- Attachments (via cinQ Drive)
+- Threading/replies
+- Anti-spam (Qi deposit for unknowns)
 
-**Self-Funding Model:**
+**Anti-Spam Model:**
+- Messages from contacts: Free
+- Messages from unknowns: Require 0.01 Qi deposit
+- If recipient accepts: Deposit refunded
+- If recipient rejects as spam: Deposit kept
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                 FOUNDATION REVENUE FLOW                          │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│   Provider earns 100 Qi for compute job                         │
-│   ├── 90 Qi → Provider wallet                                   │
-│   └── 10 Qi → Foundation (10% fee)                              │
-│                                                                 │
-│   Foundation allocates that 10 Qi:                              │
-│   ├── 10 Qi → $CINQ Redemption Pool (1:1 backing)               │
-│   └── This backs 1,000 $CINQ at 100:1 ratio                     │
-│                                                                 │
-│   Result: Every $CINQ earned is fully backed by Qi              │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
+**Status:** To be built
 
-**Why this works:**
-- Foundation's 10% fee **equals** the Qi needed to back $CINQ rewards
-- Network activity funds its own reward pool
-- No external funding needed after bootstrap phase
-- Self-sustaining: more usage = more fees = more rewards = more usage
+---
 
-**Bootstrap Phase (Multiplier Bonuses):**
+### cinQ Browser (Web3 Browser)
 
-**Genesis NFT = Status + Access, not earnings boost:**
+Integrated browser with Pelagus wallet for web3.
 
-| Perk | What Genesis Holders Get |
-|------|-------------------------|
-| 🌟 Badge | Permanent "Genesis" badge on profile |
-| 🎫 Priority | First access to new features |
-| 📱 Vanity ID | Reserve custom Chat ID before public |
-| 📣 Voice | Direct feedback channel with team |
+**Features:**
+- Full web browser
+- Pelagus wallet integration
+- dApp connectivity
+- Transaction signing
+- Tab management
+- Bookmarks and history
 
-*No $CINQ multipliers - everyone earns the same rate for the same work.*
+**MCP Tools:**
+- `cinq_browser_open` — Navigate to URL
+- `cinq_browser_current` — Get current page state
+- `cinq_browser_tabs` — List open tabs
+- `cinq_browser_wallet_status` — Get wallet connection
+- `cinq_browser_wallet_connect` — Connect to dApp
+- `cinq_browser_wallet_send` — Request Qi transaction
 
-**How $CINQ is actually earned:**
+**Security:** All wallet operations require user approval in Pelagus.
 
-| Activity | $CINQ Rate | Notes |
-|----------|------------|-------|
-| Relay bandwidth | ~1 per 10 MB | Scales with actual traffic relayed |
-| Compute job | Varies | Based on job size/complexity |
-| Storage hosting | ~10 per GB/month | Long-term hosting rewards |
-| Node uptime | ~1 per hour | Only for relay nodes serving traffic |
+---
 
-**Example earnings (realistic):**
-- Chat-only user: **0 $CINQ** (consuming, not providing)
-- Light relay (10 GB/month): ~1,000 $CINQ = 10 Qi = ~$5/month
-- Heavy relay (100 GB/month): ~10,000 $CINQ = 100 Qi = ~$50/month
-- Compute provider: Depends entirely on jobs completed
+### cinQ Pay (Payments)
 
-**Key philosophy:**
-- $CINQ is **proof of contribution**, not engagement farming
-- If you're not providing value, you don't earn
-- No artificial inflation from check-ins or streaks
-- Genesis NFT is about **status**, not financial advantage
+Usage tracking and Qi payments.
 
-**Ongoing Operations:**
-- After bootstrap, the 10% fee covers all $CINQ redemptions
-- Decay (1%/month) returns unredeemed $CINQ to the pool
-- Surplus builds a rainy day fund
+**Features:**
+- Real-time usage metering
+- Qi cost tables
+- Session accounting
+- Pelagus integration for actual payments
 
-### Contact Cards
+**Cost Table:**
+| Service | Cost |
+|---------|------|
+| Chat message | 0.0001 Qi |
+| Mail to unknown | 0.01 Qi deposit |
+| Mail to contact | Free |
+| Storage | 0.5 Qi/GB/month |
+| Transfer | 1.0 Qi/GB |
+| Share link | 0.001 Qi |
 
-Shareable identity info via QR codes or URLs:
+**MCP Tools:**
+- `cinq_pay_balance` — Get Qi balance and usage
+- `cinq_pay_usage` — Get detailed breakdown
+- `cinq_pay_costs` — Get pricing table
+
+---
+
+## MCP Server
+
+The MCP (Model Context Protocol) server allows Entropic's Claude to use cinQ services.
+
+### Protocol
+
+JSON-RPC 2.0 over HTTP.
+
+**Endpoint:** `http://localhost:3000/mcp`
+
+### Request Format
 
 ```json
 {
-  "chat_id": "1-555-123-4567",
-  "zone": 1,
-  "display_name": "Alice Smith",
-  "peer_id": "12D3KooW...",
-  "bio": "DePIN enthusiast 🌐",
-  "is_verified": true,
-  "is_legacy": false,
-  "reputation_tier": "Gold",
-  "cinq_points": 45230
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "cinq_chat_send",
+    "arguments": {
+      "to": "@alice",
+      "message": "Hello!"
+    }
+  },
+  "id": 1
 }
 ```
 
-**Zone Indicator:**
-- `zone: null` + `is_legacy: true` = Pre-SBT alpha user (OG!)
-- `zone: 1` = Cyprus shard SBT holder
-- `zone: 2` = Paxos shard SBT holder
-- etc.
+### Response Format
 
-**Sharing Formats:**
-- **URL:** `cinq://contact/eyJ1c2VyX2lkIjo...` (deep link)
-- **Compact:** `cinq:1-555-123-4567:P7zQ4dLEw3Ji:Alice` (includes zone)
-- **JSON:** Full card data for QR codes
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"success\": true, \"message_id\": \"abc123\"}"
+      }
+    ]
+  },
+  "id": 1
+}
+```
+
+### Available Methods
+
+| Method | Description |
+|--------|-------------|
+| `initialize` | Initialize MCP session |
+| `tools/list` | List available tools |
+| `tools/call` | Call a tool |
 
 ---
 
-## Architecture
-
-### Technology Stack
-
-| Component | Technology |
-|-----------|------------|
-| Desktop App | Tauri 2.x (Rust + WebView) |
-| P2P Networking | libp2p 0.54 |
-| Encryption | Noise Protocol |
-| Multiplexing | Yamux |
-| Local Discovery | mDNS |
-| Wallet | Pelagus (Quai Network) |
-| Frontend | Vite + TypeScript |
-| Identity | SBT on Quai zones |
-
-### Network Topology
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      CINQ MESH NETWORK                          │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│    ┌──────┐         ┌──────┐         ┌──────┐                   │
-│    │Node A│◄───────►│Node B│◄───────►│Node C│                   │
-│    └──┬───┘         └──┬───┘         └──┬───┘                   │
-│       │                │                │                       │
-│       │    ┌──────┐    │                │                       │
-│       └───►│Node D│◄───┘                │                       │
-│            └──┬───┘                     │                       │
-│               │         ┌──────┐        │                       │
-│               └────────►│Node E│◄───────┘                       │
-│                         └──────┘                                │
-│                                                                 │
-│   Every node connects to multiple peers for resilience          │
-│   Recommended: min 3, target 8-15, max 25-50 peers              │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Privacy Levels (Hop Routing)
-
-Users select their privacy level via hop count:
-
-### 0 Hops (Direct)
-- **Cost:** Free
-- **Latency:** Lowest (~0ms overhead)
-- **Privacy:** None - destination sees your IP
-- **Use case:** Speed-critical, trusted sites
-
-### 1 Hop
-- **Cost:** 1 $Qi per GB
-- **Latency:** Low (+20-50ms)
-- **Privacy:** Basic - destination sees relay IP
-- **Use case:** General browsing, light privacy
-
-### 3 Hops (Onion Routing)
-- **Cost:** 3 $Qi per GB (1 per relay)
-- **Latency:** Higher (+100-200ms)
-- **Privacy:** Strong - each relay only knows prev/next hop
-- **Use case:** Sensitive browsing, maximum anonymity
-
-```
-3-HOP ONION ROUTING:
-
-┌────┐    ┌────────┐    ┌────────┐    ┌────────┐    ┌──────┐
-│You │───►│Relay 1 │───►│Relay 2 │───►│Relay 3 │───►│Server│
-└────┘    └────────┘    └────────┘    └────────┘    └──────┘
-  │           │             │             │
-  │    Peels layer 1  Peels layer 2  Peels layer 3
-  │           │             │             │
-  └── Encrypted with 3 keys (onion layers) ──────────┘
-```
-
----
-
-## Split Tunneling
-
-Not all traffic needs the same privacy level. **Split tunneling** allows users to configure per-domain routing rules while maintaining a default privacy level for everything else.
-
-### Use Cases
-
-| Scenario | Bypass Rule | Why |
-|----------|-------------|-----|
-| Banking apps | `*.chase.com` → Direct (0H) | Requires IP-based location verification |
-| Streaming | `*.netflix.com` → Direct | Geo-licensing, reduces bandwidth cost |
-| Work VPN | `*.company.com` → Direct | Corporate firewall whitelisting |
-| Local services | `*.local`, `192.168.*` → Direct | LAN devices, printers |
-| General browsing | Default → 1H or 3H | Privacy protection |
-
-### Configuration Modes
-
-#### 1. Global Default + Bypass List
-Most common setup - route everything through mesh, except specific domains:
-
-```
-DEFAULT: 3 Hops (maximum privacy)
-
-BYPASS LIST (0 Hops / Direct):
-├── *.bankofamerica.com      # Banking - location required
-├── *.google.com/maps        # Maps - location services
-├── *.uber.com               # Rideshare - GPS required
-├── *.doordash.com           # Delivery - address verification
-├── 192.168.*                # Local network
-└── *.local                  # mDNS local devices
-```
-
-#### 2. Per-Domain Privacy Levels
-Advanced users can specify exact hop count per domain:
-
-```
-DOMAIN RULES:
-├── *.reddit.com       → 1 Hop   # Basic privacy, faster
-├── *.twitter.com      → 3 Hops  # Maximum privacy
-├── *.amazon.com       → 0 Hops  # Direct (bypass)
-├── *.protonmail.com   → 5 Hops  # Ultra paranoid
-└── *                  → 1 Hop   # Default fallback
-```
-
-### UI Flow
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  ROUTING RULES                                        [+ Add]   │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  Default:  [▼ 1 Hop ]                                           │
-│                                                                 │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │ DOMAIN              │ ROUTING        │ ACTION          │    │
-│  ├─────────────────────┼────────────────┼─────────────────┤    │
-│  │ *.chase.com         │ Direct (0H)    │ [Edit] [×]      │    │
-│  │ *.netflix.com       │ Direct (0H)    │ [Edit] [×]      │    │
-│  │ *.protonmail.com    │ 3 Hops         │ [Edit] [×]      │    │
-│  │ 192.168.*           │ Direct (0H)    │ [Edit] [×]      │    │
-│  └─────────────────────┴────────────────┴─────────────────┘    │
-│                                                                 │
-│  💡 Sites requiring location (banking, maps, delivery)          │
-│     should use Direct (0H) to avoid blocks.                     │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Quick Actions
-
-For common scenarios, one-click presets:
-
-| Preset | Description | Bypass Domains |
-|--------|-------------|----------------|
-| **Privacy First** | 3H default, minimal bypass | Local network only |
-| **Balanced** | 1H default, common services bypass | Banking, streaming, maps |
-| **Speed First** | 0H default, sensitive sites routed | Protonmail, Signal, etc. |
-| **Work Mode** | 1H default, corporate bypass | `*.company.com`, VPN ranges |
-
-### Implementation Notes
-
-```
-PROXY DECISION FLOW:
-
-Browser Request → SOCKS5 Proxy (1080)
-                        │
-                        ▼
-              ┌─────────────────┐
-              │ Check domain    │
-              │ against rules   │
-              └────────┬────────┘
-                       │
-         ┌─────────────┼─────────────┐
-         │             │             │
-    Match: 0H     Match: 1H/3H    No Match
-         │             │             │
-         ▼             ▼             ▼
-    Direct TCP    P2P Tunnel    Use Default
-    (bypass)      (routed)      (1H or 3H)
-```
-
-### Privacy Considerations
-
-- **Bypass list is local** - never transmitted to peers
-- **Exit nodes don't see bypass traffic** - it goes direct
-- **DNS leaks** - bypassed domains still resolve through mesh (optional)
-- **Fingerprinting risk** - mixed routing patterns could be detectable
-  - Mitigation: Encourage "Privacy First" preset for sensitive users
-
----
-
-## Economics
-
-### The Quai Principle
-
-Just as Quai Network defines:
-> **1 $Qi ≈ 8 billion hashes** (measurable, predictable, fair)
-
-cinQ defines:
-> **1 $Qi = 1 GB relayed** (measurable, predictable, fair)
-
-### Rate Card
-
-| Service | User Pays | Provider Gets | Foundation Gets |
-|---------|-----------|---------------|-----------------|
-| **Relay (1 GB)** | 1 $Qi | 0.9 $Qi (90%) | 0.1 $Qi (10%) |
-| **Bootstrap (hole punch)** | 0.01 $Qi | 0.009 $Qi | 0.001 $Qi |
-| **3-hop routing (1 GB)** | 3 $Qi | 2.7 $Qi total | 0.3 $Qi |
-| **1-hop routing (1 GB)** | 1 $Qi | 0.9 $Qi | 0.1 $Qi |
-| **0-hop (direct)** | Free | — | — |
-
-### Revenue Split: 90/10
-
-- **90% to Node Operators** - Incentivizes network growth
-- **10% to Foundation** - Funds ongoing development
-
-### Foundation 10% Funds
-
-- cinQ Connect maintenance & updates
-- cinQ Browser development
-- cinQ Messages (E2E encrypted messaging)
-- Security audits
-- Network monitoring infrastructure
-- Bug bounties
-- Community grants
-- Fallback bootstrap nodes
-
-### User Scenarios
-
-```
-CASUAL USER (10 GB/month browsing, 2 GB relaying)
-├── Spent:  10 Qi
-├── Earned:  1.8 Qi (2 GB × 0.9)
-└── Net:    -8.2 Qi/month
-
-POWER USER (50 GB/month browsing, 60 GB relaying)
-├── Spent:  50 Qi
-├── Earned: 54 Qi
-└── Net:    +4 Qi/month  ← PRIVACY IS FREE + PROFIT
-
-NODE OPERATOR (5 GB browsing, 500 GB relaying, always-on)
-├── Spent:   5 Qi
-├── Earned: 450 Qi + bootstrap fees
-└── Net:   +445 Qi/month  ← PASSIVE INCOME
-```
-
-**Key insight:** If you contribute more than you consume, your privacy is free.
-
-### Agent Economics (Qora Swarm)
-
-Agents are automated representatives of humans and their hardware. They don't accumulate wealth—they coordinate resource allocation using Qi as the coordination signal.
-
-#### The Agent = The Human (Automated)
-
-```
-Human owns GPU rig
-       ↓
-Runs cinQ node → spawns "Provider Agent"
-       ↓
-Agent has wallet → receives Qi for work done
-       ↓
-Human withdraws to Quai whenever they want
-```
-
-The agent is the *interface* between hardware and the economic layer—automation, not autonomy.
-
-#### Agent Types
-
-| Agent Type | Role | Accumulates Qi? |
-|------------|------|-----------------|
-| **Consumer Agent** (Qora) | Orchestrates jobs, allocates budgets | No - pass-through only |
-| **Provider Agent** | Represents hardware owner, accepts jobs | Yes - for the human |
-
-#### Qora Treasury Flow
-
-```
-Human deposits 100 Qi into Qora Treasury
-         ↓
-Human requests: "Render this video"
-         ↓
-Qora splits treasury → creates UTXOs for:
-  • Router Agent (1 Qi) - finds best GPU nodes
-  • Compute Agent (80 Qi) - pays for GPU time
-  • Delivery Agent (5 Qi) - handles result transfer
-  • Reserve (14 Qi) - retries/overages
-         ↓
-Agents pay Provider Agents for actual work
-         ↓
-Unused Qi returns to treasury
-```
-
-#### What Agents Do With Qi
-
-| Use Case | Description |
-|----------|-------------|
-| **Pay infrastructure** | GPU node wants 0.5 Qi/min, agent pays in real-time |
-| **Bid for priority** | Scarce resource? Offer more to jump queue |
-| **Retry on failure** | Node drops? Pay another from reserve |
-| **Return surplus** | Job done cheap? Unused Qi flows back |
-
-#### Why UTXO Is Perfect
-
-Quai's UTXO model is ideal for agent micropayments:
-
-1. **Parallel execution** - Multiple agents spend simultaneously (no nonce coordination)
-2. **Atomic splits** - Qora splits 100 Qi into 5 agent UTXOs in one transaction
-3. **Payment channels** - Settle off-chain, batch to chain (Lightning-style)
-4. **No account state** - Each UTXO is independent, agents don't block each other
-5. **Natural audit trail** - UTXO graph = who paid whom for what
-
-#### The Full Circle
-
-```
-Consumer (Human)
-     │
-     ├── Deposits Qi → Qora Treasury
-     │
-     ▼
-Qora (Orchestrator Agent)
-     │
-     ├── Allocates budget to task agents
-     │
-     ▼
-Provider Agents (Hardware Owners)
-     │
-     ├── Do work → Receive Qi
-     │
-     ▼
-Provider (Human)
-     │
-     └── Withdraws Qi → Converts to Quai
-```
-
-Agents are just "the human, but automated and always online."
-
----
-
-## Compute Optimization
-
-Strategies for maximizing FLOPs yield and Qi earnings:
-
-### Qi Compute Oracle (via Indexer Agent)
-
-Just as Qi has an energy oracle to anchor its value to real-world electricity costs, cinQ requires a **Compute Oracle** to price FLOPs. This is managed by the **Indexer Agent**:
-
-| Oracle | Tracks | Output | Managed By |
-|--------|--------|--------|------------|
-| Energy Oracle | kWh prices globally | Qi/kWh rate | Quai Network |
-| **Compute Oracle** | FLOP benchmarks | Qi/TFLOP rate | Indexer Agent |
-
-The Indexer Agent aggregates:
-- **Energy Oracle data** - Current Qi/kWh from Quai
-- **Hardware benchmarks** - TFLOPs/watt per GPU class (published to DHT)
-- **Network job history** - Actual completion times/costs
-- **Cloud spot prices** - AWS/GCP as external reference
-
-This keeps **FLOPs → Qi** anchored to real compute costs, not speculation. The rate floats with energy markets, but the unit (FLOP) is always physics.
-
-### GPU Partitioning
-
-NVIDIA MIG (Multi-Instance GPU) and similar technologies allow splitting one GPU into isolated instances:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    GPU PARTITIONING                             │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│   Traditional: Wait for big job → 80% idle time                 │
-│                                                                 │
-│   With MIG: Run 4 small jobs simultaneously                     │
-│   ┌─────────┬─────────┬─────────┬─────────┐                     │
-│   │ Job A   │ Job B   │ Job C   │ Job D   │                     │
-│   │ 2 Qi    │ 1.5 Qi  │ 3 Qi    │ 2 Qi    │                     │
-│   └─────────┴─────────┴─────────┴─────────┘                     │
-│                                                                 │
-│   Result: Higher utilization = More Qi/hour                     │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Job Batching & Scheduling
-
-Qora queues similar workloads to reduce GPU cold-start overhead:
-
-- **Inference batching** - Group similar model requests
-- **Warm instance premium** - Pre-loaded models earn more
-- **Batch efficiency** - 10 small jobs batched > 10 jobs sequential
-
-### Data Locality & Caching
-
-Nodes that cache popular assets (model weights, datasets) earn routing preference:
-
-| Cache Type | Benefit | Qi Bonus |
-|------------|---------|----------|
-| LLM weights (Llama, Mistral) | Skip 4GB+ download | +15% job rate |
-| Stable Diffusion models | Instant inference | +10% job rate |
-| Popular datasets | Train locally | +20% job rate |
-
-**Data Locality Principle:** Jobs run where data already exists. No transfer = faster + cheaper = provider earns more.
-
-### Time-of-Day Scheduling
-
-Providers configure their off-peak electricity hours in the app:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    PROVIDER SETTINGS                            │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│   Off-Peak Hours: [22:00] to [06:00]                            │
-│   Timezone: UTC+2 (Cyprus)                                      │
-│                                                                 │
-│   ☑ Accept heavy jobs during off-peak only                      │
-│   ☐ Available 24/7 for all job types                            │
-│                                                                 │
-│   Qora routes power-hungry jobs to your node when YOUR          │
-│   electricity is cheapest. Same Qi earned, lower power bill.    │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-The user tells Qora their rates - the AI doesn't know electricity prices, but it respects provider preferences.
-
----
-
-## Node Roles
-
-Every node provides BOTH services:
-
-### 1. Relay Service (Bandwidth)
-- Forward encrypted traffic for other users
-- Earn 0.9 $Qi per GB relayed
-- Cannot see content (encrypted)
-- Only knows previous and next hop
-
-### 2. Bootstrap Service (NAT Traversal)
-- Help new nodes join the network
-- Coordinate hole punching through NAT
-- Earn 0.009 $Qi per successful connection
-- Essential for decentralized network entry
-
-```
-BOOTSTRAP FLOW:
-
-┌──────────┐                              ┌─────────────────┐
-│ New Node │──────── OUTBOUND ───────────►│ Existing Node   │
-│ (NAT'd)  │         (works!)             │ (Bootstrap)     │
-└──────────┘                              └────────┬────────┘
-                                                   │
-     Bootstrap registers new node in DHT ◄─────────┘
-     and coordinates hole punches to other peers
-```
-
----
-
-## Network Mechanics
-
-### Current Implementation (Local)
-
-- **mDNS Discovery** - Find peers on local network
-- **Auto-connect** - Immediately dial discovered peers
-- **Noise Encryption** - All connections encrypted
-- **Yamux Multiplexing** - Multiple streams per connection
-
-### Future Implementation (Global)
-
-| Component | Purpose | libp2p Module |
-|-----------|---------|---------------|
-| Bootstrap Nodes | Entry points to network | Hardcoded multiaddrs |
-| Kademlia DHT | Global peer discovery | `libp2p::kad` |
-| AutoNAT | Detect NAT type | `libp2p::autonat` |
-| Relay | Route through relay if direct fails | `libp2p::relay` |
-| DCUTR | Hole punch for direct connection | `libp2p::dcutr` |
+## P2P Networking
+
+### libp2p Stack
+
+| Component | Purpose |
+|-----------|---------|
+| **Kademlia DHT** | Peer discovery and content routing |
+| **mDNS** | Local network discovery |
+| **Noise** | Encrypted connections |
+| **Yamux** | Stream multiplexing |
+| **GossipSub** | Message propagation |
+
+### Peer Discovery
+
+1. **Local (mDNS)** — Discover peers on same network
+2. **Bootstrap nodes** — Well-known peers for initial connectivity
+3. **DHT** — Find peers by ID across the internet
 
 ### Connection Flow
 
 ```
-1. USER OPENS CINQ CONNECT
-   └── Node starts on wallet connect
-
-2. BOOTSTRAP SEQUENCE
-   ├── Connect to known bootstrap peer (outbound works through NAT)
-   ├── AutoNAT: "What's my public IP? Am I reachable?"
-   ├── Register in DHT: "I'm online at this address"
-   └── mDNS: Also discover local peers (fast, bonus)
-
-3. NODE IS NOW "ONLINE"
-   ├── Reachable via relay (guaranteed fallback)
-   ├── Reachable via hole punch (usually works)
-   └── Reachable directly (if no NAT, rare)
-
-4. USER BROWSES (e.g., 3 hops selected)
-   ├── Query DHT for available relays
-   ├── Select 3 by geography/latency/reputation
-   ├── Build circuit (hole punch or relay to each)
-   └── Onion encrypt → send through circuit
+1. User starts cinQ app
+2. Load keypair from ~/.cinq/keypair.bin (or generate)
+3. Start libp2p swarm on port 9000
+4. Discover peers via mDNS + bootstrap
+5. Connect to discovered peers
+6. Exchange identity via /cinq/id/1.0.0
+7. Ready for chat/file transfer
 ```
 
 ---
 
-## Escrow System
+## Security Model
 
-Users deposit $Qi to escrow before using the network:
+### Trust Boundaries
 
-```
-PAYMENT FLOW:
+1. **Pelagus Wallet** — Handles all blockchain operations (signing, transactions)
+2. **cinQ App** — Handles compute/data (never sees private keys)
+3. **Claude Agent** — Can request actions but requires user approval for payments
 
-1. USER DEPOSITS TO ESCROW (on-chain)
-   └── Smart contract holds $Qi
+### Encryption
 
-2. USER BUILDS CIRCUIT & BROWSES
-   └── Micropayment vouchers signed as data flows
+| Layer | Protection |
+|-------|-----------|
+| **Transport** | Noise protocol (all P2P traffic) |
+| **Storage** | User's encryption keys (Drive) |
+| **Wallet** | Hardware/browser wallet (Pelagus) |
 
-3. RELAYS ACCUMULATE VOUCHERS
-   └── Off-chain for speed, batched settlement
+### Key Management
 
-4. SETTLEMENT (on-chain, periodic)
-   └── Relays submit vouchers to claim $Qi from escrow
-```
-
-### Escrow Rules
-
-- Minimum deposit: 10 $Qi
-- 1 $Qi in escrow = 1 GB available (at 1-hop)
-- Low escrow warning at 2 $Qi remaining
-- Connection terminates at 0 $Qi
+- **Peer Identity**: Ed25519 keypair in `~/.cinq/keypair.bin`
+- **Wallet Keys**: Managed by Pelagus (never exposed to cinQ)
+- **Encryption Keys**: Derived from user's wallet (for Drive)
 
 ---
 
-## Future Roadmap
+## Data Storage
 
-### Phase 1: cinQ Connect (Current)
-- [x] P2P mesh foundation with libp2p
-- [x] Tauri desktop app
-- [x] Pelagus wallet integration (mock)
-- [x] Hop selection UI (0H, 1H, 3H)
-- [x] Bandwidth tracking
-- [ ] Global DHT discovery
-- [ ] NAT traversal (DCUTR)
-- [ ] Actual relay protocol
-- [ ] On-chain escrow contract
+### Local Files
 
-### Phase 2: cinQ Card 🎁
-Pre-loaded gift cards for zero-friction onboarding:
+| Path | Purpose |
+|------|---------|
+| `~/.cinq/keypair.bin` | Ed25519 keypair (Peer ID) |
+| `~/.cinq/peers.json` | Known peers for bootstrap |
+| `~/.cinq/chat.db` | SQLite database |
+| `~/.cinq/drive/` | Local file storage |
 
+### SQLite Schema
+
+```sql
+-- Conversations
+CREATE TABLE conversations (
+    id TEXT PRIMARY KEY,
+    peer_id TEXT NOT NULL,
+    display_name TEXT,
+    created_at INTEGER,
+    last_message_at INTEGER,
+    unread_count INTEGER DEFAULT 0
+);
+
+-- Messages
+CREATE TABLE messages (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL,
+    sender_id TEXT NOT NULL,
+    content TEXT NOT NULL,
+    timestamp INTEGER NOT NULL,
+    is_outgoing INTEGER NOT NULL,
+    status TEXT DEFAULT 'pending'
+);
+
+-- Contacts
+CREATE TABLE contacts (
+    peer_id TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    chat_id TEXT,
+    added_at INTEGER NOT NULL,
+    last_seen INTEGER,
+    is_online INTEGER DEFAULT 0
+);
+
+-- Files (for Drive)
+CREATE TABLE files (
+    id TEXT PRIMARY KEY,
+    path TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    hash TEXT NOT NULL,
+    encrypted INTEGER DEFAULT 1,
+    created_at INTEGER,
+    modified_at INTEGER,
+    shared INTEGER DEFAULT 0
+);
 ```
-┌─────────────────────────────────────┐
-│  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  │
-│  ░░                             ░░  │
-│  ░░   cinQ CARD                 ░░  │
-│  ░░   PRIVACY CARD              ░░  │
-│  ░░                             ░░  │
-│  ░░   50 $Qi                    ░░  │
-│  ░░   ≈ 50 GB Private Browsing  ░░  │
-│  ░░                             ░░  │
-│  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  │
-│                                     │
-│  Scratch to reveal:                 │
-│  ████████████████████████████████   │
-│                                     │
-└─────────────────────────────────────┘
-```
-
-**Product Line:**
-
-| Card | Qi Amount | GB Equivalent | Retail Price |
-|------|-----------|---------------|--------------|
-| Starter | 10 $Qi | ~10 GB | $1.99 |
-| Standard | 50 $Qi | ~50 GB | $7.50 |
-| Power | 200 $Qi | ~200 GB | $25.00 |
-| Gift Box | 500 $Qi | ~500 GB | $60.00 |
-
-#### Card Creation (Foundation Side)
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    CARD CREATION PROCESS                        │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  1. Generate new Quai wallet                                    │
-│     └── Creates: 12-word seed phrase + wallet address           │
-│                                                                 │
-│  2. Fund the wallet                                             │
-│     └── Foundation sends 50 $Qi to that address                 │
-│                                                                 │
-│  3. Print card at secure facility                               │
-│     └── Seed phrase hidden under scratch-off                    │
-│     └── Wallet address visible (for balance verification)       │
-│                                                                 │
-│  4. Foundation deletes seed after printing (trustless)          │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-#### How Seed Phrase Works
-
-```
-SEED PHRASE (BIP-39 Standard)
-    │
-    ▼
-"apple banana cherry dog elephant fox grape house igloo jade kite lemon"
-    │
-    ├── Deterministic derivation (BIP-32/44)
-    │
-    ▼
-PRIVATE KEY ──────► PUBLIC KEY ──────► WALLET ADDRESS
-                                       0x7a3B...9f2E
-                                            │
-                                            ▼
-                                       Balance: 50 $Qi
-                                       (pre-funded by Foundation)
-```
-
-**The seed phrase IS the wallet.** Whoever has it, owns the funds. Simple and trustless.
-
-#### Redemption UX Flow
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    USER REDEMPTION FLOW                         │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  1. User scratches card → reveals 12-word seed phrase           │
-│                                                                 │
-│  2. Opens cinQ Connect → Landing page                           │
-│                                                                 │
-│  3. Clicks "Redeem cinQ Card" button                            │
-│                                                                 │
-│  4. Enters seed phrase in modal:                                │
-│     ┌─────────────────────────────────────────────────┐         │
-│     │  Enter your cinQ Card seed phrase:              │         │
-│     │  ┌─────────────────────────────────────────┐    │         │
-│     │  │ apple banana cherry dog elephant fox    │    │         │
-│     │  │ grape house igloo jade kite lemon       │    │         │
-│     │  └─────────────────────────────────────────┘    │         │
-│     │                                                 │         │
-│     │  ⚠ Never share your seed phrase with anyone    │         │
-│     │                                                 │         │
-│     │                     [Import Wallet]             │         │
-│     └─────────────────────────────────────────────────┘         │
-│                                                                 │
-│  5. App derives wallet from seed → checks balance               │
-│     └── "Found 50 $Qi! 🎉"                                      │
-│                                                                 │
-│  6. Wallet imported → escrow auto-funded → node starts          │
-│     └── User is browsing privately in seconds                   │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-#### Alternative: One-Time Redemption Codes
-
-For better security and UX, cards can use redemption codes instead:
-
-```
-CARD HAS:  CINQ-7X4K-M2PQ-9RVW
-
-USER FLOW:
-1. Enter code in app
-2. App calls Foundation API: "Redeem CINQ-7X4K-M2PQ-9RVW"
-3. API verifies code (one-time use, marks as redeemed)
-4. API creates NEW wallet for user, returns seed to app
-5. Sends 50 $Qi from treasury to user's new wallet
-6. User now owns wallet, Foundation cannot access
-
-BENEFITS:
-✓ Shorter code (16 chars vs 12 words - easier to type)
-✓ One-time use (cannot be redeemed twice)
-✓ User gets fresh wallet (not pre-generated)
-✓ Foundation can track redemption stats
-✓ Can invalidate stolen/unredeemed cards
-```
-
-#### Security Considerations
-
-| Risk | Mitigation |
-|------|------------|
-| Card stolen before scratch | Seed hidden under scratch-off coating |
-| Someone photographs seed | User advised to transfer to new wallet after import |
-| Foundation could drain wallets | Foundation deletes seeds after printing (auditable) |
-| Seed printed insecurely | Use secure printing facility (like gift card manufacturers) |
-| Code redemption API compromised | Rate limiting, anomaly detection, card batch tracking |
-
-**Strategic Value:**
-- Retail distribution channel (gas stations, Best Buy, Amazon)
-- Onboards non-crypto users to Quai ecosystem
-- "Privacy as a gift" - unique market positioning
-- Anonymous if purchased with cash
-- Bootstrap network growth with pre-funded users
-
-### Phase 3: cinQ Browser
-- Full browser with built-in cinQ routing
-- No separate Connect app needed
-- Automatic hop selection based on site sensitivity
-- Bookmark privacy levels per site
-
-### Phase 4: cinQ Messages
-- E2E encrypted messaging over cinQ mesh
-- No phone number required
-- Messages route through network (paid relays)
-- Disappearing messages, group chats
 
 ---
 
-## UI/UX Guidelines
+## Provider Model
 
-### Branding
-- **Primary Color:** #E85D04 (Quai orange-red)
-- **Background:** #0D0D0D (near black)
-- **Cards:** #1A1A1A (dark grey)
-- **Text:** #FFFFFF / #888888
-- **Logo:** cin**Q** (Q in accent color)
+Anyone can be a provider and earn Qi for sharing resources.
 
-### App Flow
-```
-LANDING PAGE
-    │
-    ├── [Connect to Pelagus] ──► MAIN DASHBOARD
-    │                                │
-    └── [Redeem cinQ Card] ──────────┘ (future)
-                                     │
-                              ┌──────┴──────┐
-                              │             │
-                         System        DePIN
-                         Monitor       Network
-                              │             │
-                         Escrow        Wallet
-                         Balance       Balance
-```
+### Becoming a Provider
 
-### Key Interactions
-- Node auto-starts on wallet connect
-- 0H selected by default (user opts into privacy)
-- Real-time bandwidth and peer stats
-- Clear escrow ↔ GB relationship
+1. Enable "Provider Mode" in settings
+2. Configure storage allocation (e.g., 50GB)
+3. Set availability schedule
+4. Start earning Qi
+
+### Provider Earnings
+
+| Resource | Rate |
+|----------|------|
+| Storage | 0.25 Qi/GB/month (50% of user cost) |
+| Transfer | 0.5 Qi/GB (50% of user cost) |
+
+### Quality Metrics
+
+Providers are rated on:
+- **Uptime** — Percentage of time online
+- **Latency** — Response time
+- **Reliability** — Data retrieval success rate
+
+Higher ratings = More jobs = More earnings.
 
 ---
 
-## Comparable Projects
+## Roadmap
 
-| Project | Focus | Peer Limit | Pricing |
-|---------|-------|------------|---------|
-| Mysterium | VPN | 10-25 | Market |
-| Orchid | VPN | 5-15 | Market |
-| Sentinel | VPN | 8-20 | Fixed per GB |
-| NYM | Mixnet | 3-5 | Fixed |
-| IPFS | Storage | 600-900 | Free |
-| **cinQ** | **Privacy mesh** | **8-15 target** | **Fixed (1 Qi/GB)** |
+### Phase 1 — Foundation ✅
+- P2P mesh networking (libp2p)
+- Basic chat functionality
+- Identity (Chat IDs)
 
-cinQ differentiates with:
-- Fixed, fair pricing (Quai principle)
-- Dual revenue (relay + bootstrap)
-- Gift card onboarding
-- Quai ecosystem integration
+### Phase 2 — cinQ Cloud ✅
+- MCP server for Entropic
+- cinQ Browser with Pelagus
+- Usage tracking (cinQ Pay)
+
+### Phase 3 — Storage (Current)
+- cinQ Drive (distributed storage)
+- Provider mode
+- File sharing
+
+### Phase 4 — Communication
+- cinQ Mail (async email)
+- Anti-spam system
+- Rich media support
+
+### Phase 5 — Scale
+- Federation between networks
+- Mobile companion app
+- Enterprise features
 
 ---
 
-## Technical Debt & TODOs
+## Development Guide
 
-### Backend (Rust)
-- [ ] Add Kademlia DHT for global discovery
-- [ ] Implement AutoNAT for NAT detection
-- [ ] Add relay protocol with payment tracking
-- [ ] DCUTR hole punching
-- [ ] Circuit builder for multi-hop
-- [ ] Peer reputation system
-- [ ] Rate limiting and abuse prevention
-- [ ] Split tunneling domain matcher in proxy
-- [ ] Per-domain hop selection logic
+### Prerequisites
 
-### Frontend
-- [ ] Actual Pelagus wallet integration
-- [ ] Gift card redemption flow
-- [ ] Earnings breakdown (relay vs bootstrap)
-- [ ] Network health indicators
-- [ ] Settings panel
-- [ ] Split tunneling rules UI
-- [ ] Quick routing presets (Privacy First, Balanced, etc.)
+- Rust 1.77+
+- Node.js 18+
+- Tauri CLI
 
-### Smart Contracts
-- [ ] Escrow contract on Quai
-- [ ] Payment channel for micropayments
-- [ ] Foundation fee collection
-- [ ] Gift card minting/redemption
+### Build Commands
+
+```bash
+# Development
+cargo tauri dev
+
+# Production
+cargo tauri build
+
+# Check compilation
+cd src-tauri && cargo check
+```
+
+### Testing MCP
+
+```bash
+# Health check
+curl http://localhost:3000/
+
+# List tools
+curl -X POST http://localhost:3000/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
+```
+
+### Adding a New Tool
+
+1. Define tool in `src/mcp/tools.rs`:
+```rust
+Tool {
+    name: "cinq_new_tool".to_string(),
+    description: "Does something".to_string(),
+    input_schema: json!({
+        "type": "object",
+        "properties": { ... },
+        "required": []
+    }),
+}
+```
+
+2. Add handler in `handle_tool_call()`:
+```rust
+"cinq_new_tool" => handle_new_tool(arguments).await,
+```
+
+3. Implement handler:
+```rust
+async fn handle_new_tool(args: &HashMap<String, Value>) -> CallToolResult {
+    // Implementation
+    CallToolResult::json(&json!({ "result": "..." }))
+}
+```
 
 ---
 
 ## References
 
-- [Quai Network](https://qu.ai)
-- [Pelagus Wallet](https://pelaguswallet.io)
-- [libp2p](https://libp2p.io)
-- [Tauri](https://tauri.app)
-- [SOAP - Quai's Subsidy Open Market Acquisition Protocol](https://qu.ai/docs)
-
----
-
-*This document is a living spec. Update as the project evolves.*
+- [Entropic](https://github.com/dominant-strategies/entropic) — Claude AI desktop app
+- [Quai Network](https://qu.ai) — Layer 1 blockchain
+- [Pelagus Wallet](https://pelaguswallet.io) — Quai browser wallet
+- [libp2p](https://libp2p.io) — P2P networking
+- [Tauri](https://tauri.app) — Desktop app framework
+- [MCP Protocol](https://modelcontextprotocol.io) — Model Context Protocol

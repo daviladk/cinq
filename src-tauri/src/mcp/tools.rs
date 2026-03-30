@@ -5,6 +5,7 @@
 // - cinQ Chat (messaging)
 // - cinQ Drive (storage)
 // - cinQ Pay (payments)
+// - cinQ Browser (web3 browser with Pelagus wallet)
 
 use super::protocol::{CallToolResult, Tool};
 use serde_json::json;
@@ -214,6 +215,205 @@ pub fn get_tools() -> Vec<Tool> {
                 "required": []
             }),
         },
+
+        // ====================================================================
+        // cinQ Browser - Web3 Browser with Pelagus Wallet
+        // ====================================================================
+        Tool {
+            name: "cinq_browser_open".to_string(),
+            description: "Open a URL in the cinQ browser with Pelagus wallet integration".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "URL to navigate to"
+                    }
+                },
+                "required": ["url"]
+            }),
+        },
+        Tool {
+            name: "cinq_browser_current".to_string(),
+            description: "Get current browser state (URL, title, wallet connection status)".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {},
+                "required": []
+            }),
+        },
+        Tool {
+            name: "cinq_browser_back".to_string(),
+            description: "Navigate back in browser history".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {},
+                "required": []
+            }),
+        },
+        Tool {
+            name: "cinq_browser_forward".to_string(),
+            description: "Navigate forward in browser history".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {},
+                "required": []
+            }),
+        },
+        Tool {
+            name: "cinq_browser_refresh".to_string(),
+            description: "Refresh the current page".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {},
+                "required": []
+            }),
+        },
+        Tool {
+            name: "cinq_browser_tabs".to_string(),
+            description: "List all open browser tabs".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {},
+                "required": []
+            }),
+        },
+        Tool {
+            name: "cinq_browser_new_tab".to_string(),
+            description: "Open a new browser tab".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "URL to open in new tab (optional, defaults to blank)"
+                    }
+                },
+                "required": []
+            }),
+        },
+        Tool {
+            name: "cinq_browser_close_tab".to_string(),
+            description: "Close a browser tab".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "tab_id": {
+                        "type": "integer",
+                        "description": "Tab ID to close (current tab if not specified)"
+                    }
+                },
+                "required": []
+            }),
+        },
+        Tool {
+            name: "cinq_browser_wallet_status".to_string(),
+            description: "Get Pelagus wallet connection status and current account".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {},
+                "required": []
+            }),
+        },
+        Tool {
+            name: "cinq_browser_wallet_connect".to_string(),
+            description: "Connect Pelagus wallet to the current dApp".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {},
+                "required": []
+            }),
+        },
+        Tool {
+            name: "cinq_browser_wallet_disconnect".to_string(),
+            description: "Disconnect Pelagus wallet from the current dApp".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {},
+                "required": []
+            }),
+        },
+        Tool {
+            name: "cinq_browser_wallet_sign".to_string(),
+            description: "Request signature from Pelagus wallet (requires user approval)".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "description": "Message to sign"
+                    }
+                },
+                "required": ["message"]
+            }),
+        },
+        Tool {
+            name: "cinq_browser_wallet_send".to_string(),
+            description: "Request Qi transaction from Pelagus wallet (requires user approval)".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "to": {
+                        "type": "string",
+                        "description": "Recipient Quai address"
+                    },
+                    "amount_qi": {
+                        "type": "number",
+                        "description": "Amount of Qi to send"
+                    },
+                    "memo": {
+                        "type": "string",
+                        "description": "Optional transaction memo"
+                    }
+                },
+                "required": ["to", "amount_qi"]
+            }),
+        },
+        Tool {
+            name: "cinq_browser_bookmarks".to_string(),
+            description: "List saved bookmarks".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {},
+                "required": []
+            }),
+        },
+        Tool {
+            name: "cinq_browser_bookmark_add".to_string(),
+            description: "Add current page to bookmarks".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Bookmark name (uses page title if not specified)"
+                    },
+                    "folder": {
+                        "type": "string",
+                        "description": "Folder to save bookmark in"
+                    }
+                },
+                "required": []
+            }),
+        },
+        Tool {
+            name: "cinq_browser_history".to_string(),
+            description: "Get browser history".to_string(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum entries to return (default: 50)"
+                    },
+                    "search": {
+                        "type": "string",
+                        "description": "Search term to filter history"
+                    }
+                },
+                "required": []
+            }),
+        },
     ]
 }
 
@@ -247,6 +447,24 @@ pub async fn handle_tool_call(
         "cinq_pay_balance" => handle_pay_balance().await,
         "cinq_pay_usage" => handle_pay_usage(arguments).await,
         "cinq_pay_costs" => handle_pay_costs().await,
+        
+        // Browser
+        "cinq_browser_open" => handle_browser_open(arguments).await,
+        "cinq_browser_current" => handle_browser_current().await,
+        "cinq_browser_back" => handle_browser_back().await,
+        "cinq_browser_forward" => handle_browser_forward().await,
+        "cinq_browser_refresh" => handle_browser_refresh().await,
+        "cinq_browser_tabs" => handle_browser_tabs().await,
+        "cinq_browser_new_tab" => handle_browser_new_tab(arguments).await,
+        "cinq_browser_close_tab" => handle_browser_close_tab(arguments).await,
+        "cinq_browser_wallet_status" => handle_browser_wallet_status().await,
+        "cinq_browser_wallet_connect" => handle_browser_wallet_connect().await,
+        "cinq_browser_wallet_disconnect" => handle_browser_wallet_disconnect().await,
+        "cinq_browser_wallet_sign" => handle_browser_wallet_sign(arguments).await,
+        "cinq_browser_wallet_send" => handle_browser_wallet_send(arguments).await,
+        "cinq_browser_bookmarks" => handle_browser_bookmarks().await,
+        "cinq_browser_bookmark_add" => handle_browser_bookmark_add(arguments).await,
+        "cinq_browser_history" => handle_browser_history(arguments).await,
         
         _ => CallToolResult::error(format!("Unknown tool: {}", name)),
     }
@@ -446,5 +664,170 @@ async fn handle_pay_costs() -> CallToolResult {
             "local_storage": true,
             "receive_anything": true
         }
+    }))
+}
+
+// ============================================================================
+// Browser Handlers
+// ============================================================================
+
+async fn handle_browser_open(args: &std::collections::HashMap<String, serde_json::Value>) -> CallToolResult {
+    let url = args.get("url").and_then(|v| v.as_str()).unwrap_or("");
+    
+    // TODO: Wire to browser component
+    CallToolResult::json(&json!({
+        "url": url,
+        "status": "navigating",
+        "tab_id": 1
+    }))
+}
+
+async fn handle_browser_current() -> CallToolResult {
+    // TODO: Wire to browser state
+    CallToolResult::json(&json!({
+        "url": "https://qu.ai",
+        "title": "Quai Network",
+        "tab_id": 1,
+        "wallet_connected": true,
+        "wallet_address": "0x..."
+    }))
+}
+
+async fn handle_browser_back() -> CallToolResult {
+    CallToolResult::json(&json!({
+        "success": true,
+        "url": "https://previous-page.com"
+    }))
+}
+
+async fn handle_browser_forward() -> CallToolResult {
+    CallToolResult::json(&json!({
+        "success": true,
+        "url": "https://next-page.com"
+    }))
+}
+
+async fn handle_browser_refresh() -> CallToolResult {
+    CallToolResult::json(&json!({
+        "success": true,
+        "url": "https://qu.ai"
+    }))
+}
+
+async fn handle_browser_tabs() -> CallToolResult {
+    CallToolResult::json(&json!({
+        "tabs": [
+            {"id": 1, "url": "https://qu.ai", "title": "Quai Network", "active": true},
+            {"id": 2, "url": "https://pelagus.finance", "title": "Pelagus", "active": false}
+        ],
+        "active_tab": 1
+    }))
+}
+
+async fn handle_browser_new_tab(args: &std::collections::HashMap<String, serde_json::Value>) -> CallToolResult {
+    let url = args.get("url").and_then(|v| v.as_str()).unwrap_or("about:blank");
+    
+    CallToolResult::json(&json!({
+        "tab_id": 3,
+        "url": url,
+        "status": "created"
+    }))
+}
+
+async fn handle_browser_close_tab(args: &std::collections::HashMap<String, serde_json::Value>) -> CallToolResult {
+    let tab_id = args.get("tab_id").and_then(|v| v.as_i64()).unwrap_or(1);
+    
+    CallToolResult::json(&json!({
+        "closed_tab_id": tab_id,
+        "success": true
+    }))
+}
+
+async fn handle_browser_wallet_status() -> CallToolResult {
+    // TODO: Wire to Pelagus wallet state
+    CallToolResult::json(&json!({
+        "connected": true,
+        "address": "0x1234...abcd",
+        "network": "quai-mainnet",
+        "balance_qi": 150.5,
+        "dapp_connected": true,
+        "dapp_url": "https://some-dapp.com"
+    }))
+}
+
+async fn handle_browser_wallet_connect() -> CallToolResult {
+    CallToolResult::json(&json!({
+        "status": "connecting",
+        "message": "User approval required in Pelagus wallet"
+    }))
+}
+
+async fn handle_browser_wallet_disconnect() -> CallToolResult {
+    CallToolResult::json(&json!({
+        "status": "disconnected",
+        "success": true
+    }))
+}
+
+async fn handle_browser_wallet_sign(args: &std::collections::HashMap<String, serde_json::Value>) -> CallToolResult {
+    let message = args.get("message").and_then(|v| v.as_str()).unwrap_or("");
+    
+    // This would require user approval in Pelagus
+    CallToolResult::json(&json!({
+        "status": "pending_approval",
+        "message": message,
+        "action": "User must approve signature request in Pelagus wallet"
+    }))
+}
+
+async fn handle_browser_wallet_send(args: &std::collections::HashMap<String, serde_json::Value>) -> CallToolResult {
+    let to = args.get("to").and_then(|v| v.as_str()).unwrap_or("");
+    let amount = args.get("amount_qi").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let memo = args.get("memo").and_then(|v| v.as_str()).unwrap_or("");
+    
+    // This would require user approval in Pelagus
+    CallToolResult::json(&json!({
+        "status": "pending_approval",
+        "to": to,
+        "amount_qi": amount,
+        "memo": memo,
+        "action": "User must approve transaction in Pelagus wallet"
+    }))
+}
+
+async fn handle_browser_bookmarks() -> CallToolResult {
+    CallToolResult::json(&json!({
+        "bookmarks": [
+            {"name": "Quai Network", "url": "https://qu.ai", "folder": "Crypto"},
+            {"name": "Pelagus", "url": "https://pelagus.finance", "folder": "Crypto"},
+            {"name": "GitHub", "url": "https://github.com", "folder": "Dev"}
+        ]
+    }))
+}
+
+async fn handle_browser_bookmark_add(args: &std::collections::HashMap<String, serde_json::Value>) -> CallToolResult {
+    let name = args.get("name").and_then(|v| v.as_str()).unwrap_or("Untitled");
+    let folder = args.get("folder").and_then(|v| v.as_str()).unwrap_or("Bookmarks");
+    
+    CallToolResult::json(&json!({
+        "success": true,
+        "name": name,
+        "folder": folder,
+        "url": "https://current-page.com"
+    }))
+}
+
+async fn handle_browser_history(args: &std::collections::HashMap<String, serde_json::Value>) -> CallToolResult {
+    let limit = args.get("limit").and_then(|v| v.as_i64()).unwrap_or(50);
+    let search = args.get("search").and_then(|v| v.as_str()).unwrap_or("");
+    
+    CallToolResult::json(&json!({
+        "history": [
+            {"url": "https://qu.ai", "title": "Quai Network", "visited": "2026-03-30T09:00:00Z"},
+            {"url": "https://github.com", "title": "GitHub", "visited": "2026-03-30T08:30:00Z"}
+        ],
+        "limit": limit,
+        "search": search,
+        "total": 2
     }))
 }

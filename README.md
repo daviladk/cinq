@@ -1,205 +1,263 @@
-# cinQ
+# cinQ Cloud
 
-**Decentralized Infrastructure-as-a-Service on Quai Network**
+**Decentralized Workspace for Entropic**
 
-A Qi-backed compute marketplace where hardware providers earn native Qi for FLOPs. The Qora Agent Swarm orchestrates workloads across idle gaming PCs, servers, and edge devices, creating the foundation for a truly sovereign internet.
+cinQ is the data layer for [Entropic](https://github.com/dominant-strategies/entropic) — providing decentralized identity, messaging, storage, and payments powered by the people running Entropic.
 
-> **Network Backbone:** cinQ leverages **Stratum X nodes** as the DePIN network foundation. The architecture is also compatible with standard Quai nodes for broader deployment flexibility.
+Think Google Workspace, but decentralized. No servers. No corporations. Just people.
 
-![Version](https://img.shields.io/badge/version-0.6.0-blue)
+![Version](https://img.shields.io/badge/version-0.8.0-blue)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-## ✨ Current Status (v0.6.0)
+## The Vision
 
-**Phase 2: Gateway Shell with Messaging Alpha** 🎉
-- P2P mesh networking foundation (libp2p + Kademlia DHT)
-- E2EE messaging for early user adoption
-- Phone-number style Chat IDs (`555-123-4567`)
-- Contact cards with QR sharing
-- Pelagus wallet integration
+```
+ENTROPIC (Claude AI)     ←→     cinQ CLOUD (Workspace)
+├── AI assistant                ├── cinQ ID (identity)
+├── Sandboxed runtime           ├── cinQ Chat (messaging)
+└── Runs on your machine        ├── cinQ Drive (storage)
+                                ├── cinQ Mail (email) 
+                                ├── cinQ Browser (web3)
+                                └── cinQ Pay (Qi payments)
+```
 
-## Vision
+**Entropic handles AI. cinQ handles data. Quai handles money.**
 
-**Core:** Qi-backed IaaS marketplace where FLOPs = Qi, eliminating speculative token economics.
+## How It Works
 
-**Foundation:** Agents run from day 1. Even the simplest testnet message involves Navigator, Relay, and Treasurer agents settling micropayments.
+Every Entropic user's machine is part of the network:
 
-**Roadmap:**
-- Testnet ✅ Agents active, 1-hop routing, prove micropayments work
-- Phase 2 🔄 Gateway Shell (Tauri app + Chat IDs + same agents)
-- Phase 3 ⏳ Privacy + Streaming (3-hop onion routing, voice/video)
-- Phase 4 ⏳ Full Compute (GPU marketplace, Provider agents)
-- Phase 5 ⏳ Sovereign OS (Storage, CRDTs, federation)
+```
+┌────────────────────────────────────────────────┐
+│                THE MESH                        │
+│                                                │
+│    👤────👤────👤────👤────👤────👤           │
+│     │    │    │    │    │    │               │
+│    👤────👤────👤────👤────👤────👤           │
+│     │    │    │    │    │    │               │
+│    👤────👤────👤────👤────👤────👤           │
+│                                                │
+│    Everyone IS the infrastructure              │
+│    No servers. No datacenters required.        │
+│                                                │
+└────────────────────────────────────────────────┘
+```
 
-> **Key Insight:** Phases add workloads and complexity, not agents. The economic primitive (micropayments via UTXO) is proven in testnet and used everywhere.
+- **Consumer**: Use cinQ services (chat, storage, etc.)
+- **Provider**: Share spare disk space, earn Qi
+- **Most people**: Both
 
-## Features
+## Services
 
-### Infrastructure (Core)
-- 🌐 **P2P Mesh Network** - Decentralized peer discovery via mDNS and Kademlia DHT
-- 🔒 **Encrypted Connections** - All peer traffic secured with Noise protocol
-- 📊 **Bandwidth Metering** - Track usage for Qi-based payments
-- 🖥️ **SOCKS5 Proxy** - Route any app through the network
-- 🔐 **Pelagus Wallet** - Native Qi payments
-- 🤖 **Agent Economy** - Navigator, Relay, Treasurer agents active from testnet
+| Service | Like | Description |
+|---------|------|-------------|
+| **cinQ ID** | Google Account | Decentralized identity with Chat IDs |
+| **cinQ Chat** | Google Chat | Real-time P2P messaging |
+| **cinQ Drive** | Google Drive | Decentralized file storage |
+| **cinQ Mail** | Gmail | Async email with anti-spam |
+| **cinQ Browser** | Chrome + MetaMask | Web3 browser with Pelagus wallet |
+| **cinQ Pay** | Google Pay | Qi-based metering and payments |
 
-### Messaging Alpha (Adoption Hook)
-- 💬 **E2EE Chat** - Serverless messaging via the mesh
-- 🆔 **Chat IDs** - Phone-number style identifiers
-- 📇 **Contact Cards** - QR codes & deep links for sharing
-- 🏷️ **SBT Ready** - Soul Bound Token identity for $CINQ reputation
-- 💸 **Micropayments** - Every message settles micro-Qi (agents earn from day 1)
+## For Entropic Users
 
-### Identity Layer (Soulbound NFT)
+cinQ exposes an MCP server that Claude can use:
 
-cinQ introduces a **permanent digital identity** backed by blockchain and hardware:
+```
+You: "Save this report to my Drive and send it to Alice"
 
-| Component | Description |
-|-----------|-------------|
-| **Soulbound NFT (SBT)** | Non-transferable token minted to your wallet—cannot be moved, sold, or transferred. Your identity stays with you forever. |
-| **cinQ ID** | Phone-number style identifier (e.g., `1-555-0001`) minted INTO the SBT metadata. This is your permanent address on the network. |
-| **Zone Prefix** | Auto-detected from your Quai wallet address (1=Cyprus, 2=Paxos, 3=Hydra). Your ID reflects your shard. |
-| **Tangem Wallet** | Recommended hardware wallet where your SBT lives. NFC card + PIN + biometrics = three-factor identity. |
+Claude (in Entropic):
+├── Calls cinq_drive_write → saves file
+├── Calls cinq_drive_share → generates link  
+├── Calls cinq_chat_send → messages Alice
+└── "Done! Sent to Alice ✓"
+```
 
-**Why Tangem?**
+### Available Tools
 
-Your cinQ identity is **permanent**. Losing access means losing your reputation, contacts, and network history. Tangem provides:
+**Identity**
+- `cinq_id_whoami` — Get your cinQ identity
+- `cinq_id_lookup` — Find a user by Chat ID
+- `cinq_id_contacts` — List your contacts
 
-- **PIN Recovery** - Lose your cards? Order new ones, enter your PIN, identity restored
-- **Three-Factor Auth** - Something you have (card) + know (PIN) + are (biometrics)
-- **No Seed Phrases** - No 24 words to lose or get phished
-- **~$60 investment** - Small price for a lifetime digital identity
+**Chat**
+- `cinq_chat_send` — Send a message
+- `cinq_chat_history` — Get conversation history
+- `cinq_chat_conversations` — List all conversations
 
-> ⚠️ **SBTs are non-transferable by design.** Once minted to a wallet address, the token cannot move. Choose your identity wallet carefully—we recommend Tangem for maximum security.
+**Drive**
+- `cinq_drive_list` — List files
+- `cinq_drive_read` — Read a file
+- `cinq_drive_write` — Write a file
+- `cinq_drive_share` — Generate share link
 
-**Can I use a different wallet?**
+**Browser**
+- `cinq_browser_open` — Open URL with Pelagus wallet
+- `cinq_browser_wallet_status` — Check wallet connection
+- `cinq_browser_wallet_connect` — Connect to dApp
+- `cinq_browser_wallet_send` — Send Qi (requires approval)
 
-Yes, any Quai-compatible wallet (Pelagus, etc.) works. But for a **permanent identity** that holds your reputation, contacts, and earnings history, hardware security makes sense. A browser extension wallet with seed phrase backup is technically possible but higher risk for something this permanent.
-
-### Accessibility Programs
-
-We believe digital identity shouldn't be gated by geography or income:
-
-| Program | Details |
-|---------|---------|
-| **Genesis Discount** | Early adopters receive Tangem discount codes through cinQ × Tangem partnership |
-| **Regional Pricing** | Subsidized hardware for developing markets (partnership in progress) |
-| **Earn-to-Own** | Contribute compute/relay → earn toward Tangem card cost |
-| **Free Tier** | Pelagus wallet always available (seed phrase backup required) |
-
-**Partnership Vision:** Bring hardware-backed digital identity to underserved regions. For many users, a cinQ ID may be their first verifiable credential—stronger than government-issued documents in areas with weak infrastructure.
-
-> 💡 **$60 is less than a passport** and lasts longer. But we're working to make secure identity accessible to everyone.
+**Pay**
+- `cinq_pay_balance` — Check Qi balance
+- `cinq_pay_usage` — View usage breakdown
+- `cinq_pay_costs` — Get pricing table
 
 ## Quick Start
 
 ### Prerequisites
 
-- [Rust](https://rustup.rs/) (1.70+)
+- [Rust](https://rustup.rs/) (1.77+)
 - [Node.js](https://nodejs.org/) (18+)
-- [Pelagus Wallet](https://pelaguswallet.io/) browser extension
+- [Entropic](https://github.com/dominant-strategies/entropic-releases/releases) (optional, for AI integration)
 
-### Build & Run
+### Build and Run
 
 ```bash
-# Clone the repository
+# Clone
 git clone https://github.com/daviladk/cinq.git
 cd cinq
 
 # Install UI dependencies
 cd ui && npm install && cd ..
 
-# Run in development mode
-cargo tauri dev
+# Build
+cd src-tauri && cargo build --release
 
-# Build for production
-cargo tauri build
+# Run (starts MCP server on localhost:3000)
+cargo tauri dev
 ```
 
-### Usage
+### Connect to Entropic
 
-1. **Connect Wallet** - Click "Connect to Pelagus" and approve in the extension
-2. **Start Node** - Toggle the P2P Node switch to join the network
-3. **Start Proxy** - Toggle SOCKS5 Proxy to route traffic (127.0.0.1:1080)
+Add cinQ as a skill in your OpenClaw config:
 
-Configure your browser or apps to use SOCKS5 proxy at `127.0.0.1:1080`.
+```json
+{
+  "skills": {
+    "cinq": {
+      "type": "mcp",
+      "url": "http://localhost:3000/mcp"
+    }
+  }
+}
+```
 
-> **Payments:** Qi micropayments handled automatically via Qi Agent SDK—no escrow needed.
+Or test the MCP server directly:
+
+```bash
+# Server info
+curl http://localhost:3000/
+
+# List tools
+curl -X POST http://localhost:3000/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
+```
 
 ## Architecture
 
 ```
-Browser/App → SOCKS5 Proxy (1080) → P2P Tunnel → Exit Peer → Internet
-                    ↓
-            Pelagus Wallet (Qi payments)
+┌─────────────────────────────────────────────────────────────────┐
+│                         cinQ APP                                │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │                    TAURI UI                              │   │
+│  │              (standalone interface)                      │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │                   RUST BACKEND                           │   │
+│  │                                                          │   │
+│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐    │   │
+│  │  │ cinQ ID  │ │cinQ Chat │ │cinQ Drive│ │ cinQ Pay │    │   │
+│  │  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘    │   │
+│  │       └────────────┴────────────┴────────────┘          │   │
+│  │                         │                                │   │
+│  │                    libp2p mesh                           │   │
+│  └──────────────────────────┬──────────────────────────────┘   │
+│                             │                                   │
+│  ┌──────────────────────────┴──────────────────────────────┐   │
+│  │                 MCP SERVER (:3000)                       │   │
+│  │           (for Entropic/Claude integration)              │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ### Tech Stack
 
-- **Frontend**: HTML/CSS/JavaScript (vanilla)
-- **Backend**: Rust + Tauri 2.x
-- **P2P**: libp2p 0.54 (Kademlia, mDNS, Noise, Relay)
-- **Proxy**: fast-socks5
-- **Wallet**: Pelagus (Quai Network)
+- **App Framework**: Tauri 2.x (Rust + Web)
+- **P2P Networking**: libp2p 0.54 (Kademlia DHT, mDNS, Noise encryption)
+- **Database**: SQLite (rusqlite)
+- **MCP Server**: Axum (HTTP + JSON-RPC)
+- **Payments**: Qi on Quai Network (via Pelagus wallet)
 
-## Development
-
-### Project Structure
+## Project Structure
 
 ```
 cinq/
-├── dist/                 # Frontend assets
-│   ├── index.html
-│   ├── main.js
-│   └── styles.css
-├── src-tauri/
-│   ├── src/
-│   │   ├── main.rs       # Tauri commands
-│   │   ├── lib.rs
-│   │   └── grid/         # P2P networking
-│   │       ├── node.rs   # libp2p swarm
-│   │       ├── chat.rs   # Chat manager & SQLite storage
-│   │       ├── protocol.rs # P2P message types
-│   │       ├── proxy.rs  # SOCKS5 server
-│   │       ├── tunnel.rs # P2P tunneling
-│   │       ├── bootstrap.rs # Peer persistence
-│   │       └── metrics.rs # Bandwidth tracking
-│   ├── Cargo.toml
-│   └── tauri.conf.json
+├── ui/                       # Frontend (Vite + TypeScript)
+│   └── src/
+├── src-tauri/src/
+│   ├── main.rs              # Tauri commands + MCP server start
+│   ├── lib.rs               # Module exports
+│   ├── mcp/                 # MCP server for Entropic
+│   │   ├── mod.rs
+│   │   ├── server.rs        # HTTP server (Axum)
+│   │   ├── protocol.rs      # JSON-RPC types
+│   │   └── tools.rs         # cinQ tool definitions
+│   ├── grid/                # P2P networking
+│   │   ├── node.rs          # libp2p swarm
+│   │   ├── chat.rs          # Chat + SQLite
+│   │   ├── userid.rs        # Identity registry
+│   │   └── transfer.rs      # File transfer
+│   └── swarm/               # Usage tracking
+│       ├── costs.rs         # Qi pricing
+│       ├── tracker.rs       # Metering
+│       └── workers/         # Service workers
 ├── docs/
-│   └── DESIGN.md
-├── CHANGELOG.md
+│   ├── DESIGN.md            # Technical design
+│   └── CINQ_CLOUD.md        # Architecture spec
 └── README.md
 ```
 
-### Git Tags
+## Decentralized Storage
 
-| Tag | Description |
-|-----|-------------|
-| `v0.1.0-p2p-working` | P2P peer discovery working |
-| `v0.2.0-socks5-proxy` | SOCKS5 proxy implementation |
-| `v0.3.0-p2p-routing-infra` | P2P tunnel infrastructure |
-| `v0.4.0-pelagus-wallet` | Pelagus wallet integration |
-| `v0.5.0-p2p-chat` | P2P chat with message storage |
+Files are encrypted, chunked, and distributed across the network:
+
+```
+YOUR FILE
+    │
+    ▼ Encrypt (your keys)
+    │
+    ▼ Chunk into pieces
+    │
+    ▼ Distribute to providers
+    │
+┌───┴───┬───────┬───────┐
+▼       ▼       ▼       ▼
+Alice   Bob    Carol   Dave
+(peer)  (peer) (peer)  (peer)
+```
+
+**Anyone can be a provider.** Share spare disk space, earn Qi. No special hardware required.
 
 ## Roadmap
 
-- [x] P2P peer discovery (mDNS + Kademlia)
-- [x] SOCKS5 proxy server
-- [x] P2P tunnel infrastructure
-- [x] Pelagus wallet integration
-- [x] P2P Chat messaging ✨ **NEW**
-- [ ] Message encryption (currently plaintext)
-- [ ] Complete P2P traffic routing
-- [ ] Qi Agent SDK micropayments
-- [ ] Multi-hop onion routing
-- [ ] Bootstrap nodes for WAN discovery
-- [ ] Exit node earnings
+- [x] P2P mesh networking (libp2p)
+- [x] cinQ ID (identity registry)
+- [x] cinQ Chat (P2P messaging)
+- [x] cinQ Pay (usage tracking)
+- [x] MCP server (Entropic integration)
+- [x] cinQ Browser tools (Pelagus wallet)
+- [ ] cinQ Mail (async email)
+- [ ] cinQ Drive (distributed storage)
+- [ ] Provider mode (earn Qi for storage)
+- [ ] Anti-spam (Qi deposits)
 
 ## Contributing
 
-Contributions welcome! Please read the [DESIGN.md](docs/DESIGN.md) for architecture details.
+Contributions welcome! See [docs/CINQ_CLOUD.md](docs/CINQ_CLOUD.md) for architecture details.
 
 ## License
 
@@ -207,4 +265,4 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-**Built for [Quai Network](https://qu.ai)** 🔷
+**Built for [Entropic](https://github.com/dominant-strategies/entropic) on [Quai Network](https://qu.ai)** 🔷

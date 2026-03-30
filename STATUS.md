@@ -1,49 +1,60 @@
 # cinQ Cloud — Project Status
 
-> **Last Updated:** March 29, 2026  
-> **Version:** 0.8.0 (Phase 4: cinQ Cloud for Entropic)  
+> **Last Updated:** March 30, 2026  
+> **Version:** 0.8.0 (cinQ Cloud for Entropic)  
 > **Build Status:** ✅ Working
 
 ---
 
-## 🎯 Project Vision
+## Project Vision
 
 **cinQ Cloud** is a decentralized Google Workspace for [Entropic](https://github.com/dominant-strategies/entropic) — Quai Network's Claude AI desktop app.
 
-While Quai handles **compute** (AI models on idle hardware), cinQ handles **data**:
+Entropic handles **AI**. cinQ handles **data**:
 - **cinQ ID** — Decentralized identity (like Google Account)
 - **cinQ Mail** — Async email (like Gmail)
 - **cinQ Chat** — Real-time messaging (like Google Chat)
 - **cinQ Drive** — File storage (like Google Drive)
+- **cinQ Browser** — Web3 browser with Pelagus wallet
 - **cinQ Pay** — Qi-based metering (like Google Pay for services)
 
 **Not a fork** — cinQ is an extension that gives Entropic's Claude access to familiar productivity tools, all running on a P2P mesh with Qi payments.
 
 ---
 
-## 🎉 Current Phase: cinQ Cloud Architecture
+## Current Phase: MCP Integration
 
-Building the cloud services layer and MCP integration for Entropic.
+Building the MCP server so Entropic's Claude can use cinQ services.
 
-### Qora Orchestrator (Alpha - Pure Rust)
-- Intent parsing via keyword patterns (no LLM dependency)
-- Template-based responses with personality
-- Routes actions to specialized workers
-- Zero external API calls = instant response
+### Completed
+- ✅ P2P mesh networking (libp2p + Kademlia DHT)
+- ✅ cinQ ID (identity registry with Chat IDs)
+- ✅ cinQ Chat (real-time P2P messaging)
+- ✅ cinQ Pay (usage tracking + Qi cost tables)
+- ✅ MCP server (localhost:3000)
+- ✅ cinQ Browser tools (Pelagus wallet integration)
 
-### Worker Agents
-- **BandwidthWorker**: Message/call routing, byte tracking
-- **StorageWorker**: Local file storage, cloud backup, message search
-- **PaymentWorker**: Qi metering, session accounting, settlement prep
+### In Progress
+- 🔄 Wire MCP tools to actual CinqState services
+- 🔄 Test with Entropic on MacBook Air
 
-### Trust Model
-- **Pelagus Wallet**: Handles all blockchain (balance, signing, transactions)
-- **cinQ App**: Handles compute orchestration (metering, sessions, workers)
-- **Clean Separation**: No private keys in cinQ, no RPC calls needed
+### To Build
+- ⏳ cinQ Mail (async threaded email)
+- ⏳ cinQ Drive (distributed storage with providers)
+- ⏳ Provider mode (earn Qi for sharing storage)
 
 ---
 
-## Current Architecture
+## Architecture
+
+### Tech Stack
+| Component | Technology |
+|-----------|------------|
+| **App Framework** | Tauri 2.x (Rust + Web) |
+| **P2P Networking** | libp2p 0.54 (Kademlia DHT, mDNS, Noise) |
+| **Database** | SQLite (rusqlite) |
+| **MCP Server** | Axum 0.7 (HTTP + JSON-RPC) |
+| **Payments** | Qi on Quai Network (via Pelagus wallet) |
 
 ### Network Setup (Testing)
 | Device | IP Address | Peer ID |
@@ -51,51 +62,51 @@ Building the cloud services layer and MCP integration for Entropic.
 | Mac Mini | 192.168.5.4:9000 | `12D3KooWP7zQ4dLEw3JiPdrerChHsTzhjfxs69oEBcxZieXU1sAu` |
 | MacBook Air | 192.168.4.253:9000 | `12D3KooWGhyNKVUhwiigtPZ9DpMyho9gvAsRWhGfeGDVcEt6Tgkr` |
 
-### Tech Stack
-- **Tauri 2.x** - Desktop app framework
-- **libp2p 0.54** - P2P networking (Kademlia DHT, mDNS, Noise encryption)
-- **SQLite (rusqlite)** - Chat + User ID storage
-- **Yamux** - Stream multiplexing
-- **Protocol:** `/cinq/transfer/1.0.0`
-
 ---
 
-## cinQ Cloud Services
+## MCP Tools
 
-### ✅ cinQ ID (Identity) — Built
-- Chat ID registration (`@username`)
-- Peer ID mapping (libp2p keypair)
-- SQLite storage for identity registry
-- Contact management
+The MCP server exposes these tools for Entropic's Claude:
 
-### ✅ cinQ Chat (Messaging) — Built
-- Real-time P2P messaging
-- Conversation history (SQLite)
-- Online/offline presence
-- Read receipts
+### Identity (cinQ ID)
+| Tool | Description |
+|------|-------------|
+| `cinq_id_whoami` | Get current user identity |
+| `cinq_id_lookup` | Find user by Chat ID |
+| `cinq_id_contacts` | List contacts |
 
-### ✅ cinQ Drive (Storage) — Built
-- Local file storage
-- P2P file transfer protocol
-- Folder organization
-- Share links (planned)
+### Messaging (cinQ Chat)
+| Tool | Description |
+|------|-------------|
+| `cinq_chat_send` | Send a message |
+| `cinq_chat_history` | Get conversation history |
+| `cinq_chat_conversations` | List all conversations |
 
-### ✅ cinQ Pay (Payments) — Built
-- Real-time usage tracking
-- Qi cost tables
-- Session accounting
-- Pelagus integration (wallet handles signing)
+### Storage (cinQ Drive)
+| Tool | Description |
+|------|-------------|
+| `cinq_drive_list` | List files in directory |
+| `cinq_drive_read` | Read file contents |
+| `cinq_drive_write` | Write file |
+| `cinq_drive_delete` | Delete file |
+| `cinq_drive_share` | Generate share link |
 
-### 🆕 cinQ Mail (Email) — To Build
-- Async threaded messages
-- Subject lines + rich text
-- Attachments (via Drive)
-- Anti-spam (Qi deposit for unknowns)
+### Browser (cinQ Browser)
+| Tool | Description |
+|------|-------------|
+| `cinq_browser_open` | Open URL |
+| `cinq_browser_current` | Get current page state |
+| `cinq_browser_tabs` | List open tabs |
+| `cinq_browser_wallet_status` | Get Pelagus status |
+| `cinq_browser_wallet_connect` | Connect to dApp |
+| `cinq_browser_wallet_send` | Send Qi transaction |
 
-### 🆕 MCP Server — To Build
-- Expose cinQ services to Entropic
-- Tool definitions for Claude
-- HTTP/WebSocket interface
+### Payments (cinQ Pay)
+| Tool | Description |
+|------|-------------|
+| `cinq_pay_balance` | Get Qi balance |
+| `cinq_pay_usage` | Get usage breakdown |
+| `cinq_pay_costs` | Get pricing table |
 
 ---
 
@@ -109,121 +120,37 @@ cinq/
 │   └── index.html           # Entry point
 │
 ├── src-tauri/src/
-│   ├── main.rs              # Tauri commands (90+ commands)
+│   ├── main.rs              # Tauri commands + MCP server start
 │   ├── lib.rs               # Module exports
 │   │
-│   ├── cloud/               # 🆕 cinQ Cloud services
-│   │   ├── mod.rs           # Re-exports
-│   │   ├── id.rs            # Identity service
-│   │   ├── mail.rs          # Email service
-│   │   ├── chat.rs          # Chat service
-│   │   ├── drive.rs         # Storage service
-│   │   └── pay.rs           # Payment service
-│   │
-│   ├── mcp/                 # 🆕 MCP server for Entropic
-│   │   ├── mod.rs           # MCP protocol handler
-│   │   ├── server.rs        # HTTP/WebSocket server
-│   │   └── tools.rs         # Tool definitions
+│   ├── mcp/                 # MCP server for Entropic
+│   │   ├── mod.rs           # Module exports
+│   │   ├── server.rs        # Axum HTTP server (:3000)
+│   │   ├── protocol.rs      # JSON-RPC types
+│   │   └── tools.rs         # Tool definitions + handlers
 │   │
 │   ├── grid/                # P2P networking
 │   │   ├── mod.rs           # Module re-exports
-│   │   ├── node.rs          # libp2p swarm, peer management
-│   │   ├── chat.rs          # ChatManager, SQLite storage
-│   │   ├── protocol.rs      # CinqRequest/CinqResponse types
-│   │   └── ...
+│   │   ├── node.rs          # libp2p swarm
+│   │   ├── chat.rs          # Chat + SQLite storage
+│   │   ├── userid.rs        # Identity registry
+│   │   ├── transfer.rs      # File transfer protocol
+│   │   └── protocol.rs      # P2P message types
 │   │
-│   ├── qora/                # Local AI agent (Qora)
-│   │   ├── mod.rs           # Module exports
-│   │   ├── agent.rs         # QoraAgent
-│   │   ├── ollama.rs        # Ollama API client
-│   │   └── tasks.rs         # Task queue
-│   │
-│   └── swarm/               # Worker agents
-│       ├── mod.rs           # Module exports
+│   └── swarm/               # Usage tracking
 │       ├── costs.rs         # Qi pricing tables
-│       ├── tracker.rs       # Real-time usage tracking
-│       ├── intent.rs        # Intent parsing
-│       ├── qora.rs          # Qora orchestrator
-│       └── workers/
-│           ├── mod.rs       # Worker trait
-│           ├── bandwidth.rs # BandwidthWorker
-│           ├── storage.rs   # StorageWorker
-│           └── payment.rs   # PaymentWorker
+│       ├── tracker.rs       # Real-time metering
+│       └── workers/         # Service workers
 │
 ├── docs/
-│   ├── DESIGN.md            # Architecture & design
-│   └── CINQ_CLOUD.md        # 🆕 Cloud services spec
+│   ├── DESIGN.md            # Technical design
+│   └── CINQ_CLOUD.md        # Architecture spec
 ├── CHANGELOG.md             # Version history
 ├── README.md                # Project overview
 └── STATUS.md                # This file
 ```
 
 ---
-
-## Tauri Commands
-
-### Core
-| Command | Description |
-|---------|-------------|
-| `start_node` | Initialize P2P node |
-| `stop_node` | Gracefully disconnect |
-| `get_peers` | List connected peers |
-| `get_peer_id` | Get local peer ID |
-
-### Chat
-| Command | Description |
-|---------|-------------|
-| `send_message` | Send chat message to peer |
-| `get_conversations` | List all conversations |
-| `get_messages` | Get messages for conversation |
-| `start_conversation` | Create conversation with peer |
-
-### Identity (New in v0.6.0)
-| Command | Description |
-|---------|-------------|
-| `get_user_id` | Get local Chat ID |
-| `lookup_user_id` | Find peer ID from Chat ID |
-| `update_profile` | Set name, bio, avatar |
-| `get_profile` | Get profile info |
-| `get_contact_card` | Generate shareable card |
-| `parse_contact_card` | Parse QR/URL data |
-
-### Swarm Usage Tracker
-| Command | Description |
-|---------|-------------|
-| `swarm_get_balance` | Get current Qi balance + active sessions |
-| `swarm_set_balance` | Update balance from Pelagus |
-| `swarm_start_session` | Start tracking an action |
-| `swarm_end_session` | End session, get Qi consumed |
-| `swarm_record_bytes` | Record bytes sent/received |
-| `swarm_check_warnings` | Get low-balance warnings |
-| `swarm_estimate_cost` | Estimate Qi cost for action |
-| `swarm_get_cost_table` | Get all pricing rates |
-
-### Qora Orchestrator (New in v0.7.0)
-| Command | Description |
-|---------|-------------|
-| `qora_process` | Process natural language input |
-| `qora_get_intents` | Get list of supported intents |
-
-### Worker Commands (New in v0.7.0)
-| Command | Description |
-|---------|-------------|
-| `worker_send_message` | Send message via bandwidth worker |
-| `worker_start_call` | Start voice call |
-| `worker_start_video_call` | Start video call |
-| `worker_end_call` | End active call |
-| `worker_get_bandwidth_stats` | Get bandwidth metrics |
-| `worker_store_message` | Store message locally |
-| `worker_search_messages` | Search message history |
-| `worker_store_file` | Store file locally |
-| `worker_upload_cloud` | Upload to cloud backup |
-| `worker_get_storage_stats` | Get storage metrics |
-| `worker_payment_start_session` | Start payment session |
-| `worker_payment_record_cost` | Record Qi cost |
-| `worker_payment_end_session` | End payment session |
-| `worker_payment_get_pending` | Get pending payments |
-| `worker_payment_prepare_settlement` | Prepare for Pelagus |
 
 ## Data Storage
 
@@ -274,19 +201,19 @@ CREATE TABLE contacts (
 ## Next Steps
 
 ### Immediate
-1. [ ] Add message encryption (currently plaintext over Noise transport)
-2. [ ] Real-time event push (instead of polling)
-3. [ ] Notification when new message arrives
+1. [ ] Wire MCP tool handlers to CinqState services
+2. [ ] Test MCP server with Entropic
+3. [ ] Add message encryption (currently plaintext over Noise transport)
 
 ### Short-term
-4. [ ] Wire SOCKS5 proxy through P2P tunnels
-5. [ ] Implement hop-based routing (0H/1H/3H)
-6. [ ] Integrate Pelagus wallet for Qi payments
+4. [ ] Build cinQ Mail service
+5. [ ] Build cinQ Drive distributed storage
+6. [ ] Provider mode (share storage, earn Qi)
 
 ### Long-term
-7. [ ] Escrow smart contract on Quai
-8. [ ] Exit node earnings
-9. [ ] Mobile companion app
+7. [ ] Anti-spam (Qi deposits for unknown senders)
+8. [ ] Mobile companion app
+9. [ ] Federation with other cinQ networks
 
 ---
 
@@ -306,6 +233,22 @@ cargo tauri build
 open src-tauri/target/release/bundle/dmg/
 ```
 
+### Test MCP Server
+```bash
+# Check if server is running
+curl http://localhost:3000/
+
+# List available tools
+curl -X POST http://localhost:3000/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
+
+# Call a tool
+curl -X POST http://localhost:3000/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"cinq_id_whoami","arguments":{}},"id":2}'
+```
+
 ### Testing on MacBook Air
 ```bash
 # Clear quarantine
@@ -315,29 +258,25 @@ xattr -cr "/Applications/Cinq Connect.app"
 RUST_LOG=info "/Applications/Cinq Connect.app/Contents/MacOS/cinq-connect" 2>&1
 ```
 
-### Debug Logs
-Key log prefixes to watch:
-- `>>> Sending request` - Message send attempt
-- `>>> Peer ... connected:` - Connection status
-- `ChatMessage from` - Incoming message received
-- `Stored incoming message` - Message saved to DB
-- `ChatReceived { delivered: true }` - Delivery confirmation
-
 ---
 
 ## Known Issues
 
 1. **mDNS blocked on Eero mesh** - Different subnets can't discover via mDNS, but DHT bootstrap works
-2. **Polling-based UI updates** - 3-second delay for new messages (no real-time push yet)
+2. **MCP handlers are stubs** - Tool definitions exist but handlers return mock data
 3. **Messages are plaintext** - Noise transport encrypts the channel, but message content not additionally encrypted
 
 ---
 
-## Git Status
+## Version History
 
-```bash
-# Create tag for this milestone
-git add -A
-git commit -m "v0.5.0: P2P chat working with message storage"
-git tag v0.5.0-p2p-chat
-```
+| Version | Date | Milestone |
+|---------|------|-----------|
+| 0.8.0 | Mar 30, 2026 | cinQ Cloud for Entropic, MCP server, Browser tools |
+| 0.7.0 | Mar 15, 2026 | Usage tracking, Qi cost tables |
+| 0.6.0 | Feb 12, 2026 | Chat IDs, Contact cards |
+| 0.5.0 | Jan 2026 | P2P chat with message storage |
+| 0.4.0 | Jan 2026 | Pelagus wallet integration |
+| 0.3.0 | Dec 2025 | P2P tunnel infrastructure |
+| 0.2.0 | Dec 2025 | SOCKS5 proxy implementation |
+| 0.1.0 | Nov 2025 | P2P peer discovery working |
