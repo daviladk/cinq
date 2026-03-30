@@ -1,10 +1,12 @@
 // Cinq Connect - DePIN Grid Foundation
 // Secure P2P mesh network for Quai Network
+// MCP Server for Entropic integration
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod apps;
 mod grid;
+mod mcp;
 mod qora;
 mod swarm;
 
@@ -13,6 +15,7 @@ use grid::UserIdRegistry;
 use grid::{BandwidthMetrics, CinqNode, GridPeer, NodeConfig, ProxyStatus};
 use grid::{ChatManager, ChatMessage, Contact, Conversation, MessageStatus};
 use grid::{PoolStats, StratumClient, StratumStatus, Worker};
+use mcp::{McpServerConfig, spawn_mcp_server};
 use qora::{QoraAgent, Task};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -1917,6 +1920,18 @@ async fn apps_unpin(
 }
 
 fn main() {
+    // Start the MCP server for Entropic integration
+    std::thread::spawn(|| {
+        let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
+        rt.block_on(async {
+            let config = McpServerConfig::default(); // localhost:3000
+            log::info!("🚀 Starting cinQ MCP Server on http://{}:{}", config.host, config.port);
+            if let Err(e) = mcp::start_mcp_server(config).await {
+                log::error!("MCP server error: {}", e);
+            }
+        });
+    });
+
     tauri::Builder::default()
         .plugin(tauri_plugin_log::Builder::default().build())
         .manage(CinqState::new())

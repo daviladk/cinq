@@ -70,6 +70,11 @@ base64 = "0.22.1"
 # Qora Agent - AI development assistant
 chrono = { version = "0.4", features = ["serde"] }
 
+# MCP Server - HTTP server for Entropic integration
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors"] }
+
 # ============================================================================
 # Binaries
 # ============================================================================
