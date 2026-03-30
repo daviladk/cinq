@@ -17,10 +17,12 @@ Claude can actually use your workspace: save, share, message, pay — as actions
 
 | Service | Description | Status |
 |---------|-------------|--------|
-| **cinQ ID** | Identity + contacts | ✅ Working |
-| **cinQ Chat** | P2P messaging | ✅ Working |
-| **cinQ Drive Lite** | Local storage + share | ✅ Working |
-| **cinQ Pay** | Usage metering | ✅ Working |
+| **cinQ ID** | Identity + contacts | 🔧 Stubbed |
+| **cinQ Chat** | P2P messaging | 🔧 Stubbed |
+| **cinQ Drive Lite** | Local storage + share | 🔧 Stubbed |
+| **cinQ Pay** | Usage metering | 🔧 Stubbed |
+
+**Status key:** 🔧 Stubbed = MCP tool defined, handler returns mock data, not wired to services
 
 ---
 
