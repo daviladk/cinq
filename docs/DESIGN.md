@@ -9,7 +9,7 @@
 
 cinQ is a workspace app for [Entropic](https://github.com/dominant-strategies/entropic) — providing identity, messaging, storage, and payment services that Claude interacts with via tool calls.
 
-**Entropic is open source** — cinQ integration is a straightforward fork-and-add or PR path.
+**Entropic is open source** — cinQ integrates via PR to Entropic core.
 
 ### Core Idea
 
@@ -223,55 +223,75 @@ CREATE TABLE contacts (
 
 ## Entropic Integration Architecture
 
-cinQ follows the same architecture as Entropic's native apps (Tasks, Jobs, Channels, etc.):
+Entropic is [open source](https://github.com/dominant-strategies/entropic). cinQ integrates as a **native service** — not a skill/plugin.
 
-### Entropic App Pattern
+### Why Not a Skill?
+
+Entropic "skills" are lightweight JavaScript plugins. cinQ needs:
+- Native Rust for libp2p P2P networking
+- SQLite for local storage
+- Real mesh connectivity
+- Its own UI for identity/chat/drive/pay
+
+Skills can't do this. cinQ is a full service, like Tasks or Channels.
+
+### Integration Path: PR to Entropic Core
+
+Contribute cinQ as a native Entropic service:
 
 ```
-src/
-├── main.tsx              # Entry point
-├── App.tsx               # App states: loading → signin → ready
-├── pages/
-│   ├── Dashboard.tsx     # Main router
-│   ├── Chat.tsx          # Chat interface
-│   ├── Tasks.tsx         # Task board
-│   ├── Jobs.tsx          # Scheduled jobs
-│   ├── Files.tsx         # Desktop/file browser
-│   ├── Channels.tsx      # Messaging
-│   └── Cinq.tsx          # ← cinQ lives here
-├── components/
-│   └── Layout.tsx        # Navigation sidebar
-└── lib/
-    └── gateway.ts        # GatewayClient for agent communication
+entropic/
+├── src-tauri/src/
+│   └── cinq/                   # Rust handlers
+│       ├── mod.rs
+│       ├── identity.rs         # P2P identity, DHT
+│       ├── chat.rs             # Messaging
+│       ├── drive.rs            # File storage
+│       └── pay.rs              # Qi metering
+│
+├── src/pages/
+│   └── Cinq.tsx                # React UI
+│
+└── src/components/
+    └── Layout.tsx              # Add cinQ to nav
 ```
 
-### How Apps Work in Entropic
+### How It Works
 
-1. **Page Component**: Each app is a React component in `src/pages/`
-2. **Layout Navigation**: Sidebar wired in `Layout.tsx` with page icons
-3. **Dashboard Routing**: `Dashboard.tsx` renders components based on `currentPage` state
-4. **Gateway Prop**: Apps receive `gatewayRunning` to control feature availability
-5. **Tauri Invoke**: Rust FFI calls via `invoke()` for system operations
-6. **WebSocket**: `GatewayClient` for real-time agent communication
+1. **Rust Handlers** — Add Tauri commands for cinQ services
+   ```rust
+   #[tauri::command]
+   async fn cinq_id_whoami() -> Result<Identity, String> { ... }
+   ```
 
-### cinQ as Entropic App
+2. **React Page** — Add `Cinq.tsx` component
+   ```tsx
+   export function Cinq({ gatewayRunning }: Props) {
+     // ID, Chat, Drive, Pay UI
+   }
+   ```
 
-cinQ would be added as:
+3. **Wire In** — Add to Dashboard routing + Layout nav
+   ```tsx
+   // Dashboard.tsx
+   case "cinq":
+     return <Cinq gatewayRunning={gatewayRunning} />;
+   
+   // Layout.tsx
+   { id: "cinq", label: "cinQ", icon: Users }
+   ```
 
-```tsx
-// src/pages/Cinq.tsx
-export function Cinq({ gatewayRunning }: Props) {
-  // ID, Chat, Drive, Pay UI
-  // Calls cinq_* tools via gateway
-}
+4. **PR to Entropic** — Submit for review
 
-// Dashboard.tsx routing
-case "cinq":
-  return <Cinq gatewayRunning={gatewayRunning} />;
+### Ownership Model
 
-// Layout.tsx navigation
-{ id: "cinq", label: "cinQ", icon: Users }
-```
+| Component | Owner |
+|-----------|-------|
+| Entropic app | Quai / Dominant Strategies |
+| cinQ code | You |
+| Integration | PR approval by Quai |
+
+You write and maintain the cinQ code. It ships as part of Entropic once merged.
 
 ### Key Integration Points
 

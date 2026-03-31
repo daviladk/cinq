@@ -202,13 +202,18 @@ cinQ keeps user data local by default:
 - [ ] Pay → Qi metering
 
 ### Integration (Entropic is Open Source!)
-Entropic is now [open source](https://github.com/dominant-strategies/entropic) — cinQ integration is a clear path:
+Entropic is now [open source](https://github.com/dominant-strategies/entropic).
 
-- [ ] Fork Entropic repo
-- [ ] Add `Cinq.tsx` page component
-- [ ] Add Rust handlers via Tauri commands
+**Target: PR to Entropic Core**
+
+cinQ needs native Rust (libp2p, SQLite) + a React UI — this isn't a lightweight "skill", it's a full service. The path is contributing to Entropic:
+
+- [ ] Add cinQ Rust handlers to `src-tauri/`
+- [ ] Add `Cinq.tsx` page component to `src/pages/`
 - [ ] Wire into Layout navigation + Dashboard routing
-- [ ] PR to Entropic main (optional)
+- [ ] PR to Entropic repo
+
+You maintain the cinQ code. Quai maintains Entropic. cinQ ships as part of Entropic.
 
 **See [docs/DESIGN.md](docs/DESIGN.md) for integration architecture.**
 
