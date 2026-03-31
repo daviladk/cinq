@@ -56,11 +56,7 @@ cinQ lives inside Entropic as a workspace service — like Tasks, Jobs, or Messa
 
 ---
 
-## How It Runs
-
-### Production (Target)
-
-cinQ integrates into Entropic as a native app:
+## How It Works
 
 1. **User opens Entropic** — cinQ starts automatically as a workspace service
 2. **Claude has access to cinQ tools** — identity, chat, drive, pay
@@ -69,38 +65,6 @@ cinQ integrates into Entropic as a native app:
 5. **cinQ handles it** — local storage + P2P network + Qi metering
 
 No separate app to launch. No configuration. cinQ is just part of Entropic.
-
-### Development (Current)
-
-For development and testing, cinQ runs as a standalone Tauri app:
-
-```bash
-# Clone and build
-git clone https://github.com/daviladk/cinq.git
-cd cinq
-cd ui && npm install && cd ..
-cd src-tauri && cargo build --release
-
-# Run standalone (launches window + MCP server)
-cargo tauri dev
-```
-
-The standalone app exposes an MCP server on `localhost:3000` for testing tool calls:
-
-```bash
-# Verify server is running
-curl http://localhost:3000/
-
-# List available tools
-curl -X POST http://localhost:3000/mcp \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
-
-# Call a tool (returns mock data in current build)
-curl -X POST http://localhost:3000/mcp \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"cinq_id_whoami","arguments":{}},"id":2}'
-```
 
 ---
 
@@ -151,7 +115,7 @@ cinQ routes traffic through a P2P mesh with user-selectable privacy levels:
 
 | Mode | Hops | Privacy | Cost | Use Case |
 |------|------|---------|------|----------|
-| **0H (Direct)** | 0 | None | Free | Local testing, trusted networks |
+| **0H (Direct)** | 0 | None | Free | Trusted networks, local comms |
 | **1H (Relay)** | 1 | Basic | Low | Default for most users |
 | **3H (Onion)** | 3 | Strong | Higher | Sensitive communications |
 
@@ -174,19 +138,16 @@ This is built on libp2p tunnels — the infrastructure exists in [tunnel.rs](src
 
 ---
 
-## Current Status
+## Development Status
 
 | Component | Status |
 |-----------|--------|
-| Standalone Tauri app | ✅ Builds and runs |
-| MCP server (localhost:3000) | ✅ Running |
-| Tool definitions | ✅ 13 tools |
-| Tool handlers | 🔧 Stub (return mock data) |
-| Wired to real services | ❌ Not yet |
+| Tool definitions | ✅ 13 tools defined |
+| Rust handlers | 🔧 Stubbed (mock data) |
+| P2P networking | ✅ libp2p infrastructure built |
+| Entropic integration | ❌ Pending PR |
 
-**What works:** The standalone app runs, MCP server responds, tools can be called.
-
-**What's stubbed:** Tool handlers return mock data. The P2P and storage code exists but isn't connected to the MCP layer yet.
+**See [STATUS.md](STATUS.md) for detailed implementation status.**
 
 ---
 
@@ -217,20 +178,23 @@ cinQ keeps user data local by default:
 
 ## Roadmap
 
-### v0.9 (Current)
-- [x] Standalone Tauri app
-- [x] MCP server
-- [x] Tool definitions
-- [x] Stub handlers
+### Phase 1: Wire Services
+- [ ] ID → P2P identity (DHT registration)
+- [ ] Chat → messaging (libp2p direct)
+- [ ] Drive → local filesystem + P2P sharing
+- [ ] Pay → Qi metering + Pelagus settlement
 
-### v1.0 (Wire It)
-- [ ] Connect tool handlers to real services
-- [ ] ID → P2P identity (DHT)
-- [ ] Chat → messaging (libp2p)
-- [ ] Drive → filesystem
-- [ ] Pay → Qi metering
+### Phase 2: Privacy Layer
+- [ ] 1-hop relay routing
+- [ ] Relay earnings distribution
+- [ ] Privacy preference in tool calls
 
-### Integration (Entropic is Open Source!)
+### Phase 3: Full Privacy
+- [ ] 3-hop onion routing
+- [ ] End-to-end encryption per hop
+- [ ] Exit node marketplace
+
+### Integration
 Entropic is now [open source](https://github.com/dominant-strategies/entropic).
 
 **Target: PR to Entropic Core**
@@ -241,8 +205,6 @@ cinQ needs native Rust (libp2p, SQLite) + a React UI — this isn't a lightweigh
 - [ ] Add `Cinq.tsx` page component to `src/pages/`
 - [ ] Wire into Layout navigation + Dashboard routing
 - [ ] PR to Entropic repo
-
-You maintain the cinQ code. Quai maintains Entropic. cinQ ships as part of Entropic.
 
 **See [docs/DESIGN.md](docs/DESIGN.md) for integration architecture.**
 
