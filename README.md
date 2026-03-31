@@ -1,157 +1,142 @@
-# cinQ Cloud
+# cinQ
 
-**Workspace Sidecar for Entropic**
+**Workspace App for Entropic**
 
-cinQ runs locally on each Entropic user's machine as a workspace sidecar:
-- Exposes identity, messaging, storage, and payment-aware actions over MCP
-- Keeps user data local by default
-- Connects to a libp2p network for decentralized coordination and exchange
-
-Quai is the economic layer — metering usage and settling value between participants.
+cinQ is a native workspace app inside Entropic that provides identity, messaging, storage, and payment-aware services. Claude interacts with cinQ through tool calls.
 
 ![Version](https://img.shields.io/badge/version-0.9.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 ---
 
-## Architecture
+## What cinQ Is
+
+cinQ lives inside Entropic as a workspace service — like Tasks, Jobs, or Messaging, but for decentralized identity, chat, storage, and payments.
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           USER'S MACHINE                                │
-│                                                                         │
-│   ┌───────────────────────┐           ┌───────────────────────┐        │
-│   │       ENTROPIC        │           │         cinQ          │        │
-│   │                       │   MCP     │                       │        │
-│   │   Claude AI assistant │◄─────────►│   Workspace sidecar   │        │
-│   │   User interface      │  :3000    │   Local data store    │        │
-│   │                       │           │   MCP server          │        │
-│   └───────────────────────┘           └───────────┬───────────┘        │
-│                                                   │                     │
-└───────────────────────────────────────────────────┼─────────────────────┘
-                                                    │ libp2p
-                                                    ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           P2P NETWORK                                   │
-│                                                                         │
-│     ┌─────┐     ┌─────┐     ┌─────┐     ┌─────┐     ┌─────┐           │
-│     │peer │◄───►│peer │◄───►│peer │◄───►│peer │◄───►│peer │           │
-│     └─────┘     └─────┘     └─────┘     └─────┘     └─────┘           │
-│                                                                         │
-│   • Identity resolution (Kademlia DHT)                                 │
-│   • Message routing                                                     │
-│   • File sharing                                                        │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                          QUAI NETWORK                                   │
-│                                                                         │
-│   • Usage metering (Qi)                                                │
-│   • Value settlement (via Pelagus wallet)                              │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                          ENTROPIC                               │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                        Claude                            │   │
+│   │                   (AI Assistant)                         │   │
+│   └───────────────────────┬─────────────────────────────────┘   │
+│                           │ tool calls                          │
+│                           ▼                                     │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                         cinQ                             │   │
+│   │                  (Workspace App)                         │   │
+│   │                                                          │   │
+│   │   ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐           │   │
+│   │   │   ID   │ │  Chat  │ │ Drive  │ │  Pay   │           │   │
+│   │   └────────┘ └────────┘ └────────┘ └────────┘           │   │
+│   │                       │                                  │   │
+│   │              local data + libp2p                         │   │
+│   └───────────────────────┼──────────────────────────────────┘   │
+│                           │                                     │
+│   ┌───────────────────────┴─────────────────────────────────┐   │
+│   │              Other Entropic Apps                         │   │
+│   │        Tasks │ Jobs │ Logs │ Billing │ Messaging         │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                       P2P NETWORK                               │
+│           (libp2p mesh for identity, messaging, files)          │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                       QUAI NETWORK                              │
+│              (Qi metering + Pelagus settlement)                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## How It Runs
 
-### 1. Start cinQ
+### Production (Target)
+
+cinQ integrates into Entropic as a native app:
+
+1. **User opens Entropic** — cinQ starts automatically as a workspace service
+2. **Claude has access to cinQ tools** — identity, chat, drive, pay
+3. **User talks to Claude** — "Save this and send it to Alice"
+4. **Claude calls cinQ tools** — saves file, generates link, sends message
+5. **cinQ handles it** — local storage + P2P network + Qi metering
+
+No separate app to launch. No configuration. cinQ is just part of Entropic.
+
+### Development (Current)
+
+For development and testing, cinQ runs as a standalone Tauri app:
 
 ```bash
-cd cinq/src-tauri
+# Clone and build
+git clone https://github.com/daviladk/cinq.git
+cd cinq
+cd ui && npm install && cd ..
+cd src-tauri && cargo build --release
+
+# Run standalone (launches window + MCP server)
 cargo tauri dev
 ```
 
-cinQ launches as a desktop app and starts the MCP server on `localhost:3000`.
-
-### 2. Configure Entropic
-
-Add cinQ as an MCP tool provider:
-
-```json
-{
-  "mcpServers": {
-    "cinq": {
-      "url": "http://localhost:3000/mcp"
-    }
-  }
-}
-```
-
-### 3. Start Entropic
-
-Entropic connects to cinQ's MCP server and discovers available tools.
-
-### 4. Use It
-
-```
-You: "Save this note and send it to Alice"
-
-Claude:
-├── calls cinq_drive_write → saves file locally
-├── calls cinq_drive_share → generates P2P link
-├── calls cinq_chat_send → messages Alice
-└── calls cinq_pay_usage → logs Qi cost
-```
-
-### Verify
+The standalone app exposes an MCP server on `localhost:3000` for testing tool calls:
 
 ```bash
-# Check server
+# Verify server is running
 curl http://localhost:3000/
 
-# List tools
+# List available tools
 curl -X POST http://localhost:3000/mcp \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
+
+# Call a tool (returns mock data in current build)
+curl -X POST http://localhost:3000/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"cinq_id_whoami","arguments":{}},"id":2}'
 ```
 
 ---
 
-## Current Status
+## Services
 
-| Component | Status |
-|-----------|--------|
-| Tauri app runs | ✅ |
-| MCP server (localhost:3000) | ✅ |
-| Tool definitions (13 tools) | ✅ |
-| Tool handlers | 🔧 Stub (mock data) |
-| Wired to P2P/storage | ❌ Not yet |
+### cinQ ID (Identity)
+Your decentralized identity — a human-readable Chat ID mapped to a cryptographic Peer ID.
 
-**What works today:** cinQ starts, MCP server runs, Entropic can call tools.
-
-**What's stubbed:** Tool handlers return mock data — not connected to real services yet.
-
----
-
-## MCP Tools
-
-### Identity (cinQ ID)
 | Tool | Description |
 |------|-------------|
-| `cinq_id_whoami` | Get your identity |
-| `cinq_id_lookup` | Find user by Chat ID |
-| `cinq_id_contacts` | List contacts |
+| `cinq_id_whoami` | Get your identity (Chat ID, Peer ID, Quai address) |
+| `cinq_id_lookup` | Find a user by Chat ID (e.g., `@alice`) |
+| `cinq_id_contacts` | List your contacts |
 
-### Messaging (cinQ Chat)
+### cinQ Chat (Messaging)
+P2P messaging over libp2p. Messages stored locally, sent directly peer-to-peer.
+
 | Tool | Description |
 |------|-------------|
-| `cinq_chat_send` | Send a message |
+| `cinq_chat_send` | Send a message to a contact |
 | `cinq_chat_history` | Get conversation history |
-| `cinq_chat_conversations` | List conversations |
+| `cinq_chat_conversations` | List all conversations |
 
-### Storage (cinQ Drive)
+### cinQ Drive (Storage)
+Local-first file storage with P2P sharing.
+
 | Tool | Description |
 |------|-------------|
 | `cinq_drive_list` | List files |
 | `cinq_drive_read` | Read a file |
 | `cinq_drive_write` | Write a file |
-| `cinq_drive_share` | Generate share link |
+| `cinq_drive_share` | Generate a P2P share link |
 
-### Payments (cinQ Pay)
+### cinQ Pay (Payments)
+Qi-based usage metering. Tracks costs, settles via Pelagus.
+
 | Tool | Description |
 |------|-------------|
 | `cinq_pay_balance` | Check Qi balance |
@@ -160,14 +145,29 @@ curl -X POST http://localhost:3000/mcp \
 
 ---
 
+## Current Status
+
+| Component | Status |
+|-----------|--------|
+| Standalone Tauri app | ✅ Builds and runs |
+| MCP server (localhost:3000) | ✅ Running |
+| Tool definitions | ✅ 13 tools |
+| Tool handlers | 🔧 Stub (return mock data) |
+| Wired to real services | ❌ Not yet |
+
+**What works:** The standalone app runs, MCP server responds, tools can be called.
+
+**What's stubbed:** Tool handlers return mock data. The P2P and storage code exists but isn't connected to the MCP layer yet.
+
+---
+
 ## Data Storage
 
-cinQ keeps data local by default:
+cinQ keeps user data local by default:
 
 ```
 ~/.cinq/
-├── identity.db      # SQLite: identity, contacts
-├── messages.db      # SQLite: chat history
+├── chat.db          # SQLite: identity, messages, contacts
 ├── keys/            # libp2p keypair
 └── drive/           # Local file storage
 ```
@@ -178,7 +178,7 @@ cinQ keeps data local by default:
 
 | Component | Technology |
 |-----------|------------|
-| App Framework | Tauri 2.x (Rust + Web) |
+| App | Tauri 2.x (Rust + Web) |
 | MCP Server | Axum 0.7 |
 | P2P | libp2p 0.54 (Kademlia, mDNS, Noise) |
 | Database | SQLite (rusqlite) |
@@ -186,36 +186,24 @@ cinQ keeps data local by default:
 
 ---
 
-## Build
-
-```bash
-git clone https://github.com/daviladk/cinq.git
-cd cinq
-cd ui && npm install && cd ..
-cd src-tauri && cargo build --release
-```
-
----
-
 ## Roadmap
 
 ### v0.9 (Current)
-- [x] Tauri app runs
+- [x] Standalone Tauri app
 - [x] MCP server
 - [x] Tool definitions
 - [x] Stub handlers
 
 ### v1.0 (Wire It)
-- [ ] Connect handlers to services
-- [ ] ID → P2P identity
-- [ ] Chat → messaging
+- [ ] Connect tool handlers to real services
+- [ ] ID → P2P identity (DHT)
+- [ ] Chat → messaging (libp2p)
 - [ ] Drive → filesystem
-- [ ] Pay → metering
+- [ ] Pay → Qi metering
 
-### Future
-- [ ] Distributed storage
-- [ ] Pelagus wallet integration
-- [ ] Offline message queue
+### Integration
+- [ ] Package for Entropic integration
+- [ ] Native app experience (no separate window)
 
 ---
 
