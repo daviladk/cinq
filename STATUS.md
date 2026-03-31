@@ -7,10 +7,9 @@
 
 ## Overview
 
-cinQ is a workspace app for Entropic — providing identity, messaging, storage, and payment services that Claude interacts with via tool calls.
+cinQ is a workspace app for Entropic — providing identity, messaging, storage, and payment services with 3-hop onion routing for privacy. Claude interacts with cinQ via tool calls.
 
-**Development:** Standalone Tauri app with MCP server on localhost:3000  
-**Production:** Integrates into Entropic as a native workspace service
+**Target:** Native Rust service inside Entropic (PR to dominant-strategies/entropic)
 
 ---
 
@@ -20,24 +19,17 @@ cinQ is a workspace app for Entropic — providing identity, messaging, storage,
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Tauri app | ✅ | Builds and runs standalone |
-| MCP server | ✅ | HTTP on localhost:3000 |
 | Tool definitions | ✅ | 13 tools registered |
-| Tool handlers | 🔧 | Return mock data |
-| P2P code (`grid/`) | ✅ | Exists, not connected |
-| Storage code | ✅ | Exists, not connected |
+| Tool handlers | 🔧 | Return mock data (stubbed) |
+| P2P networking (`grid/`) | ✅ | libp2p swarm, DHT, tunnels |
+| Storage layer | ✅ | SQLite for identity, messages |
+| Metering (`swarm/`) | ✅ | Cost tables, usage tracking |
 
 ### What's Stubbed
 
-All tool handlers return mock data. Example:
+All MCP tool handlers return mock data. The connection from tools → real services doesn't exist yet.
 
-```bash
-curl -X POST http://localhost:3000/mcp \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"cinq_id_whoami","arguments":{}},"id":1}'
-```
-
-Returns:
+Example stub response for `cinq_id_whoami`:
 ```json
 {
   "chat_id": "@demo_user",
@@ -45,8 +37,6 @@ Returns:
   "quai_address": "0x..."
 }
 ```
-
-But this is **hardcoded mock data** — not reading from actual identity.
 
 ---
 
@@ -74,93 +64,98 @@ But this is **hardcoded mock data** — not reading from actual identity.
 
 ```
 src-tauri/src/
-├── main.rs           # App entry, starts MCP server
+├── main.rs           # CinqState + Tauri commands
+├── lib.rs            # Library exports
 ├── mcp/
-│   ├── server.rs     # Axum HTTP server (localhost:3000)
+│   ├── server.rs     # Axum HTTP server
 │   ├── protocol.rs   # JSON-RPC types
 │   └── tools.rs      # Tool definitions + stub handlers
-├── grid/             # P2P layer (exists, not connected to MCP)
-│   ├── node.rs       # libp2p swarm
-│   ├── chat.rs       # Messaging + SQLite
-│   ├── userid.rs     # Identity registry
+├── grid/             # P2P layer
+│   ├── node.rs       # libp2p swarm (Kademlia, mDNS, Noise)
+│   ├── chat.rs       # Messaging + SQLite storage
+│   ├── tunnel.rs     # P2P tunnel management (for routing)
+│   ├── protocol.rs   # Custom P2P protocol messages
+│   ├── userid.rs     # Identity registry (Chat ID ↔ Peer ID)
+│   ├── proxy.rs      # SOCKS5 proxy (for tunnel routing)
+│   ├── metrics.rs    # Bandwidth tracking per peer
 │   └── transfer.rs   # File transfer
-└── swarm/            # Metering (exists, not connected to MCP)
-    ├── costs.rs      # Qi pricing
-    └── tracker.rs    # Usage tracking
+└── swarm/            # Metering + economics
+    ├── costs.rs      # Qi pricing tables
+    ├── tracker.rs    # Usage tracking + warnings
+    ├── intent.rs     # Intent parsing (for routing decisions)
+    └── workers/      # Background workers
+        ├── bandwidth.rs
+        ├── storage.rs
+        └── payment.rs
 ```
 
 ### The Gap
 
 MCP handlers in `tools.rs` have `// TODO: Wire to CinqState` comments.
 
-The connection: **MCP → CinqState → P2P/Storage** doesn't exist yet.
+The connection: **MCP Tools → CinqState → P2P/Storage** doesn't exist yet.
 
 ---
 
 ## To Make It Real
 
 ### Phase 1: Wire ID Tools
-1. Pass `CinqState` to MCP server
-2. `cinq_id_whoami` → read from identity store
-3. `cinq_id_lookup` → query Kademlia DHT
-4. `cinq_id_contacts` → read from SQLite
+1. `cinq_id_whoami` → read from identity store
+2. `cinq_id_lookup` → query Kademlia DHT
+3. `cinq_id_contacts` → read from SQLite
 
 ### Phase 2: Wire Chat Tools
-1. `cinq_chat_send` → send via libp2p
+1. `cinq_chat_send` → send via libp2p (with privacy level)
 2. `cinq_chat_history` → query SQLite
-3. Test between two nodes on local network
+3. Implement 1-hop routing, peer earns Qi
 
 ### Phase 3: Wire Drive Tools
 1. `cinq_drive_write` → write to `~/.cinq/drive/`
 2. `cinq_drive_read` → read from filesystem
-3. `cinq_drive_share` → generate P2P link
+3. `cinq_drive_share` → generate P2P share link
 
 ### Phase 4: Wire Pay Tools
 1. `cinq_pay_balance` → read from metering tracker
 2. `cinq_pay_usage` → query by time period
+3. Pelagus integration for Qi settlement
 
-### Phase 5: Entropic Integration
-1. Package cinQ for Entropic
-2. Register as native workspace app
-3. Remove standalone window (runs as service)
+### Phase 5: Privacy Layer
+1. 3-hop onion routing
+2. Layered encryption per hop
+3. Peer selection logic (Claude picks, cinQ executes)
 
----
-
-## Testing
-
-### Run Standalone App
-
-```bash
-cd src-tauri
-cargo tauri dev
-```
-
-### Test MCP Server
-
-```bash
-# Health check
-curl http://localhost:3000/
-
-# List tools
-curl -X POST http://localhost:3000/mcp \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
-
-# Call tool
-curl -X POST http://localhost:3000/mcp \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"cinq_id_whoami","arguments":{}},"id":2}'
-```
+### Phase 6: Entropic Integration
+1. Add cinQ Rust code to Entropic's `src-tauri/`
+2. Add React UI component (`Cinq.tsx`)
+3. Wire into Entropic navigation + Dashboard
+4. PR to dominant-strategies/entropic
 
 ---
 
 ## Tech Stack
 
-| Component | Technology |
-|-----------|------------|
-| App | Tauri 2.x |
-| MCP Server | Axum 0.7 |
-| P2P | libp2p 0.54 |
-| DHT | Kademlia |
-| Encryption | Noise |
-| Database | SQLite |
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| App Shell | Tauri 2.x | Native Rust + Web UI |
+| P2P | libp2p 0.54 | DHT, peer discovery, tunnels |
+| Encryption | Noise protocol | Secure P2P connections |
+| Database | SQLite | Identity, messages, contacts |
+| Metering | Custom | Qi cost tracking + warnings |
+| Payments | Pelagus | Qi UTXO signing + settlement |
+| MCP | Axum 0.7 | Tool interface for Claude |
+
+---
+
+## What Was Removed
+
+- `qora/` — Local AI agent (Ollama-based). Entropic's Claude handles all AI.
+- `swarm/qora.rs` — Intent parser. Claude handles intent understanding.
+- `test-*.sh` — Old standalone testing scripts.
+- Standalone window mode — cinQ runs as service inside Entropic.
+
+---
+
+## See Also
+
+- [README.md](README.md) — Vision and value proposition
+- [docs/DESIGN.md](docs/DESIGN.md) — Integration architecture
