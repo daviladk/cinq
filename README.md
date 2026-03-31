@@ -145,6 +145,35 @@ Qi-based usage metering. Tracks costs, settles via Pelagus.
 
 ---
 
+## Privacy & Routing
+
+cinQ routes traffic through a P2P mesh with user-selectable privacy levels:
+
+| Mode | Hops | Privacy | Cost | Use Case |
+|------|------|---------|------|----------|
+| **0H (Direct)** | 0 | None | Free | Local testing, trusted networks |
+| **1H (Relay)** | 1 | Basic | Low | Default for most users |
+| **3H (Onion)** | 3 | Strong | Higher | Sensitive communications |
+
+**How it works:**
+- **0H** — Direct connection, no relay, free
+- **1H** — Traffic routes through one relay node, relay earns Qi
+- **3H** — Onion-style routing through 3 nodes (like Tor), each hop earns Qi
+
+Users tell Claude their privacy preference:
+> "Send this message to Alice with high privacy"
+
+Claude calls `cinq_chat_send` with `privacy: "3H"`, and cinQ routes through 3 hops. Each relay node earns micro-Qi for forwarding.
+
+**Qi Economics:**
+- Higher privacy = more hops = more Qi spent
+- Relay nodes earn by forwarding traffic
+- User controls the tradeoff (speed vs. privacy vs. cost)
+
+This is built on libp2p tunnels — the infrastructure exists in [tunnel.rs](src-tauri/src/grid/tunnel.rs), with 3-hop onion routing planned for Phase 3.
+
+---
+
 ## Current Status
 
 | Component | Status |
