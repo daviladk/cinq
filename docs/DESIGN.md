@@ -219,6 +219,70 @@ CREATE TABLE contacts (
 
 ---
 
+## Entropic Integration Architecture
+
+cinQ follows the same architecture as Entropic's native apps (Tasks, Jobs, Channels, etc.):
+
+### Entropic App Pattern
+
+```
+src/
+├── main.tsx              # Entry point
+├── App.tsx               # App states: loading → signin → ready
+├── pages/
+│   ├── Dashboard.tsx     # Main router
+│   ├── Chat.tsx          # Chat interface
+│   ├── Tasks.tsx         # Task board
+│   ├── Jobs.tsx          # Scheduled jobs
+│   ├── Files.tsx         # Desktop/file browser
+│   ├── Channels.tsx      # Messaging
+│   └── Cinq.tsx          # ← cinQ lives here
+├── components/
+│   └── Layout.tsx        # Navigation sidebar
+└── lib/
+    └── gateway.ts        # GatewayClient for agent communication
+```
+
+### How Apps Work in Entropic
+
+1. **Page Component**: Each app is a React component in `src/pages/`
+2. **Layout Navigation**: Sidebar wired in `Layout.tsx` with page icons
+3. **Dashboard Routing**: `Dashboard.tsx` renders components based on `currentPage` state
+4. **Gateway Prop**: Apps receive `gatewayRunning` to control feature availability
+5. **Tauri Invoke**: Rust FFI calls via `invoke()` for system operations
+6. **WebSocket**: `GatewayClient` for real-time agent communication
+
+### cinQ as Entropic App
+
+cinQ would be added as:
+
+```tsx
+// src/pages/Cinq.tsx
+export function Cinq({ gatewayRunning }: Props) {
+  // ID, Chat, Drive, Pay UI
+  // Calls cinq_* tools via gateway
+}
+
+// Dashboard.tsx routing
+case "cinq":
+  return <Cinq gatewayRunning={gatewayRunning} />;
+
+// Layout.tsx navigation
+{ id: "cinq", label: "cinQ", icon: Users }
+```
+
+### Key Integration Points
+
+| Entropic Pattern | cinQ Implementation |
+|------------------|---------------------|
+| `invoke()` FFI | Rust handlers for P2P, storage |
+| `GatewayClient` | Tool calls for ID, Chat, Drive, Pay |
+| `gatewayRunning` | Controls P2P mesh connection |
+| Local storage | `~/.cinq/` data directory |
+| WebSocket events | Message notifications |
+
+---
+
 ## Development vs Production
 
 ### Development (Current)
@@ -232,6 +296,7 @@ cargo tauri dev
 - Launches desktop window
 - MCP server on localhost:3000
 - Can test tools via curl
+- Mirrors production architecture
 
 ### Production (Target)
 
