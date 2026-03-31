@@ -1,8 +1,8 @@
 # cinQ
 
-**Workspace App for Entropic**
+**Workspace App for Entropic** · **3-Hop Onion Routing** · **Qi Micropayments**
 
-cinQ is a native workspace app inside Entropic that provides identity, messaging, storage, and payment-aware services. Claude interacts with cinQ through tool calls.
+cinQ is a native workspace app inside Entropic that provides identity, messaging, storage, and payments — all routed through a privacy-preserving P2P mesh. Users choose their privacy level (0H direct, 1H relay, 3H onion), and relay nodes earn Qi for forwarding traffic.
 
 ![Version](https://img.shields.io/badge/version-0.9.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
