@@ -2,7 +2,7 @@
 
 **Workspace App for Entropic** · **3-Hop Onion Routing** · **Qi Micropayments**
 
-cinQ is a native workspace app inside Entropic that provides identity, messaging, storage, and payments — all routed through a privacy-preserving P2P mesh. Users choose their privacy level (0H direct, 1H single-hop, 3H onion), and peers earn Qi for forwarding traffic.
+cinQ is a native workspace app inside Entropic that provides identity, messaging, storage, and payments, all routed through a privacy-preserving P2P mesh. Users choose their privacy level (0H direct, 1H single-hop, 3H onion), and peers earn Qi for forwarding traffic.
 
 ![Version](https://img.shields.io/badge/version-0.9.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -13,18 +13,18 @@ cinQ is a native workspace app inside Entropic that provides identity, messaging
 
 | Value | What cinQ Delivers |
 |-------|-------------------|
-| **Qi Payments** | Every action has a Qi cost. Send a message, forward traffic, share a file — Claude handles micropayments automatically via Pelagus. |
+| **Qi Payments** | Every action has a Qi cost. Send a message, forward traffic, share a file, and Claude handles micropayments automatically via Pelagus. |
 | **Decentralization** | No central servers. Users connect directly via libp2p. Your identity, messages, and files stay on your machine. |
 | **Privacy** | 3-hop onion routing (like Tor). Traffic is encrypted in layers and routed through other Entropic users. Each hop only knows prev/next. |
 | **Identity** | Human-readable Chat IDs (`@alice`) mapped to cryptographic Peer IDs. Decentralized, no registrar, secured by Quai. |
 | **Entropic Utility** | cinQ makes Entropic a network, not just an app. Every user becomes a peer. The more users, the stronger the mesh. |
-| **Claude as Agent** | Claude picks optimal routes, manages Qi spend, executes payments. Users talk naturally — Claude handles the crypto. |
+| **Claude as Agent** | Claude picks optimal routes, manages Qi spend, executes payments. Users talk naturally while Claude handles the crypto. |
 
 ---
 
 ## Claude as Payment Agent
 
-Claude isn't just chat — it's your payment agent:
+Claude isn't just chat, it's your payment agent:
 
 ```
 User: "Send this to Alice, keep it private"
@@ -49,13 +49,13 @@ cinQ executes:
 - "Send this private" → 3H, geographically diverse peers  
 - "Send this fast" → 0H direct or 1H low-latency
 
-Every Entropic user has their own intelligent router. No dumb algorithms — Claude understands intent.
+Every Entropic user has their own intelligent router. No dumb algorithms, Claude understands intent.
 
 ---
 
 ## What cinQ Is
 
-cinQ lives inside Entropic as a workspace service — like Tasks, Jobs, or Messaging, but for decentralized identity, chat, storage, and payments.
+cinQ lives inside Entropic as a workspace service like Tasks, Jobs, or Messaging, but for decentralized identity, chat, storage, and payments.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -102,11 +102,11 @@ cinQ lives inside Entropic as a workspace service — like Tasks, Jobs, or Messa
 
 ## How It Works
 
-1. **User opens Entropic** — cinQ starts automatically as a workspace service
-2. **Claude has access to cinQ tools** — identity, chat, drive, pay
-3. **User talks to Claude** — "Save this and send it to Alice"
-4. **Claude calls cinQ tools** — saves file, generates link, sends message
-5. **cinQ handles it** — local storage + P2P network + Qi metering
+1. **User opens Entropic** cinQ starts automatically as a workspace service
+2. **Claude has access to cinQ tools** identity, chat, drive, pay
+3. **User talks to Claude** "Save this and send it to Alice"
+4. **Claude calls cinQ tools** saves file, generates link, sends message
+5. **cinQ handles it** local storage + P2P network + Qi metering
 
 No separate app to launch. No configuration. cinQ is just part of Entropic.
 
@@ -195,7 +195,7 @@ No peer knows both sender and receiver.
 - Forward traffic for others → earn Qi
 - More uptime + bandwidth = more earnings
 
-This is built on libp2p tunnels — the infrastructure exists in [tunnel.rs](src-tauri/src/grid/tunnel.rs), with 3-hop onion routing planned for Phase 3.
+This is built on libp2p tunnels, the infrastructure exists in [tunnel.rs](src-tauri/src/grid/tunnel.rs), with 3-hop onion routing planned for Phase 3.
 
 ---
 
@@ -229,7 +229,7 @@ cinQ keeps user data local by default:
 
 **Why Native Rust (Not a Skill)**
 
-Entropic "skills" are JavaScript plugins — great for lightweight integrations, but they can't do:
+Entropic "skills" are JavaScript plugins, great for lightweight integrations, but they can't do:
 - P2P networking (libp2p is Rust)
 - Low-level cryptography at speed
 - Direct wallet signing
@@ -273,7 +273,7 @@ Entropic is now [open source](https://github.com/dominant-strategies/entropic).
 
 **Target: PR to Entropic Core**
 
-cinQ needs native Rust (libp2p, SQLite) + a React UI — this isn't a lightweight "skill", it's a full service. The path is contributing to Entropic:
+cinQ needs native Rust (libp2p, SQLite) + a React UI. This isn't a lightweight "skill", it's a full service. The path is contributing to Entropic:
 
 - [ ] Add cinQ Rust handlers to `src-tauri/`
 - [ ] Add `Cinq.tsx` page component to `src/pages/`
