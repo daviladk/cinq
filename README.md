@@ -2,10 +2,54 @@
 
 **Workspace App for Entropic** · **3-Hop Onion Routing** · **Qi Micropayments**
 
-cinQ is a native workspace app inside Entropic that provides identity, messaging, storage, and payments — all routed through a privacy-preserving P2P mesh. Users choose their privacy level (0H direct, 1H relay, 3H onion), and relay nodes earn Qi for forwarding traffic.
+cinQ is a native workspace app inside Entropic that provides identity, messaging, storage, and payments — all routed through a privacy-preserving P2P mesh. Users choose their privacy level (0H direct, 1H single-hop, 3H onion), and peers earn Qi for forwarding traffic.
 
 ![Version](https://img.shields.io/badge/version-0.9.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
+
+---
+
+## Why cinQ
+
+| Value | What cinQ Delivers |
+|-------|-------------------|
+| **Qi Payments** | Every action has a Qi cost. Send a message, forward traffic, share a file — Claude handles micropayments automatically via Pelagus. |
+| **Decentralization** | No central servers. Users connect directly via libp2p. Your identity, messages, and files stay on your machine. |
+| **Privacy** | 3-hop onion routing (like Tor). Traffic is encrypted in layers and routed through other Entropic users. Each hop only knows prev/next. |
+| **Identity** | Human-readable Chat IDs (`@alice`) mapped to cryptographic Peer IDs. Decentralized, no registrar, secured by Quai. |
+| **Entropic Utility** | cinQ makes Entropic a network, not just an app. Every user becomes a peer. The more users, the stronger the mesh. |
+| **Claude as Agent** | Claude picks optimal routes, manages Qi spend, executes payments. Users talk naturally — Claude handles the crypto. |
+
+---
+
+## Claude as Payment Agent
+
+Claude isn't just chat — it's your payment agent:
+
+```
+User: "Send this to Alice, keep it private"
+
+Claude thinks:
+  → Privacy requested = 3H onion routing
+  → Find 3 low-latency peers with good reputation
+  → Qi cost: 0.0003 Qi (0.0001 per hop)
+  → User has 1.2 Qi balance ✓
+
+Claude calls: cinq_chat_send(to: "@alice", message: "...", privacy: "3H")
+
+cinQ executes:
+  → Encrypt message in 3 layers (onion)
+  → Route: User → Peer A → Peer B → Peer C → Alice
+  → Pay each peer 0.0001 Qi via Pelagus UTXO
+  → Confirm delivery
+```
+
+**Claude optimizes for what the user asks:**
+- "Send this cheap" → 1H, cheapest peer
+- "Send this private" → 3H, geographically diverse peers  
+- "Send this fast" → 0H direct or 1H low-latency
+
+Every Entropic user has their own intelligent router. No dumb algorithms — Claude understands intent.
 
 ---
 
@@ -113,26 +157,43 @@ Qi-based usage metering. Tracks costs, settles via Pelagus.
 
 cinQ routes traffic through a P2P mesh with user-selectable privacy levels:
 
-| Mode | Hops | Privacy | Cost | Use Case |
-|------|------|---------|------|----------|
+| Mode | Hops | Privacy | Qi Cost | Use Case |
+|------|------|---------|---------|----------|
 | **0H (Direct)** | 0 | None | Free | Trusted networks, local comms |
-| **1H (Relay)** | 1 | Basic | Low | Default for most users |
-| **3H (Onion)** | 3 | Strong | Higher | Sensitive communications |
+| **1H (Single-hop)** | 1 | Basic | ~0.0001 Qi | Default for most users |
+| **3H (Onion)** | 3 | Strong | ~0.0003 Qi | Sensitive communications |
 
 **How it works:**
-- **0H** — Direct connection, no relay, free
-- **1H** — Traffic routes through one relay node, relay earns Qi
-- **3H** — Onion-style routing through 3 nodes (like Tor), each hop earns Qi
+- **0H** — Direct peer-to-peer, no intermediaries, free
+- **1H** — Traffic routes through one other Entropic user, that peer earns Qi
+- **3H** — Onion-style routing through 3 Entropic users (like Tor), each peer earns Qi
 
-Users tell Claude their privacy preference:
-> "Send this message to Alice with high privacy"
+**The Economics:**
+```
+Alice sends message to Bob with 3H privacy:
 
-Claude calls `cinq_chat_send` with `privacy: "3H"`, and cinQ routes through 3 hops. Each relay node earns micro-Qi for forwarding.
+Alice (sender)
+    │ pays 0.0001 Qi
+    ▼
+  Peer 1 (earns 0.0001 Qi) ── can only see: Alice → Peer 2
+    │ pays 0.0001 Qi
+    ▼
+  Peer 2 (earns 0.0001 Qi) ── can only see: Peer 1 → Peer 3
+    │ pays 0.0001 Qi
+    ▼
+  Peer 3 (earns 0.0001 Qi) ── can only see: Peer 2 → Bob
+    │
+    ▼
+  Bob (receiver)
 
-**Qi Economics:**
-- Higher privacy = more hops = more Qi spent
-- Relay nodes earn by forwarding traffic
-- User controls the tradeoff (speed vs. privacy vs. cost)
+Total: Alice spends 0.0003 Qi, 3 peers each earn 0.0001 Qi
+No peer knows both sender and receiver.
+```
+
+**Users earn by participating:**
+- Run Entropic → automatically part of the mesh
+- Forward traffic for others → earn Qi
+- More uptime + bandwidth = more earnings
 
 This is built on libp2p tunnels — the infrastructure exists in [tunnel.rs](src-tauri/src/grid/tunnel.rs), with 3-hop onion routing planned for Phase 3.
 
@@ -166,13 +227,26 @@ cinQ keeps user data local by default:
 
 ## Tech Stack
 
-| Component | Technology |
-|-----------|------------|
-| App | Tauri 2.x (Rust + Web) |
-| MCP Server | Axum 0.7 |
-| P2P | libp2p 0.54 (Kademlia, mDNS, Noise) |
-| Database | SQLite (rusqlite) |
-| Payments | Qi on Quai (via Pelagus) |
+**Why Native Rust (Not a Skill)**
+
+Entropic "skills" are JavaScript plugins — great for lightweight integrations, but they can't do:
+- P2P networking (libp2p is Rust)
+- Low-level cryptography at speed
+- Direct wallet signing
+- DHT operations, tunnel management
+
+cinQ handles all of this natively in Rust:
+
+| Component | Technology | What It Does |
+|-----------|------------|--------------|
+| App Shell | Tauri 2.x | Native desktop app with web UI |
+| P2P Network | libp2p 0.54 | Kademlia DHT, peer discovery, encrypted tunnels |
+| Onion Routing | libp2p + custom | Multi-hop tunnels, layered encryption |
+| Database | SQLite | Identity, messages, contacts (local-first) |
+| Payments | Pelagus + Quai | Qi UTXO signing, micropayment execution |
+| MCP Server | Axum 0.7 | Tool interface for Claude |
+
+**Claude calls tools → cinQ executes in Rust → results back to Claude**
 
 ---
 
@@ -185,8 +259,8 @@ cinQ keeps user data local by default:
 - [ ] Pay → Qi metering + Pelagus settlement
 
 ### Phase 2: Privacy Layer
-- [ ] 1-hop relay routing
-- [ ] Relay earnings distribution
+- [ ] 1-hop routing through peers
+- [ ] Peer earnings distribution
 - [ ] Privacy preference in tool calls
 
 ### Phase 3: Full Privacy
