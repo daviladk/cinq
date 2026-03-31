@@ -7,7 +7,9 @@
 
 ## Overview
 
-cinQ is a workspace app for Entropic — providing identity, messaging, storage, and payment services that Claude interacts with via tool calls.
+cinQ is a workspace app for [Entropic](https://github.com/dominant-strategies/entropic) — providing identity, messaging, storage, and payment services that Claude interacts with via tool calls.
+
+**Entropic is open source** — cinQ integration is a straightforward fork-and-add or PR path.
 
 ### Core Idea
 

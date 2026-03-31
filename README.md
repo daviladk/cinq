@@ -201,9 +201,16 @@ cinQ keeps user data local by default:
 - [ ] Drive → filesystem
 - [ ] Pay → Qi metering
 
-### Integration
-- [ ] Package for Entropic integration
-- [ ] Native app experience (no separate window)
+### Integration (Entropic is Open Source!)
+Entropic is now [open source](https://github.com/dominant-strategies/entropic) — cinQ integration is a clear path:
+
+- [ ] Fork Entropic repo
+- [ ] Add `Cinq.tsx` page component
+- [ ] Add Rust handlers via Tauri commands
+- [ ] Wire into Layout navigation + Dashboard routing
+- [ ] PR to Entropic main (optional)
+
+**See [docs/DESIGN.md](docs/DESIGN.md) for integration architecture.**
 
 ---
 
